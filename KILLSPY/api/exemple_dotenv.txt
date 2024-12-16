@@ -1,0 +1,3 @@
+DATABASE_URL="postgresql://postgres.[SUPABASE-PROJECT-ID]:[SUPABASE-PASSWORD]@aws-0-eu-west-3.pooler.supabase.com:[SUPABASE-PORT]/postgres?pgbouncer=true"
+PORT=XXXX
+JWT_SECRET=XXXX

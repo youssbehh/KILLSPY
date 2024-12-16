@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Roles {
+  id       Int     @id @default(autoincrement())
+  roleName String  @unique @db.VarChar(10)
+  users    Users[]
+}
+
+model Users {
+  id         Int       @id @default(autoincrement())
+  firstName  String    @db.VarChar(30)
+  lastName   String    @db.VarChar(30)
+  email      String    @unique @db.VarChar(150)
+  password   String    @db.VarChar(255)
+  idRole     Int
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now())
+  role       Roles      @relation(fields: [idRole], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  loans      Loans[]
+  settings   Settings?
+
+  @@index([idRole])
+}
+
+model Clients {
+  id        Int        @id @default(autoincrement())
+  firstName String     @db.VarChar(30)
+  lastName  String     @db.VarChar(30)
+  email     String     @unique @db.VarChar(150)
+  phone     String?    @db.VarChar(20)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now())
+  loans     Loans[]
+  repayments Repayments[]
+
+  @@index([email])
+}
+
+model Loans {
+  id             Int        @id @default(autoincrement())
+  userId         Int
+  clientId       Int
+  loanName       String     @db.VarChar(300)
+  totalAmount    Float
+  durationMonths Int
+  monthlyPayment Float
+  interestRate   Float?
+  status         String     @default("ACTIVE") @db.VarChar(10)
+  startedAt      DateTime   @default(now())
+  dueDate        DateTime
+  createdAt      DateTime   @default(now())
+  user           Users       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  client         Clients     @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  repayments     Repayments[]
+
+  @@index([userId])
+  @@index([clientId])
+}
+
+model Repayments {
+  id          Int      @id @default(autoincrement())
+  loanId      Int
+  clientId    Int
+  paymentDate DateTime @default(now())
+  amountPaid  Float
+  loan        Loans     @relation(fields: [loanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  client      Clients   @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([loanId])
+  @@index([clientId])
+}
+
+model Settings {
+  id                   Int     @id @default(autoincrement())
+  userId               Int     @unique
+  interestRateGreen    Float?
+  interestRateOrange   Float?
+  interestRateRed      Float?
+  displayInterestRate  Boolean
+  alertLateRepayment   Boolean
+  user                 Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
