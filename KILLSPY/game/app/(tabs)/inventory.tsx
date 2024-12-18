@@ -4,12 +4,12 @@ import { motTraduit } from '@/components/translationHelper';
 import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
 
-export default function ShopScreen() {
+export default function InventoryScreen() {
   const [langIndex, setLangIndex] = useState(0);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{motTraduit(langIndex, 4)}</Text>
+      <Text style={styles.title}>{motTraduit(langIndex, 8)}</Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       <EditScreenInfo path="app/(tabs)/two.tsx" />
     </View>

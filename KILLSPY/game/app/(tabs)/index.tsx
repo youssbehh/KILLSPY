@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Button, Pressable, StyleSheet } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
-import { StyleSheet } from 'react-native';
 import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
-import { appVersion } from '../../config';
 
-export default function TabOneScreen() {
+export default function GameChoiceScreen() {
   const [langIndex, setLangIndex] = useState(0);
 
   return (
     <View style={styles.container}>
       <Text style={styles.titleh1}>KILLSPY</Text>
-      <Text style={styles.titleh2}>{motTraduit(langIndex, 1)} <Text style={styles.boldText}>LoremIpsum57</Text></Text>
+      <Text style={styles.titleh2}>{motTraduit(langIndex, 11)} <Text style={styles.boldText}>LoremIpsum57</Text></Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
-      <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>
+      <EditScreenInfo path="app/(tabs)/two.tsx" />
+      <Pressable>
+      <FontAwesome icon="fa-solid fa-play" />
+     </Pressable>
     </View>
   );
 }
@@ -25,7 +27,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   titleh1: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -36,16 +37,9 @@ const styles = StyleSheet.create({
   boldText: {
     fontWeight: 'bold',
   },
-
   separator: {
     marginVertical: 30,
     height: 1,
     width: '80%',
-  },
-
-  footer: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#888',
   },
 });
