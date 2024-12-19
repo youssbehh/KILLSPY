@@ -11,6 +11,12 @@
       9: 'Amis',
       10: 'Liste des agents',
       11: 'Bienvenue, agent',
+      12: 'VS Ordinateur',
+      13: 'Partie Rapide',
+      14: 'Compétitif',
+      15: 'Événements',
+      16: 'Classement',
+      17: 'Rang',
     },
     1: { // Anglais
       1: 'Welcome',
@@ -24,6 +30,12 @@
       9: 'Friends',
       10: 'Agents list',
       11: 'Welcome, agent',
+      12: 'VS Bot',
+      13: 'Normal game',
+      14: 'Ranked',
+      15: 'Events',
+      16: 'Leaderboard',
+      17: 'MMR',
     },
   };
 
