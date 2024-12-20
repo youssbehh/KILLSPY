@@ -18,6 +18,12 @@
       16: 'Classement',
       17: 'Rang',
       18: 'Liste d\'amis',
+      19: 'Audio',
+      20: 'Mon compte',
+      21: 'Sécurité',
+      22: 'Divers',
+      23: 'Musique',
+      24: 'Effets audio',
     },
     1: { // Anglais
       1: 'Welcome',
@@ -38,6 +44,12 @@
       16: 'Leaderboard',
       17: 'MMR',
       18: 'Friends list',
+      19: 'Audio',
+      20: 'My account',
+      21: 'Security',
+      22: 'Others',
+      23: 'Music',
+      24: 'SFX',
     },
   };
 

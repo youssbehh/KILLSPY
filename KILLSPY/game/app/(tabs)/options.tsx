@@ -1,17 +1,26 @@
 import React, { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
-import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
+
+import AudioContainer from '../sousoptions/optaudio';
+import CompteContainer from '../sousoptions/optcompte';
+import SecuriteContainer from '../sousoptions/optsecurite';
+import DiversContainer from '../sousoptions/optdivers';
 
 export default function OptionsScreen() {
   const [langIndex, setLangIndex] = useState(0);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{motTraduit(langIndex, 7)}</Text>
+      <Text style={styles.titleh1}>{motTraduit(langIndex, 7)}</Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/two.tsx" />
+      <ScrollView style={{width:'90%'}}>
+        <CompteContainer/>
+        <AudioContainer/>
+        <SecuriteContainer/>
+        <DiversContainer/>
+      </ScrollView>
     </View>
   );
 }
@@ -22,9 +31,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 20,
+  titleh1: {
+    fontSize: 32,
     fontWeight: 'bold',
+    marginTop: 10,
   },
   separator: {
     marginVertical: 30,
