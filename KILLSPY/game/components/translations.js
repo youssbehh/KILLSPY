@@ -17,6 +17,7 @@
       15: 'Événements',
       16: 'Classement',
       17: 'Rang',
+      18: 'Liste d\'amis',
     },
     1: { // Anglais
       1: 'Welcome',
@@ -36,6 +37,7 @@
       15: 'Events',
       16: 'Leaderboard',
       17: 'MMR',
+      18: 'Friends list',
     },
   };
 
