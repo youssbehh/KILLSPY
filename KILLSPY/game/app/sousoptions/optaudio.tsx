@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, AppRegistry } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, AppRegistry, Pressable } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
+import { useLanguageStore } from '../../store/languageStore';
 import { Slider } from '@rneui/themed';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCaretDown, faCaretUp } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
+import { faCaretDown, faCaretUp, faVolumeHigh, faVolumeLow, faVolumeOff, faVolumeXmark } from '@fortawesome/free-solid-svg-icons';
 
 const element = () => (
     <View>
-      <FontAwesomeIcon icon={faCaretDown} />
-      <FontAwesomeIcon icon={faCaretUp} />
+      <FontAwesomeWrapper icon={faCaretDown} />
+      <FontAwesomeWrapper icon={faCaretUp} />
+      <FontAwesomeWrapper icon={faVolumeHigh} />
+      <FontAwesomeWrapper icon={faVolumeLow} />
+      <FontAwesomeWrapper icon={faVolumeOff} />
+      <FontAwesomeWrapper icon={faVolumeXmark} />
     </View>
 );
 
@@ -17,54 +22,126 @@ interface AudioParamProps {
     children: React.ReactNode;
 }
 const AudioParam: React.FC<AudioParamProps> = ({ title, children }) => {
-    const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
-    const toggleAccordion = () => {
+  const toggleAccordion = () => {
       setIsOpen(!isOpen);
-    };
-     return (
+  };
+   return (
       <View style={styles.container}>
         <TouchableOpacity onPress={toggleAccordion} style={styles.header}>
           <Text style={styles.title}>{title}</Text>
-          <FontAwesomeIcon icon={isOpen ? faCaretUp : faCaretDown} />
+          <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
         </TouchableOpacity>
         {isOpen && <View style={styles.content}>{children}</View>}
       </View>
     );
 };
+
 const AudioContainer = () => {
-    const [langIndex, setLangIndex] = useState(0);
+    const { langIndex } = useLanguageStore();
     const [bgmVolume, setBgmVolume] = useState(10);
     const [sfxVolume, setSfxVolume] = useState(10);
+    const [lastBgmVolume, setLastBgmVolume] = useState(10);
+    const [lastSfxVolume, setLastSfxVolume] = useState(10);
 
- return (
-   <View>
-     <AudioParam title={motTraduit(langIndex, 19)}>
-        <Text>{motTraduit(langIndex, 23)} : {bgmVolume}</Text>
-            <Slider
-                value={bgmVolume}
-                onValueChange={setBgmVolume}
-                minimumValue={0}
-                maximumValue={10}
-                step={1}
-                minimumTrackTintColor="#3f3f3f"
-                maximumTrackTintColor="#b3b3b3"
-                style={styles.slider}
-            />
-            <Text>{motTraduit(langIndex, 24)} : {sfxVolume}</Text>
-            <Slider
-                value={sfxVolume}
-                onValueChange={setSfxVolume}
-                minimumValue={0}
-                maximumValue={10}
-                step={1}
-                minimumTrackTintColor="#3f3f3f"
-                maximumTrackTintColor="#b3b3b3"
-                style={styles.slider}
-            />
-     </AudioParam>
-   </View>
- );
+    const getVolumeIcon = (volume: number) => {
+        if (volume === 0) return faVolumeXmark;
+        if (volume <= 3) return faVolumeOff;
+        if (volume <= 7) return faVolumeLow;
+        return faVolumeHigh;
+    };
+
+    const setBgmSfxVolume = (choice: string) => {
+        if (choice === 'bgm') {
+            if (bgmVolume === 0) {
+                setBgmVolume(lastBgmVolume);
+            } else {
+                setLastBgmVolume(bgmVolume);
+                setBgmVolume(0);
+            }
+        } else if (choice === 'sfx') {
+            if (sfxVolume === 0) {
+                setSfxVolume(lastSfxVolume);
+            } else {
+                setLastSfxVolume(sfxVolume);
+                setSfxVolume(0);
+            }
+        }
+    };
+
+    const handleBgmSliderChange = (value: number) => {
+        setBgmVolume(value);
+        if (value !== 0) setLastBgmVolume(value);
+    };
+
+    const handleSfxSliderChange = (value: number) => {
+        setSfxVolume(value);
+        if (value !== 0) setLastSfxVolume(value);
+    };
+
+    return (
+        <View>
+            <AudioParam title={motTraduit(langIndex, 19)}>
+                <View style={styles.volumeContainer}>
+                    <Pressable onPress={() => setBgmSfxVolume('bgm')}>
+                        <FontAwesomeWrapper icon={getVolumeIcon(bgmVolume)} />
+                    </Pressable>                   
+                    <Text>{motTraduit(langIndex, 23)} : {bgmVolume}</Text>
+                </View>
+                <Slider
+                    value={bgmVolume}
+                    onValueChange={handleBgmSliderChange}
+                    minimumValue={0}
+                    maximumValue={10}
+                    step={1}
+                    allowTouchTrack
+                    minimumTrackTintColor="#007AFF"
+                    maximumTrackTintColor="#DDDDDD"
+                    thumbTintColor="#007AFF"
+                    style={styles.slider}
+                    thumbProps={{
+                        children: (
+                            <View style={styles.thumbContainer}>
+                                <FontAwesomeWrapper 
+                                    icon={getVolumeIcon(bgmVolume)} 
+                                    color="black"
+                                />
+                            </View>
+                        ),
+                    }}
+                />
+                <View style={styles.volumeContainer}>
+                    <Pressable onPress={() => setBgmSfxVolume('sfx')}>
+                        <FontAwesomeWrapper icon={getVolumeIcon(sfxVolume)} />
+                    </Pressable>
+                    <Text>{motTraduit(langIndex, 24)} : {sfxVolume}</Text>
+                </View>
+                <Slider
+                    value={sfxVolume}
+                    onValueChange={handleSfxSliderChange}
+                    minimumValue={0}
+                    maximumValue={10}
+                    step={1}
+                    allowTouchTrack
+                    minimumTrackTintColor="#007AFF"
+                    maximumTrackTintColor="#DDDDDD"
+                    thumbTintColor="#007AFF"
+                    style={styles.slider}
+                    thumbProps={{
+                        children: (
+                            <View style={styles.thumbContainer}>
+                                <FontAwesomeWrapper 
+                                    icon={getVolumeIcon(sfxVolume)} 
+                                    color="black"
+                                />
+                            </View>
+                        ),
+                    }}
+                />
+            </AudioParam>
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
@@ -91,6 +168,15 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 40,
   },
+  volumeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+},
+thumbContainer: {
+    borderRadius: 10,
+    padding:10,
+},
 });
 
 export default AudioContainer;

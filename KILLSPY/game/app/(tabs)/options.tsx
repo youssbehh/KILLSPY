@@ -2,14 +2,19 @@ import React, { useState } from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
+import { appVersion } from '../../config';
+import { useLanguageStore } from '../../store/languageStore';
 
 import AudioContainer from '../sousoptions/optaudio';
 import CompteContainer from '../sousoptions/optcompte';
 import SecuriteContainer from '../sousoptions/optsecurite';
 import DiversContainer from '../sousoptions/optdivers';
+import SupportContainer from '../sousoptions/optsupport';
+import ProposContainer from '../sousoptions/optpropos';
+
 
 export default function OptionsScreen() {
-  const [langIndex, setLangIndex] = useState(0);
+  const { langIndex } = useLanguageStore();
 
   return (
     <View style={styles.container}>
@@ -19,8 +24,12 @@ export default function OptionsScreen() {
         <CompteContainer/>
         <AudioContainer/>
         <SecuriteContainer/>
+        <SupportContainer/>
         <DiversContainer/>
+        <ProposContainer/>
       </ScrollView>
+      
+      <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>
     </View>
   );
 }
@@ -40,5 +49,11 @@ const styles = StyleSheet.create({
     marginVertical: 30,
     height: 1,
     width: '80%',
+  },
+  footer: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#888',
+    marginBottom: 5,
   },
 });

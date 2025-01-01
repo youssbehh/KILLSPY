@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
-import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
+import { useLanguageStore } from '../../store/languageStore';
 
 export default function ProfilmmrScreen() {
-  const [langIndex, setLangIndex] = useState(0);
+  const { langIndex } = useLanguageStore();
 
   return (
     <View style={styles.container}>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, Tabs } from 'expo-router';
 import { Pressable } from 'react-native';
+import { useLanguageStore } from '../../store/languageStore';
 
 import { motTraduit } from '@/components/translationHelper';
 import Colors from '@/constants/Colors';
@@ -19,7 +20,7 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const [langIndex, setLangIndex] = useState(0);
+  const { langIndex } = useLanguageStore();
 
   return (
     <Tabs
@@ -33,7 +34,7 @@ export default function TabLayout() {
           title: motTraduit(langIndex, 9),
           tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
           headerRight: () => (
-            <Link href="/profil" asChild>
+            <Link href="/Profil" asChild>
               <Pressable>
                 {({ pressed }) => (
                   <Avatar
@@ -55,7 +56,7 @@ export default function TabLayout() {
           title: motTraduit(langIndex, 8),
           tabBarIcon: ({ color }) => <TabBarIcon name="shopping-bag" color={color} />,
           headerRight: () => (
-            <Link href="/profil" asChild>
+            <Link href="/Profil" asChild>
               <Pressable>
                 {({ pressed }) => (
                   <Avatar
@@ -77,7 +78,7 @@ export default function TabLayout() {
           title: motTraduit(langIndex, 3),
           tabBarIcon: ({ color }) => <TabBarIcon name="gamepad" color={color} />,
           headerRight: () => (
-            <Link href="/profil" asChild>
+            <Link href="/Profil" asChild>
               <Pressable>
                 {({ pressed }) => (
                   <Avatar
@@ -99,7 +100,7 @@ export default function TabLayout() {
           title: motTraduit(langIndex, 4),
           tabBarIcon: ({ color }) => <TabBarIcon name="shopping-cart" color={color} />,
           headerRight: () => (
-            <Link href="/profil" asChild>
+            <Link href="/Profil" asChild>
               <Pressable>
                 {({ pressed }) => (
                   <Avatar
@@ -121,7 +122,7 @@ export default function TabLayout() {
           title: motTraduit(langIndex, 7),
           tabBarIcon: ({ color }) => <TabBarIcon name="gear" color={color} />,
           headerRight: () => (
-            <Link href="/profil" asChild>
+            <Link href="/Profil" asChild>
               <Pressable>
                 {({ pressed }) => (
                   <Avatar

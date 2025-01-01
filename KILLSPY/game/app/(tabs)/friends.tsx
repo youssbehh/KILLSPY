@@ -6,23 +6,17 @@ import ProfilmmrScreen from '../sousfriends/profilmmr';
 import FriendslistScreen from '../sousfriends/friendslist';
 import { Text, View } from '@/components/Themed';
 import { appVersion } from '../../config';
+import { useLanguageStore } from '../../store/languageStore';
 
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faUserSecret } from '@fortawesome/free-solid-svg-icons';
 
-const element = () => (
-  <View>
-    <FontAwesomeIcon icon={faUserSecret} />
-  </View>
-);
-
-
 export default function TabOneScreen() {
-  const [langIndex, setLangIndex] = useState(0);
+  const { langIndex } = useLanguageStore();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titleh1}>{motTraduit(langIndex, 10)} <FontAwesomeIcon icon={faUserSecret} /></Text>
+      <Text style={styles.titleh1}>{motTraduit(langIndex, 10)} <FontAwesomeWrapper icon={faUserSecret} size={30} /></Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       <ScrollView>
         <View style={styles.componantcontainer}>
@@ -88,7 +82,8 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
     color: '#888',
+    marginBottom: 5,
   },
 });
 
-AppRegistry.registerComponent('KILLSPY', () => element);
+AppRegistry.registerComponent('KILLSPY', () => TabOneScreen);

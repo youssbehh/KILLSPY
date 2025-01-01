@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, AppRegistry } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
+import { useLanguageStore } from '../../store/languageStore';
 
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faCaretDown } from '@fortawesome/free-solid-svg-icons';
 import { faCaretUp } from '@fortawesome/free-solid-svg-icons';
 
 const element = () => (
     <View>
-      <FontAwesomeIcon icon={faCaretDown} />
-      <FontAwesomeIcon icon={faCaretUp} />
+      <FontAwesomeWrapper icon={faCaretDown} />
+      <FontAwesomeWrapper icon={faCaretUp} />
     </View>
 );
 
@@ -27,21 +28,43 @@ interface CompteParamProps {
       <View style={styles.container}>
         <TouchableOpacity onPress={toggleAccordion} style={styles.header}>
           <Text style={styles.title}>{title}</Text>
-          <FontAwesomeIcon icon={isOpen ? faCaretUp : faCaretDown} />
+          <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
         </TouchableOpacity>
         {isOpen && <View style={styles.content}>{children}</View>}
       </View>
     );
 };
-const CompteContainer = () => {
-    const [langIndex, setLangIndex] = useState(0);
- return (
-   <View>
-     <CompteParam title={motTraduit(langIndex, 20)}>
-       <Text>Contenu de l'élément 1</Text>
-     </CompteParam>
-   </View>
- );
+  const CompteContainer = () => {
+    const { langIndex, setLanguage } = useLanguageStore();
+
+    const handleLanguageChange = async (value: number) => {
+       await setLanguage(value);
+    };
+
+    return (
+        <View>
+            <CompteParam title={motTraduit(langIndex, 20)}>
+                <Text>{motTraduit(langIndex, 25)}</Text>
+                <View style={styles.radioContainer}>
+                    <TouchableOpacity 
+                        style={styles.radioOption} 
+                        onPress={() => handleLanguageChange(0)}
+                    >
+                        <View style={[styles.radio, langIndex === 0 && styles.radioSelected]} />
+                        <Text>{motTraduit(langIndex, 26)}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={styles.radioOption} 
+                        onPress={() => handleLanguageChange(1)}
+                    >
+                        <View style={[styles.radio, langIndex === 1 && styles.radioSelected]} />
+                        <Text>{motTraduit(langIndex, 27)}</Text>
+                    </TouchableOpacity>
+                </View>
+            </CompteParam>
+        </View>
+    );
 };
 
 const styles = StyleSheet.create({
@@ -64,6 +87,25 @@ const styles = StyleSheet.create({
    padding: 10,
    backgroundColor: '#fff',
  },
+ radioContainer: {
+  marginTop: 10,
+},
+radioOption: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginVertical: 8,
+},
+radio: {
+  height: 20,
+  width: 20,
+  borderRadius: 10,
+  borderWidth: 2,
+  borderColor: '#000',
+  marginRight: 10,
+},
+radioSelected: {
+  backgroundColor: '#000',
+},
 });
 
 export default CompteContainer;

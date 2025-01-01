@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
-import EditScreenInfo from '@/components/EditScreenInfo';
 import { Text, View } from '@/components/Themed';
 import { useLanguageStore } from '../../store/languageStore';
 
-export default function ShopScreen() {
+export default function PrflHistoricScreen() {
   const { langIndex } = useLanguageStore();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{motTraduit(langIndex, 4)}</Text>
+      <Text style={styles.title}>{motTraduit(langIndex, 16)}</Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/two.tsx" />
     </View>
   );
 }

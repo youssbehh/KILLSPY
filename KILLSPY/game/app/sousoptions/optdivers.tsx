@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, AppRegistry } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
+import { useLanguageStore } from '../../store/languageStore';
 
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCaretDown } from '@fortawesome/free-solid-svg-icons';
-import { faCaretUp } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
+import { faCaretDown, faCaretUp } from '@fortawesome/free-solid-svg-icons';
 
 const element = () => (
     <View>
-      <FontAwesomeIcon icon={faCaretDown} />
-      <FontAwesomeIcon icon={faCaretUp} />
+      <FontAwesomeWrapper icon={faCaretDown} />
+      <FontAwesomeWrapper icon={faCaretUp} />
     </View>
 );
 
@@ -27,14 +27,14 @@ interface DiversParamProps {
       <View style={styles.container}>
         <TouchableOpacity onPress={toggleAccordion} style={styles.header}>
           <Text style={styles.title}>{title}</Text>
-          <FontAwesomeIcon icon={isOpen ? faCaretUp : faCaretDown} />
+          <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
         </TouchableOpacity>
         {isOpen && <View style={styles.content}>{children}</View>}
       </View>
     );
 };
 const DiversContainer = () => {
-    const [langIndex, setLangIndex] = useState(0);
+    const { langIndex } = useLanguageStore();
  return (
    <View>
      <DiversParam title={motTraduit(langIndex, 22)}>

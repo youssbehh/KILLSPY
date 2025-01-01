@@ -13,11 +13,11 @@ const element = () => (
     </View>
 );
 
-interface SecuriteParamProps {
+interface SupportParamProps {
     title: string;
     children: React.ReactNode;
 }
-const SecuriteParam: React.FC<SecuriteParamProps> = ({ title, children }) => {
+   const SupportParam: React.FC<SupportParamProps> = ({ title, children }) => {
     const [isOpen, setIsOpen] = useState(false);
     
     const toggleAccordion = () => {
@@ -33,13 +33,13 @@ const SecuriteParam: React.FC<SecuriteParamProps> = ({ title, children }) => {
       </View>
     );
 };
-const SecuriteContainer = () => {
+const SupportContainer = () => {
     const { langIndex } = useLanguageStore();
  return (
    <View>
-     <SecuriteParam title={motTraduit(langIndex, 21)}>
+     <SupportParam title={motTraduit(langIndex, 28)}>
        <Text>Contenu de l'élément 1</Text>
-     </SecuriteParam>
+     </SupportParam>
    </View>
  );
 };
@@ -66,6 +66,6 @@ const styles = StyleSheet.create({
  },
 });
 
-export default SecuriteContainer;
+export default SupportContainer;
 
 AppRegistry.registerComponent('KILLSPY', () => element);

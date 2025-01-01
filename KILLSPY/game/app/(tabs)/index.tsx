@@ -1,28 +1,35 @@
 import React, { useState } from 'react';
 import { AppRegistry, ScrollView } from 'react-native';
-import { Button, Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
 import { Card } from '@rneui/themed';
 import { appVersion } from '../../config';
+import { useLanguageStore } from '../../store/languageStore';
 
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRobot } from '@fortawesome/free-solid-svg-icons';
-import { faBolt } from '@fortawesome/free-solid-svg-icons';
-import { faTrophy } from '@fortawesome/free-solid-svg-icons';
-import { faUsersViewfinder } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
+import { faRobot, faBolt, faTrophy, faUsersViewfinder } from '@fortawesome/free-solid-svg-icons';
 
 const element = () => (
   <View>
-    <FontAwesomeIcon icon={faRobot} />
-    <FontAwesomeIcon icon={faBolt} />
-    <FontAwesomeIcon icon={faTrophy} />
-    <FontAwesomeIcon icon={faUsersViewfinder} />
+    <FontAwesomeWrapper icon={faRobot} />
+    <FontAwesomeWrapper icon={faBolt} />
+    <FontAwesomeWrapper icon={faTrophy} />
+    <FontAwesomeWrapper icon={faUsersViewfinder} />
   </View>
 );
 
 export default function GameChoiceScreen() {
-  const [langIndex, setLangIndex] = useState(0);
+  const { langIndex } = useLanguageStore();
+  const router = useRouter();
+
+  const handleGameChoice = (modeId: number) => {
+    router.push({
+      pathname: '../loading',
+      params: { mode: motTraduit(langIndex, modeId) }
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -30,32 +37,40 @@ export default function GameChoiceScreen() {
       <Text style={styles.titleh2}>{motTraduit(langIndex, 11)} <Text style={styles.boldText}>LoremIpsum57</Text></Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       <ScrollView style={styles.cardStyle}>
-        <Pressable>
+        <Pressable onPress={() => handleGameChoice(12)}>
           <Card containerStyle={{ marginTop: 15 }}>
               <Card.Title>{motTraduit(langIndex, 12)}</Card.Title>
               <Card.Divider />
-              <FontAwesomeIcon icon={faRobot} />
+              <View style={styles.iconContainer}>
+                  <FontAwesomeWrapper icon={faRobot} size={30} />
+              </View>
           </Card>
         </Pressable>
-        <Pressable>
+        <Pressable onPress={() => handleGameChoice(13)}>
           <Card containerStyle={{ marginTop: 15 }}>
               <Card.Title>{motTraduit(langIndex, 13)}</Card.Title>
               <Card.Divider />
-              <FontAwesomeIcon icon={faBolt} />
+              <View style={styles.iconContainer}>
+                  <FontAwesomeWrapper icon={faBolt} size={30} />
+              </View>
           </Card>
         </Pressable>
-        <Pressable>
+        <Pressable onPress={() => handleGameChoice(14)}>
           <Card containerStyle={{ marginTop: 15 }}>
               <Card.Title>{motTraduit(langIndex, 14)}</Card.Title>
               <Card.Divider />
-              <FontAwesomeIcon icon={faTrophy} />
+              <View style={styles.iconContainer}>
+                  <FontAwesomeWrapper icon={faTrophy} size={30} />
+              </View>
           </Card>
         </Pressable>
-        <Pressable>
+        <Pressable onPress={() => handleGameChoice(15)}>
           <Card containerStyle={{ marginTop: 15 }}>
               <Card.Title>{motTraduit(langIndex, 15)}</Card.Title>
               <Card.Divider />
-              <FontAwesomeIcon icon={faUsersViewfinder} />
+              <View style={styles.iconContainer}>
+                  <FontAwesomeWrapper icon={faUsersViewfinder} size={30} />
+              </View>
           </Card>
         </Pressable>
       </ScrollView>
@@ -93,6 +108,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
     color: '#888',
+    marginBottom: 5,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
   },
 });
 

@@ -8,6 +8,8 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 
+const isWeb = typeof window !== 'undefined';
+
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
@@ -30,10 +32,12 @@ export default function RootLayout() {
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
+    if (!isWeb) return; // Skip on server-side
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
+    if (!isWeb) return; // Skip on server-side
     if (loaded) {
       SplashScreen.hideAsync();
     }
@@ -53,7 +57,7 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="profil" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="Profil" options={{ presentation: 'modal' }} />
       </Stack>
     </ThemeProvider>
   );
