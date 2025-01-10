@@ -3,9 +3,10 @@ import { StyleSheet, Pressable, View } from 'react-native';
 import { Text } from '@/components/Themed';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '@/store/languageStore';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
+import QuitButton from '@/components/QuitButton';
 
-type Action = 'recharger' | 'tirer' | 'bouclier' | null;
+type Action = string | null;
 
 export default function GameScreen() {
     const { langIndex } = useLanguageStore();
@@ -18,8 +19,9 @@ export default function GameScreen() {
     const [botMunitions, setBotMunitions] = useState(0);
     const [playerLives, setPlayerLives] = useState(3);
     const [botLives, setBotLives] = useState(3);
+    const [showingResult, setShowingResult] = useState(false);
     const [gameOver, setGameOver] = useState(false);
-    const [isWinner, setIsWinner] = useState(false);
+    const [isWinner, setIsWinner] = useState<boolean | null>(false);
 
     // Décompte initial de 3 secondes
     useEffect(() => {
@@ -35,50 +37,31 @@ export default function GameScreen() {
 
     // Fonction pour obtenir une action aléatoire
     const getRandomAction = (): Action => {
-        const actions: Action[] = ['recharger', 'tirer', 'bouclier'];
-        if (playerMunitions === 0) return 'recharger';
+        const actions: Action[] = [motTraduit(langIndex, 42), motTraduit(langIndex, 41), motTraduit(langIndex, 40)];
+        if (playerMunitions === 0) return motTraduit(langIndex, 42);
         if (playerMunitions === 3) return actions[1 + Math.floor(Math.random() * 2)];
         return actions[Math.floor(Math.random() * 3)];
     };
 
     // Décompte de 5 secondes pour l'action
     useEffect(() => {
+        if (gameOver) return; // Arrêter si game over
+
         if (isGameStarted && actionCountdown > 0) {
             const timer = setTimeout(() => {
                 setActionCountdown(actionCountdown - 1);
             }, 1000);
             return () => clearTimeout(timer);
         } else if (isGameStarted && actionCountdown === 0) {
-            // Si aucune action n'est choisie, en choisir une au hasard
+            // Exécuter l'action aléatoire UNIQUEMENT si le joueur n'a pas joué
             if (!playerAction) {
                 const randomAction = getRandomAction();
                 setPlayerAction(randomAction);
             }
-            // Exécuter l'action du bot et les actions après un court délai
-            setTimeout(() => {
-                executeBotAction();
-                setTimeout(() => {
-                    executeActions();
-                }, 100);
-            }, 100);
+            // Exécuter l'action du bot
+            executeBotAction();
         }
-    }, [isGameStarted, actionCountdown]);
-
-    const executeBotAction = () => {
-        // Logique simple du bot
-        let action: Action;
-        if (botMunitions === 0) {
-            action = 'recharger';
-        } else if (botMunitions === 3) {
-            action = Math.random() > 0.5 ? 'tirer' : 'bouclier';
-        } else {
-            const random = Math.random();
-            if (random < 0.33) action = 'recharger';
-            else if (random < 0.66) action = 'tirer';
-            else action = 'bouclier';
-        }
-        setBotAction(action);
-    };
+    }, [isGameStarted, actionCountdown, gameOver]);
 
     // Ajout d'un useEffect pour surveiller les changements d'actions
     useEffect(() => {
@@ -87,40 +70,86 @@ export default function GameScreen() {
         }
     }, [playerAction, botAction]);
 
+    const executeBotAction = () => {
+        // Logique simple du bot
+        let action: Action;
+        const random = Math.random(); // Un seul nombre aléatoire
+
+        if (botMunitions === 0) {
+            action = motTraduit(langIndex, 42); // Forcé de recharger
+        } else if (botMunitions === 3) {
+            action = random > 0.5 ? motTraduit(langIndex, 41) : motTraduit(langIndex, 40); // Tirer ou bouclier
+        } else {
+            if (random < 0.33) action = motTraduit(langIndex, 42);      // 33% recharger
+            else if (random < 0.66) action = motTraduit(langIndex, 41); // 33% tirer
+            else action = motTraduit(langIndex, 40);                    // 33% bouclier
+        }
+        setBotAction(action);
+    };
+
     const executeActions = () => {
-        // Exécution des actions
         const currentPlayerAction = playerAction;
         const currentBotAction = botAction;
 
-        if (currentPlayerAction === 'recharger') {
+        // Match nul si les deux tirent en même temps
+        if (currentPlayerAction === motTraduit(langIndex, 41) && 
+            currentBotAction === motTraduit(langIndex, 41) && 
+            playerLives === 1 && 
+            botLives === 1) {
+            setPlayerLives(prev => prev - 1);
+            setBotLives(prev => prev - 1);
+            setShowingResult(true);
+            setTimeout(() => {
+                setGameOver(true);
+                setIsWinner(null); // null pour match nul
+            }, 3000);
+            setPlayerMunitions(prev => prev - 1);
+            setBotMunitions(prev => prev - 1);
+            return; // Arrêter l'exécution ici
+        }
+
+        // Recharge
+        if (currentPlayerAction === motTraduit(langIndex, 42)) {
             setPlayerMunitions(prev => Math.min(prev + 1, 3));
         }
-        if (currentBotAction === 'recharger') {
+        if (currentBotAction === motTraduit(langIndex, 42)) {
             setBotMunitions(prev => Math.min(prev + 1, 3));
         }
 
-        // Gestion des tirs
-        if (currentPlayerAction === 'tirer' && playerMunitions > 0 && currentBotAction !== 'bouclier') {
-            setBotLives(prev => {
-                const newLives = prev - 1;
-                if (newLives <= 0) {
-                    setGameOver(true);
-                    setIsWinner(true);
-                }
-                return newLives;
-            });
-            setPlayerMunitions(prev => prev - 1);
+        // Tirs du joueur
+        if (currentPlayerAction === motTraduit(langIndex, 41) && playerMunitions > 0) {
+            setPlayerMunitions(prev => prev - 1); // Déduire la munition dans tous les cas
+            if (currentBotAction !== motTraduit(langIndex, 40)) { // Vérifier si le tir touche
+                setBotLives(prev => {
+                    const newLives = prev - 1;
+                    if (newLives <= 0) {
+                        setShowingResult(true);
+                        setTimeout(() => {
+                            setGameOver(true);
+                            setIsWinner(true);
+                        }, 3000);
+                    }
+                    return newLives;
+                });
+            }
         }
-        if (currentBotAction === 'tirer' && botMunitions > 0 && currentPlayerAction !== 'bouclier') {
-            setPlayerLives(prev => {
-                const newLives = prev - 1;
-                if (newLives <= 0) {
-                    setGameOver(true);
-                    setIsWinner(false);
-                }
-                return newLives;
-            });
-            setBotMunitions(prev => prev - 1);
+
+        // Tirs du bot
+        if (currentBotAction === motTraduit(langIndex, 41) && botMunitions > 0) {
+            setBotMunitions(prev => prev - 1); // Déduire la munition dans tous les cas
+            if (currentPlayerAction !== motTraduit(langIndex, 40)) { // Vérifier si le tir touche
+                setPlayerLives(prev => {
+                    const newLives = prev - 1;
+                    if (newLives <= 0) {
+                        setShowingResult(true);
+                        setTimeout(() => {
+                            setGameOver(true);
+                            setIsWinner(false);
+                        }, 3000);
+                    }
+                    return newLives;
+                });
+            }
         }
 
         // Réinitialisation pour le prochain tour
@@ -132,18 +161,41 @@ export default function GameScreen() {
     };
 
     return (
+        <>
+        <Stack.Screen 
+        options={{
+          title: '',
+          /*headerRight: () => <QuitButton />,*/
+          headerBackTitle: ' ', 
+          headerBackVisible: false,
+          gestureEnabled: false,
+          headerStyle: {
+            backgroundColor: '#fff',
+          },
+          headerShadowVisible: false,
+        }} 
+      />
         <View style={styles.container}>
             {gameOver ? (
                 <View style={styles.gameOverContainer}>
                     <Text style={styles.gameOverText}>
-                        {isWinner ? motTraduit(langIndex, 36) : motTraduit(langIndex, 37)}
+                        {isWinner === null ? motTraduit(langIndex, 32) : // Match nul
+                         isWinner ? motTraduit(langIndex, 36) : motTraduit(langIndex, 37)}
                     </Text>
-                    <Pressable 
-                        style={styles.restartButton}
-                        onPress={() => router.push('/(tabs)')}
-                    >
-                        <Text style={styles.buttonText}>{motTraduit(langIndex, 39)}</Text>
-                    </Pressable>
+                    <View style={styles.buttonsRow}>
+                        <Pressable 
+                            style={styles.restartButton}
+                            onPress={() => router.push('/play/bot')}
+                        >
+                            <Text style={styles.buttonText}>{motTraduit(langIndex, 38)}</Text>
+                        </Pressable>
+                        <Pressable 
+                            style={styles.restartButton}
+                            onPress={() => router.replace('/(tabs)')}
+                        >
+                            <Text style={styles.buttonText}>{motTraduit(langIndex, 43)}</Text>
+                        </Pressable>
+                    </View>
                 </View>
             ) : !isGameStarted ? (
                 <Text style={styles.countdown}>{countdown}</Text>
@@ -163,30 +215,31 @@ export default function GameScreen() {
 
                     <View style={styles.buttonsContainer}>
                         <Pressable 
-                            style={[styles.button, playerAction === 'recharger' && styles.selectedButton]} 
-                            onPress={() => setPlayerAction('recharger')}
+                            style={[styles.button, playerAction === motTraduit(langIndex, 42) && styles.selectedButton]} 
+                            onPress={() => setPlayerAction(motTraduit(langIndex, 42))}
                             disabled={actionCountdown === 0 || playerMunitions === 3}
                         >
-                            <Text style={styles.buttonText}>Recharger</Text>
+                            <Text style={styles.buttonText}>{motTraduit(langIndex, 42)}</Text>
                         </Pressable>
                         <Pressable 
-                            style={[styles.button, playerAction === 'tirer' && styles.selectedButton]} 
-                            onPress={() => setPlayerAction('tirer')}
+                            style={[styles.button, playerAction === motTraduit(langIndex, 41) && styles.selectedButton]} 
+                            onPress={() => setPlayerAction(motTraduit(langIndex, 41))}
                             disabled={actionCountdown === 0 || playerMunitions === 0}
                         >
-                            <Text style={styles.buttonText}>Tirer</Text>
+                            <Text style={styles.buttonText}>{motTraduit(langIndex, 41)}</Text>
                         </Pressable>
                         <Pressable 
-                            style={[styles.button, playerAction === 'bouclier' && styles.selectedButton]} 
-                            onPress={() => setPlayerAction('bouclier')}
+                            style={[styles.button, playerAction === motTraduit(langIndex, 40) && styles.selectedButton]} 
+                            onPress={() => setPlayerAction(motTraduit(langIndex, 40))}
                             disabled={actionCountdown === 0}
                         >
-                            <Text style={styles.buttonText}>Bouclier</Text>
+                            <Text style={styles.buttonText}>{motTraduit(langIndex, 40)}</Text>
                         </Pressable>
                     </View>
                 </>
             )}
         </View>
+        </>
     );
 }
 
@@ -241,6 +294,12 @@ const styles = StyleSheet.create({
         marginBottom: 30,
         textAlign: 'center',
         color: '#000',
+    },
+    buttonsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        paddingHorizontal: 20,
     },
     restartButton: {
         padding: 15,

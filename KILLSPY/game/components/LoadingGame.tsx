@@ -25,7 +25,7 @@ export default function LoadingGame({ gameMode, onGameFound }: LoadingGameProps)
     }, []);
 
     useEffect(() => {
-        if (gameMode === motTraduit(langIndex, 12)) { // VS Ordinateur
+        if (gameMode === motTraduit(langIndex, 12) && !isGameFound) { // VS Ordinateur
             const timeout = setTimeout(() => {
                 setIsGameFound(true);
                 onGameFound();

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AppRegistry, ScrollView } from 'react-native';
 import { Pressable, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
 import { Card } from '@rneui/themed';
@@ -32,6 +32,15 @@ export default function GameChoiceScreen() {
   };
 
   return (
+    <>
+    <Stack.Screen 
+      options={{
+        title: motTraduit(langIndex, 3),
+        headerBackTitle: ' ', 
+        headerBackVisible: false,
+        gestureEnabled: false,
+      }} 
+    />
     <View style={styles.container}>
       <Text style={styles.titleh1}>KILLSPY</Text>
       <Text style={styles.titleh2}>{motTraduit(langIndex, 11)} <Text style={styles.boldText}>LoremIpsum57</Text></Text>
@@ -76,6 +85,7 @@ export default function GameChoiceScreen() {
       </ScrollView>
       <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>
     </View>
+    </>
   );
 }
 
