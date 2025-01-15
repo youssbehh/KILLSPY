@@ -18,7 +18,7 @@ export default function TabOneScreen() {
     <View style={styles.container}>
       <Text style={styles.titleh1}>{motTraduit(langIndex, 10)} <FontAwesomeWrapper icon={faUserSecret} size={30} /></Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <ScrollView>
+      <ScrollView style={styles.optfriendcontainer}>
         <View style={styles.componantcontainer}>
           <View style={styles.leaderboardcontainer}>
             <Leaderboard/>
@@ -61,17 +61,24 @@ const styles = StyleSheet.create({
     width: '80%',
   },
 
+  optfriendcontainer:{
+    width: '100%',
+  },
   componantcontainer:{
     flexWrap:'wrap',
     flexDirection:'row',
+    justifyContent: 'center',
+    width:'100%'
   },
   leaderboardcontainer:{
     padding: 10,
     margin: 10,
+    width:'40%'
   },
   profilmmrcontainer:{
     padding: 10,
     margin: 10,
+    width:'40%'
   },
   friendslistcontainer:{
     padding: 10,

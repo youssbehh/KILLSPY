@@ -191,7 +191,7 @@ export default function GameScreen() {
                         </Pressable>
                         <Pressable 
                             style={styles.restartButton}
-                            onPress={() => router.replace('/(tabs)')}
+                            onPress={() => router.replace('/(tabs)/gamechoice')}
                         >
                             <Text style={styles.buttonText}>{motTraduit(langIndex, 43)}</Text>
                         </Pressable>

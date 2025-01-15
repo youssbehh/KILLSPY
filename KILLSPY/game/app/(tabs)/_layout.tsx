@@ -73,7 +73,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="gamechoice"
         options={{
           title: motTraduit(langIndex, 3),
           tabBarIcon: ({ color }) => <TabBarIcon name="gamepad" color={color} />,

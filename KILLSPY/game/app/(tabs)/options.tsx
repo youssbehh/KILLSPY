@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
 import { appVersion } from '../../config';
 import { useLanguageStore } from '../../store/languageStore';
+import { Button } from '@rneui/themed';
 
 import AudioContainer from '../sousoptions/optaudio';
 import CompteContainer from '../sousoptions/optcompte';
@@ -13,8 +15,10 @@ import SupportContainer from '../sousoptions/optsupport';
 import ProposContainer from '../sousoptions/optpropos';
 
 
+
 export default function OptionsScreen() {
   const { langIndex } = useLanguageStore();
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
@@ -27,6 +31,7 @@ export default function OptionsScreen() {
         <SupportContainer/>
         <DiversContainer/>
         <ProposContainer/>
+        <Button onPress={() => router.dismissAll()}>{motTraduit(langIndex, 51)}</Button>
       </ScrollView>
       
       <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>

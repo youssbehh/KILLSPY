@@ -6,6 +6,7 @@ import { useLanguageStore } from '../../store/languageStore';
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faCaretDown } from '@fortawesome/free-solid-svg-icons';
 import { faCaretUp } from '@fortawesome/free-solid-svg-icons';
+import { Input } from '@rneui/themed';
 
 const element = () => (
     <View>
@@ -44,7 +45,8 @@ interface CompteParamProps {
     return (
         <View>
             <CompteParam title={motTraduit(langIndex, 20)}>
-                <Text>{motTraduit(langIndex, 25)}</Text>
+                <Text>{motTraduit(langIndex, 46)} :</Text>
+                <Text>{motTraduit(langIndex, 25)} :</Text>
                 <View style={styles.radioContainer}>
                     <TouchableOpacity 
                         style={styles.radioOption} 

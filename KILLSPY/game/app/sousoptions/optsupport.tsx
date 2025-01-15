@@ -38,7 +38,7 @@ const SupportContainer = () => {
  return (
    <View>
      <SupportParam title={motTraduit(langIndex, 28)}>
-       <Text>Contenu de l'élément 1</Text>
+       <Text>{motTraduit(langIndex, 47)} :</Text>
      </SupportParam>
    </View>
  );
