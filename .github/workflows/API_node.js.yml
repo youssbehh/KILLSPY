@@ -3,7 +3,7 @@
 # For more information, see:
 # https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
-name: Game CI/CD Pipeline
+name: Api CI/CD Pipeline
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        cache-dependency-path: game/package-lock.json
+        cache-dependency-path: api/package-lock.json
 
     - name: ------------ VERIFICATION ARBORESCENCE DU REPO ------------
       run: ls -R
@@ -43,7 +43,7 @@ jobs:
       working-directory: api
 
     - name: ------------ DEMARRAGE DU SERVEUR EXPO ------------
-      run: npm start &
+      run: npm run dev &
       working-directory: api
 
     - name: ------------ EXECUTION DES TESTS JEST (API) ------------
