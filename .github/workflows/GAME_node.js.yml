@@ -51,5 +51,5 @@ jobs:
       working-directory: game
 
     - name: ------------ ARRÊTER LE SERVEUR EXPO ------------
-      run: kill $(lsof -t -i:19000)
+      run: pkill -f "node"
       working-directory: game
