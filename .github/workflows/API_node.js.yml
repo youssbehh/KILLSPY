@@ -51,5 +51,5 @@ jobs:
       working-directory: api
 
     - name: ------------ ARRÊTER LE SERVEUR EXPO ------------
-      run: pkill -f "node"
+      run: kill $(cat server.pid) || true
       working-directory: api
