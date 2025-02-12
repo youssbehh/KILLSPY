@@ -47,7 +47,7 @@ jobs:
       working-directory: api
 
     - name: ------------ EXECUTION DES TESTS JEST (API) ------------
-      run: npm test
+      run: npx jest
       working-directory: api
 
     - name: ------------ ARRÊTER LE SERVEUR EXPO ------------
