@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import { router } from 'expo-router';
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import '@testing-library/jest-native/extend-expect';
 import QuitButton from '../QuitButton';
@@ -10,8 +9,8 @@ import { motTraduit } from '@/components/translationHelper';
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
   router: {
-    replace: mockReplace
-  }
+    replace: mockReplace,
+  },
 }));
 
 jest.mock('@/components/translationHelper', () => ({
@@ -62,5 +61,10 @@ describe('QuitButton', () => {
       ],
       { cancelable: true }
     );
+  });
+
+  it('crée un snapshot du bouton QuitButton', () => {
+    const tree = render(<QuitButton />).toJSON();
+    expect(tree).toMatchSnapshot();
   });
 });
