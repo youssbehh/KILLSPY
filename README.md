@@ -18,7 +18,7 @@ KILLSPY est un jeu inspiré du jeu classique **007**, adapté en version numéri
  - Système de classement & leaderboard
  - Personnalisation des avatars & skins
 
- 📜 Licence
+ ## 📜 Licence
 © 2025 MIMIR STUDIO. Tous droits réservés.
 
 Ce logiciel est la propriété exclusive de MIMIR STUDIO. Toute utilisation, modification, reproduction ou distribution, en totalité ou en partie, sans autorisation écrite préalable est strictement interdite.
