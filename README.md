@@ -6,7 +6,6 @@ KILLSPY est un jeu inspiré du jeu classique **007**, adapté en version numéri
 - **Mode Multijoueur** 🕹️ : Affrontez d'autres joueurs en ligne.
 - **Mode Contre l'IA** 🤖 : Testez vos compétences contre des bots intelligents.
 - **Système de munitions & défense** 💣🛡️ : Rechargez, protégez-vous et attaquez au bon moment.
-- **Armes spéciales** 🚀 : Débloquez des attaques puissantes en accumulant des munitions.
 - **Interface Intuitive** 🎨 : Un design soigné pour une expérience immersive.
 
 ## 🕹️ Comment Jouer ?
