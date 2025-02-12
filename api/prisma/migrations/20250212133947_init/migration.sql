@@ -23,10 +23,12 @@ CREATE TABLE "Users" (
 -- CreateTable
 CREATE TABLE "Clients" (
     "id" SERIAL NOT NULL,
+    "clientTag" VARCHAR(7) NOT NULL,
     "firstName" VARCHAR(30) NOT NULL,
     "lastName" VARCHAR(30) NOT NULL,
     "email" VARCHAR(150) NOT NULL,
     "phone" VARCHAR(20),
+    "userId" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -85,10 +87,10 @@ CREATE UNIQUE INDEX "Users_email_key" ON "Users"("email");
 CREATE INDEX "Users_idRole_idx" ON "Users"("idRole");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Clients_email_key" ON "Clients"("email");
+CREATE INDEX "Clients_email_idx" ON "Clients"("email");
 
 -- CreateIndex
-CREATE INDEX "Clients_email_idx" ON "Clients"("email");
+CREATE INDEX "Clients_userId_idx" ON "Clients"("userId");
 
 -- CreateIndex
 CREATE INDEX "Loans_userId_idx" ON "Loans"("userId");
@@ -107,6 +109,9 @@ CREATE UNIQUE INDEX "Settings_userId_key" ON "Settings"("userId");
 
 -- AddForeignKey
 ALTER TABLE "Users" ADD CONSTRAINT "Users_idRole_fkey" FOREIGN KEY ("idRole") REFERENCES "Roles"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "Clients" ADD CONSTRAINT "Clients_userId_fkey" FOREIGN KEY ("userId") REFERENCES "Users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "Loans" ADD CONSTRAINT "Loans_userId_fkey" FOREIGN KEY ("userId") REFERENCES "Users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;

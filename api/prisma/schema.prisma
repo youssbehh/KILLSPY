@@ -31,22 +31,27 @@ model Users {
   role       Roles      @relation(fields: [idRole], references: [id], onDelete: NoAction, onUpdate: NoAction)
   loans      Loans[]
   settings   Settings?
+  clients    Clients[]
 
   @@index([idRole])
 }
 
 model Clients {
-  id        Int        @id @default(autoincrement())
-  firstName String     @db.VarChar(30)
-  lastName  String     @db.VarChar(30)
-  email     String     @unique @db.VarChar(150)
-  phone     String?    @db.VarChar(20)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @default(now())
-  loans     Loans[]
+  id         Int        @id @default(autoincrement())
+  clientTag  String     @db.VarChar(7)
+  firstName  String     @db.VarChar(30)
+  lastName   String     @db.VarChar(30)
+  email      String     @db.VarChar(150)
+  phone      String?    @db.VarChar(20)
+  userId     Int
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @default(now())
+  loans      Loans[]
   repayments Repayments[]
+  user       Users      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([email])
+  @@index([userId])
 }
 
 model Loans {
@@ -62,8 +67,8 @@ model Loans {
   startedAt      DateTime   @default(now())
   dueDate        DateTime
   createdAt      DateTime   @default(now())
-  user           Users       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  client         Clients     @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user           Users      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  client         Clients    @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   repayments     Repayments[]
 
   @@index([userId])

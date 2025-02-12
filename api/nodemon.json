@@ -1,5 +1,8 @@
 {
-  "watch":["src"],
-  "ext":".json,.ts",
-  "exec":"npx ts-node ./src/index.ts"
+  "watch": ["src"],
+  "ext": ".json,.ts",
+  "exec": "npx ts-node --files ./src/index.ts",
+  "execMap": {
+    "ts": "npx ts-node --files"
+  }
 }
