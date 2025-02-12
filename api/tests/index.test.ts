@@ -1,13 +1,11 @@
 import request from 'supertest';
-import express, { Express } from 'express';
-import app, { prisma_client } from '../src/index';
-import rootRouter from '../src/routes';
+import { app, server, prisma_client } from '../src/index';
 import { jest, describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-
 
 describe('Server API Tests', () => {
   afterAll(async () => {
-    await prisma_client.$disconnect(); // Ferme Prisma proprement
+    await prisma_client.$disconnect(); // Ferme la connexion Prisma
+    server.close(); // 🔥 Ferme le serveur Express après les tests
   });
 
   it('should respond to a basic API call', async () => {
@@ -21,7 +19,7 @@ describe('Server API Tests', () => {
   });
 
   it('should properly handle errors via middleware', async () => {
-    const res = await request(app).get('/api/trigger-error'); // Simule une route d'erreur
+    const res = await request(app).get('/api/trigger-error');
     expect(res.status).toBe(404);
-    });
+  });
 });
