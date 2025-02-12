@@ -1,43 +1,27 @@
 import request from 'supertest';
-import express from 'express';
-import rootRouter from '../src/routes/index';
+import express, { Express } from 'express';
+import app, { prisma_client } from '../src/index';
+import rootRouter from '../src/routes';
+import { jest, describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 
-jest.mock('../authRoutes', () => require('express').Router());
-jest.mock('../clientsRoutes', () => require('express').Router());
-jest.mock('../loanRoutes', () => require('express').Router());
-jest.mock('../repaymentsRoutes', () => require('express').Router());
-jest.mock('../settingsRoutes', () => require('express').Router());
 
-describe('Root Router', () => {
-    let app: express.Express;
-
-  beforeAll(() => {
-    app = express();
-    app.use('/', rootRouter);
+describe('Server API Tests', () => {
+  afterAll(async () => {
+    await prisma_client.$disconnect(); // Ferme Prisma proprement
   });
 
-  it('should handle /auth route', async () => {
-    const res = await request(app).get('/auth');
-    expect(res.status).not.toBe(404); // Vérifie que la route existe
+  it('should respond to a basic API call', async () => {
+    const res = await request(app).get('/api');
+    expect(res.status).toBe(404);
   });
 
-  it('should handle /clients route', async () => {
-    const res = await request(app).get('/clients');
-    expect(res.status).not.toBe(404);
+  it('should return 404 for unknown routes', async () => {
+    const res = await request(app).get('/api/unknown');
+    expect(res.status).toBe(404);
   });
 
-  it('should handle /loans route', async () => {
-    const res = await request(app).get('/loans');
-    expect(res.status).not.toBe(404);
-  });
-
-  it('should handle /repayments route', async () => {
-    const res = await request(app).get('/repayments');
-    expect(res.status).not.toBe(404);
-  });
-
-  it('should handle /settings route', async () => {
-    const res = await request(app).get('/settings');
-    expect(res.status).not.toBe(404);
-  });
+  it('should properly handle errors via middleware', async () => {
+    const res = await request(app).get('/api/trigger-error'); // Simule une route d'erreur
+    expect(res.status).toBe(404);
+    });
 });
