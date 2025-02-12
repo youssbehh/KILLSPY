@@ -13,15 +13,15 @@ KILLSPY est un jeu inspiré du jeu classique **007**, adapté en version numéri
 - **Tirer** 🎯 : Abattez vos adversaires (nécessite des munitions).
 - **Se protéger** 🛡️ : Bloquez les attaques ennemies.
 
-🏆 Roadmap
- Ajout de nouveaux modes de jeu (Team Deathmatch, Battle Royale)
- Système de classement & leaderboard
- Personnalisation des avatars & skins
+## 🏆 Roadmap
+ - Ajout de nouveaux modes de jeu (Team Deathmatch, Battle Royale)
+ - Système de classement & leaderboard
+ - Personnalisation des avatars & skins
 
  📜 Licence
-© 2025 MIMIR. Tous droits réservés.
+© 2025 MIMIR STUDIO. Tous droits réservés.
 
-Ce logiciel est la propriété exclusive de [Ton Nom ou Entreprise]. Toute utilisation, modification, reproduction ou distribution, en totalité ou en partie, sans autorisation écrite préalable est strictement interdite.
+Ce logiciel est la propriété exclusive de MIMIR STUDIO. Toute utilisation, modification, reproduction ou distribution, en totalité ou en partie, sans autorisation écrite préalable est strictement interdite.
 
 
 🔥 Préparez-vous à devenir le meilleur espion ! 🔥
