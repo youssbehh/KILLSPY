@@ -2,8 +2,22 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: killspy_game
+    container_name: ksgame-container
     ports:
       - "3000:3000"
+    environment:
+      - NODE_ENV=production
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: killspy_api
+    container_name: ksapi-container
+    ports:
+      - "4000:4000"
     environment:
       - NODE_ENV=production
