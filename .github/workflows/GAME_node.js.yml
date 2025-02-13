@@ -69,18 +69,18 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: ------------ PULL DE L'IMAGE EXISTANTE (SI DISPONIBLE) ------------
-      run: docker pull ${{ secrets.DOCKER_USERNAME }}/game-app:latest || true
+      run: docker pull ${{ secrets.DOCKER_USERNAME }}/killspy-app:latest || true
 
     - name: ------------ CONSTRUCTION DE L'IMAGE DOCKER AVEC CACHE ------------
       run: |
         docker build --cache-from=${{ secrets.DOCKER_USERNAME }}/game-app:latest \
-                     --tag ${{ secrets.DOCKER_USERNAME }}/game-app:latest \
-                     --tag ${{ secrets.DOCKER_USERNAME }}/game-app:${{ github.sha }} \
+                     --tag ${{ secrets.DOCKER_USERNAME }}/killspy-app:latest \
+                     --tag ${{ secrets.DOCKER_USERNAME }}/killspy-app:${{ github.sha }} \
                      .
       working-directory: game
 
     - name: ------------ PUSH DE L'IMAGE DOCKER (LATEST & SHA) ------------
       run: |
-        docker push ${{ secrets.DOCKER_USERNAME }}/game-app:latest
-        docker push ${{ secrets.DOCKER_USERNAME }}/game-app:${{ github.sha }}
+        docker push ${{ secrets.DOCKER_USERNAME }}/killspy-app:latest
+        docker push ${{ secrets.DOCKER_USERNAME }}/killspy-app:${{ github.sha }}
 
