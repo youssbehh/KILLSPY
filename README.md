@@ -14,7 +14,7 @@ KILLSPY est un jeu inspiré du jeu classique **007**, adapté en version numéri
 - **Se protéger** 🛡️ : Bloquez les attaques ennemies.
 
 ## 🏆 Roadmap
-- Ajout de nouveaux modes de jeu (Team Deathmatch, Battle Royale)
+- Ajout de nouveaux modes de jeu (Original, Battle Royale..)
 - Système de classement & leaderboard
 - Personnalisation des avatars & skins
 
