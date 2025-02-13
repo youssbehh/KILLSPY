@@ -43,7 +43,7 @@ jobs:
       working-directory: api
 
     - name: ------------ DEMARRAGE DU SERVEUR EXPO ------------
-      run: npm run dev &
+      run: npm start &
       working-directory: api
 
     - name: ------------ EXECUTION DES TESTS JEST (API) ------------
