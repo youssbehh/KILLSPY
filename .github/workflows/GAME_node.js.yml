@@ -73,7 +73,7 @@ jobs:
 
     - name: ------------ CONSTRUCTION DE L'IMAGE DOCKER AVEC CACHE ------------
       run: |
-        docker build --cache-from=${{ secrets.DOCKER_USERNAME }}/game-app:latest \
+        docker build --cache-from=${{ secrets.DOCKER_USERNAME }}/killspy-app:latest \
                      --tag ${{ secrets.DOCKER_USERNAME }}/killspy-app:latest \
                      --tag ${{ secrets.DOCKER_USERNAME }}/killspy-app:${{ github.sha }} \
                      .
