@@ -43,7 +43,7 @@ jobs:
       working-directory: game
 
     - name: ------------ DEMARRAGE DU SERVEUR EXPO ------------
-      run: npx expo start &
+      run: npm start &
       working-directory: game
 
     - name: ------------ EXECUTION DES TESTS JEST (GAME) ------------
