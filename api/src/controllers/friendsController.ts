@@ -3,42 +3,35 @@ import { prisma_client } from '..';
 import { HttpException, statusCodes, ErrCodes } from '../utils/exceptions';
 import { toISODateTime } from '../utils/NL_UTILS';
 
-export const addLoan = async (req: Request, res: Response, next: NextFunction) => {
+export const addFriend = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { loanName,clientTag, totalAmount, durationMonths, monthlyPayment, interestRate, startedAt, dueDate } = req.body
-    const userId = req.user.id;
+    const { Username } = req.body
+    const ID_User = req.user.id;
 
-    const client = await prisma_client.clients.findFirst({ 
+    const user = await prisma_client.users.findFirst({ 
       where : { 
         AND: [
-          { userId },
-          { clientTag }
+          { ID_User },
+          { Username }
       ]}
     })
-    if(!client) return next(new HttpException("Client introuvable!", ErrCodes.CLIENT_NOT_FOUND, statusCodes.NOT_FOUND, null));
+    if(!user) return next(new HttpException("Utilisateur introuvable!", ErrCodes.CLIENT_NOT_FOUND, statusCodes.NOT_FOUND, null));
 
-    const record = await prisma_client.loans.create({
+    const record = await prisma_client.friends.create({
       data: {
-        loanName,
-        clientId : client.id,
-        totalAmount,
-        durationMonths,
-        monthlyPayment,
-        interestRate,
-        startedAt: toISODateTime(startedAt),
-        dueDate: toISODateTime(dueDate),
-        userId
+        ID_Friend,
+        userId : user.ID_User
       }
     })    
-    res.status(200).json({ message : "Prêt \"" + loanName + "\" bien créé!" })
+    res.status(200).json({ message : "L'utilisateur \"" + Username + "\" à bien été ajoutée!" })
   } catch (e:any) {
     return next(new HttpException("Erreur durant l'ajout d'un prêt", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
   }
 }
 
-export const getLoansByUserId = async (req: Request, res: Response, next: NextFunction) => {
+export const getFriendsByUserId = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const record = await prisma_client.loans.findMany({ where : { userId: req.user.id }, include: { client: true }})
+    const record = await prisma_client.friends.findMany({ where : { userId: req.user.id }, include: { User: true }})
     if(!record) return next(new HttpException("Aucun prêt.", ErrCodes.LOAN_NOT_FOUND, statusCodes.NOT_FOUND, null))
     res.status(200).json({ msg: "Prêts bien trouvés.", record })
   } catch(e:any) {
@@ -47,11 +40,11 @@ export const getLoansByUserId = async (req: Request, res: Response, next: NextFu
   }
 }
 
-export const getLoansByClientTag = async (req: Request, res: Response, next: NextFunction) => {
+export const getBlockedFriends = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { tagClient } = req.params
     if(!tagClient) return next(new HttpException("Aucun client fournit.", ErrCodes.BAD_REQUEST, statusCodes.BAD_REQUEST, null))
-    const record = await prisma_client.loans.findMany({
+    const record = await prisma_client.friends.findMany({
       where: {
         userId: req.user.id,
         client: {

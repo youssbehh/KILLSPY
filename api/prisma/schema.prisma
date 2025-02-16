@@ -24,7 +24,7 @@ model Users {
   Ranks      Ranks[]
   Purchases  PurchaseHistory[]
   Sessions   Session[]
-  Gamerules  Friends[]
+  Friends  Friends[]
   Inventory   Inventory[]
   Result  GameHistory[]
 }
