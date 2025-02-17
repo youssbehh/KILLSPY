@@ -18,7 +18,7 @@ const authMiddleware = (role?: string) => {
 
         try {
             const payload = jwt.verify(token, JWT_SECRET) as any;
-            const user = await prisma_client.users.findFirst({ where: { id: payload.userId } })
+            const user = await prisma_client.users.findFirst({ where: { ID_User: payload.userId } })
             if (!user) {
                 return next(new HttpException("Non autorisé!", ErrCodes.UNAUTHORIZED_ACCESS, statusCodes.BAD_REQUEST, null))
             }

@@ -13,88 +13,153 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Roles {
-  id       Int     @id @default(autoincrement())
-  roleName String  @unique @db.VarChar(10)
-  users    Users[]
-}
-
 model Users {
-  id         Int       @id @default(autoincrement())
-  firstName  String    @db.VarChar(30)
-  lastName   String    @db.VarChar(30)
-  email      String    @unique @db.VarChar(150)
-  password   String    @db.VarChar(255)
-  idRole     Int
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @default(now())
-  role       Roles      @relation(fields: [idRole], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  loans      Loans[]
-  settings   Settings?
-  clients    Clients[]
-
-  @@index([idRole])
+  ID_User   Int     @id @default(autoincrement())
+  Username  String  @unique
+  Email     String  @unique
+  Password  String
+  MMR       Int
+  Leaderboard Leaderboard?
+  Roles      Roles[]
+  Ranks      Ranks[]
+  Purchases  PurchaseHistory[]
+  Sessions   Session[]
+  Friends  Friends[]
+  Inventory   Inventory[]
+  Result  GameHistory[]
 }
 
-model Clients {
-  id         Int        @id @default(autoincrement())
-  clientTag  String     @db.VarChar(7)
-  firstName  String     @db.VarChar(30)
-  lastName   String     @db.VarChar(30)
-  email      String     @db.VarChar(150)
-  phone      String?    @db.VarChar(20)
-  userId     Int
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @default(now())
-  loans      Loans[]
-  repayments Repayments[]
-  user       Users      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([email])
-  @@index([userId])
+model Leaderboard {
+  ID_Leaderboard Int @id @default(autoincrement())
+  User          Users @relation(fields: [ID_User], references: [ID_User])
+  ID_User       Int  @unique
 }
 
-model Loans {
-  id             Int        @id @default(autoincrement())
-  userId         Int
-  clientId       Int
-  loanName       String     @db.VarChar(300)
-  totalAmount    Float
-  durationMonths Int
-  monthlyPayment Float
-  interestRate   Float?
-  status         String     @default("ACTIVE") @db.VarChar(10)
-  startedAt      DateTime   @default(now())
-  dueDate        DateTime
-  createdAt      DateTime   @default(now())
-  user           Users      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  client         Clients    @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  repayments     Repayments[]
-
-  @@index([userId])
-  @@index([clientId])
+model Roles {
+  ID_Role  Int    @id @default(autoincrement())
+  Role     String
+  User     Users   @relation(fields: [ID_User], references: [ID_User])
+  ID_User  Int
 }
 
-model Repayments {
-  id          Int      @id @default(autoincrement())
-  loanId      Int
-  clientId    Int
-  paymentDate DateTime @default(now())
-  amountPaid  Float
-  loan        Loans     @relation(fields: [loanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  client      Clients   @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([loanId])
-  @@index([clientId])
+model Ranks {
+  ID_Rank   Int    @id @default(autoincrement())
+  RankName  String
+  MMR_Range String
+  Users     Users[]
 }
 
-model Settings {
-  id                   Int     @id @default(autoincrement())
-  userId               Int     @unique
-  interestRateGreen    Float?
-  interestRateOrange   Float?
-  interestRateRed      Float?
-  displayInterestRate  Boolean
-  alertLateRepayment   Boolean
-  user                 Users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model PurchaseHistory {
+  ID_Achat      Int     @id @default(autoincrement())
+  PurchaseDate  DateTime
+  Qty           Int
+  User          Users    @relation(fields: [ID_User], references: [ID_User])
+  ID_User       Int
+  Shop          Shop[]
+}
+
+model Emotes {
+  ID_Emote      Int    @id @default(autoincrement())
+  EmoteName     String
+  EmotePicture  String
+  Shop          Shop[]
+}
+
+model DailyGift {
+  ID_Dailygift  Int     @id @default(autoincrement())
+  ClaimedAt     DateTime
+  Gift_Item     String
+}
+
+model ProfilePictures {
+  ID_PP   Int    @id @default(autoincrement())
+  PPName  String
+  PP      String
+  Theme       Themes[]
+}
+
+model Cards {
+  ID_THCard    Int    @id @default(autoincrement())
+  THCardName   String
+  THCard       String
+  Theme       Themes[]
+}
+
+model Coupons {
+  ID_Coupon  Int    @id @default(autoincrement())
+  Code       String @unique
+  State      Boolean
+  Qty        Int
+}
+
+model Themes {
+  ID_ThemeBG  Int    @id @default(autoincrement())
+  ThemeBGName String
+  ThemeBG     String
+  Card        Cards   @relation(fields: [ID_THCard], references: [ID_THCard])
+  ProfilePic  ProfilePictures @relation(fields: [ID_PP], references: [ID_PP])
+  ID_THCard   Int
+  ID_PP       Int
+  Shop        Shop[]
+  Inventory   Inventory[]
+}
+
+model Friends {
+  ID_Friend    Int     @id @default(autoincrement())
+  Connected  Boolean
+  Blocked  Boolean
+  User       Users   @relation(fields: [ID_User], references: [ID_User])
+  ID_User    Int
+}
+
+model GameHistory {
+  ID_GameHistory Int @id @default(autoincrement())
+  V_D           Boolean
+  DateGame      DateTime
+  MMRWin        Int
+  ID_User       Int
+  User          Users  @relation(fields: [ID_User], references: [ID_User])
+}
+
+model Session {
+  ID_Session      Int     @id @default(autoincrement())
+  Connected       Boolean
+  LastConnection  DateTime
+  TotalLoginCount Int
+  User            Users    @relation(fields: [ID_User], references: [ID_User])
+  ID_User         Int
+}
+
+model Items {
+  ID_Item       Int     @id @default(autoincrement())
+  ItemName      String
+  ItemPrice     Float
+  ItemImage     String
+  ItemOutDate   DateTime
+  ItemDisplay   Boolean
+  Stock         Int
+  Shop          Shop[]
+}
+
+model Shop {
+  ID_Shop    Int    @id @default(autoincrement())
+  TimeLeft   DateTime
+  Theme      Themes? @relation(fields: [ID_ThemeBG], references: [ID_ThemeBG])
+  ID_ThemeBG Int?
+  Achat      PurchaseHistory? @relation(fields: [ID_Achat], references: [ID_Achat])
+  ID_Achat   Int?
+  Emote      Emotes? @relation(fields: [ID_Emote], references: [ID_Emote])
+  ID_Emote   Int?
+  Item       Items? @relation(fields: [ID_Item], references: [ID_Item])
+  ID_Item    Int?
+}
+
+model Inventory {
+  ID_Inventory Int    @id @default(autoincrement())
+  Money       Float
+  Qty         Int
+  Theme       Themes? @relation(fields: [ID_ThemeBG], references: [ID_ThemeBG])
+  ID_ThemeBG  Int?
+  User        Users  @relation(fields: [ID_User], references: [ID_User])
+  ID_User     Int
 }
