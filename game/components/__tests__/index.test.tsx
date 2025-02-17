@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoginFormScreen from '../../app/index';
 import { motTraduit } from '@/components/translationHelper';
 
@@ -10,6 +10,13 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({
     replace: mockReplace,
   }),
+}));
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  setItem: jest.fn(),
+  getItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
 }));
 
 // Mock de la traduction
@@ -27,6 +34,8 @@ jest.mock('../../store/languageStore', () => ({
 describe('LoginFormScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (AsyncStorage.setItem as jest.Mock).mockResolvedValue('some value');
+    (AsyncStorage.getItem as jest.Mock).mockResolvedValue('some value');
   });
 
   it('affiche le titre KILLSPY', () => {
@@ -38,13 +47,6 @@ describe('LoginFormScreen', () => {
     const { getByText } = render(<LoginFormScreen />);
     expect(getByText('traduit-50')).toBeTruthy();
     expect(motTraduit).toHaveBeenCalledWith(0, 50);
-  });
-
-  it('navigue vers la page gamechoice lorsqu’on appuie sur le texte', () => {
-    const { getByText } = render(<LoginFormScreen />);
-    fireEvent.press(getByText('traduit-50'));
-
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)/gamechoice');
   });
 
   it('crée un snapshot du composant LoginFormScreen', () => {

@@ -11,6 +11,7 @@ exports[`LoginFormScreen crée un snapshot du composant LoginFormScreen 1`] = `
         "alignItems": "center",
         "flex": 1,
         "justifyContent": "center",
+        "padding": 20,
       },
     ]
   }
@@ -24,24 +25,348 @@ exports[`LoginFormScreen crée un snapshot du composant LoginFormScreen 1`] = `
         {
           "fontSize": 32,
           "fontWeight": "bold",
+          "marginBottom": 40,
         },
       ]
     }
   >
     KILLSPY
   </Text>
-  <Text
-    onPress={[Function]}
+  <TextInput
+    autoCapitalize="none"
+    onChangeText={[Function]}
+    placeholder="traduit-52"
+    style={
+      {
+        "backgroundColor": "white",
+        "borderColor": "#ccc",
+        "borderRadius": 8,
+        "borderWidth": 1,
+        "height": 50,
+        "marginBottom": 15,
+        "paddingHorizontal": 15,
+        "width": "100%",
+      }
+    }
+    value=""
+  />
+  <TextInput
+    onChangeText={[Function]}
+    placeholder="traduit-53"
+    secureTextEntry={true}
+    style={
+      {
+        "backgroundColor": "white",
+        "borderColor": "#ccc",
+        "borderRadius": 8,
+        "borderWidth": 1,
+        "height": 50,
+        "marginBottom": 15,
+        "paddingHorizontal": 15,
+        "width": "100%",
+      }
+    }
+    value=""
+  />
+  <View
     style={
       [
         {
-          "color": "#000",
+          "backgroundColor": "#fff",
         },
-        undefined,
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "marginBottom": 15,
+        },
       ]
     }
   >
-    traduit-50
-  </Text>
+    <View
+      accessibilityRole="checkbox"
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": false,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onBlur={[Function]}
+      onClick={[Function]}
+      onFocus={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        [
+          {
+            "borderColor": "#657786",
+            "borderRadius": 2,
+            "borderWidth": 2,
+            "height": 20,
+            "width": 20,
+          },
+          undefined,
+          false,
+          false,
+          undefined,
+          false,
+        ]
+      }
+    />
+    <Text
+      style={
+        [
+          {
+            "color": "#000",
+          },
+          {
+            "fontSize": 14,
+            "marginLeft": 8,
+          },
+        ]
+      }
+    >
+      traduit-57
+    </Text>
+  </View>
+  <View
+    accessibilityState={
+      {
+        "busy": undefined,
+        "checked": undefined,
+        "disabled": undefined,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      {
+        "alignItems": "center",
+        "backgroundColor": "#007AFF",
+        "borderRadius": 8,
+        "height": 50,
+        "justifyContent": "center",
+        "marginBottom": 15,
+        "width": "100%",
+      }
+    }
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#000",
+          },
+          {
+            "color": "white",
+            "fontSize": 16,
+            "fontWeight": "bold",
+          },
+        ]
+      }
+    >
+      traduit-56
+    </Text>
+  </View>
+  <View
+    accessibilityState={
+      {
+        "busy": undefined,
+        "checked": undefined,
+        "disabled": undefined,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      {
+        "alignItems": "center",
+        "backgroundColor": "#ced4da",
+        "borderRadius": 8,
+        "height": 50,
+        "justifyContent": "center",
+        "marginBottom": 15,
+        "width": "100%",
+      }
+    }
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#000",
+          },
+          {
+            "color": "white",
+            "fontSize": 16,
+            "fontWeight": "bold",
+          },
+        ]
+      }
+    >
+      traduit-50
+    </Text>
+  </View>
+  <View
+    accessibilityState={
+      {
+        "busy": undefined,
+        "checked": undefined,
+        "disabled": undefined,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      {
+        "padding": 10,
+      }
+    }
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#000",
+          },
+          {
+            "color": "#007AFF",
+            "fontSize": 14,
+          },
+        ]
+      }
+    >
+      traduit-54
+    </Text>
+  </View>
+  <View
+    accessibilityState={
+      {
+        "busy": undefined,
+        "checked": undefined,
+        "disabled": undefined,
+        "expanded": undefined,
+        "selected": undefined,
+      }
+    }
+    accessibilityValue={
+      {
+        "max": undefined,
+        "min": undefined,
+        "now": undefined,
+        "text": undefined,
+      }
+    }
+    accessible={true}
+    collapsable={false}
+    focusable={true}
+    onBlur={[Function]}
+    onClick={[Function]}
+    onFocus={[Function]}
+    onResponderGrant={[Function]}
+    onResponderMove={[Function]}
+    onResponderRelease={[Function]}
+    onResponderTerminate={[Function]}
+    onResponderTerminationRequest={[Function]}
+    onStartShouldSetResponder={[Function]}
+    style={
+      {
+        "padding": 10,
+      }
+    }
+  >
+    <Text
+      style={
+        [
+          {
+            "color": "#000",
+          },
+          {
+            "color": "#007AFF",
+            "fontSize": 14,
+          },
+        ]
+      }
+    >
+      traduit-55
+    </Text>
+  </View>
 </View>
 `;
