@@ -56,7 +56,13 @@
       54: 'Mot de passe oublié ?',
       55: 'Créer un compte',
       56: 'Connexion',
-      57: 'Se souvenir de moi'
+      57: 'Se souvenir de moi',
+      58: 'Nom d\'utilisateur',
+      59: 'Email',
+      60: 'Confirmation du mot de passe',
+      61: 'J\'accepte les conditions génerale',
+      62: 'Déjà un compte ?',
+      63: 'S\'inscrire',
     },
     1: { // Anglais
       1: 'Welcome',
