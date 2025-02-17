@@ -14,23 +14,67 @@ export default function LoginFormScreen() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoginForm, setIsLoginForm] = useState(true);
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [passwordCrea, setPasswordCrea] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
-  const validateIdentifier = (value: string) => {
-    // Regex pour vérifier si c'est un email ou un username
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-    return emailRegex.test(value) || usernameRegex.test(value);
+  const changeForm = () => {
+      setIsLoginForm(isLoginForm => !isLoginForm);
+  };
+
+  const handleSignup = async () => {
+    if (!acceptTerms) {
+      Alert.alert('Erreur', 'Veuillez accepter les conditions.');
+      return;
+    }
+    if (passwordCrea !== confirmPassword) {
+      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
+      return;
+    }
+
+    if (!username && !email) {
+      Alert.alert('Erreur', 'Les champs sont vides.');
+      return;
+    }
+    
+    try {
+      
+      const response = await fetch(`${apiUrl}/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Erreur', data.message || 'Erreur de connexion');
+        return;
+      } 
+
+      Alert.alert('Inscription réussie', 'Bienvenue agent veuillez vous connecter');
+      changeForm();
+    } catch (error) {
+      Alert.alert('Erreur', 'Erreur de connexion au serveur');
+    }
   };
 
   const handleLogin = async () => {
-    if (!validateIdentifier(identifier)) {
+    if (!identifier) {
       Alert.alert('Erreur', 'Identifiant invalide');
       return;
     }
 
     try {
-      // Détermine si l'identifiant est un email ou un username
-      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
       
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
@@ -38,9 +82,8 @@ export default function LoginFormScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: isEmail ? identifier : '',
-          username: !isEmail ? identifier : '',
-          password: password,
+          identifier,
+          password,
         }),
       });
 
@@ -96,7 +139,8 @@ export default function LoginFormScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>KILLSPY</Text>
-
+      {isLoginForm ? (
+        <>
       <TextInput
         style={styles.input}
         placeholder={motTraduit(langIndex, 52)}
@@ -121,9 +165,53 @@ export default function LoginFormScreen() {
         />
         <Text style={styles.checkboxLabel}>{motTraduit(langIndex, 57)}</Text>
       </View>
+      </>
+      ) : (
+      <>
+      <TextInput
+        style={styles.input}
+        placeholder={motTraduit(langIndex, 58)}
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+      />
 
-      <Pressable style={styles.button} onPress={handleLogin}>
-        <Text style={styles.buttonText}>{motTraduit(langIndex, 56)}</Text>
+      <TextInput
+        style={styles.input}
+        placeholder={motTraduit(langIndex, 59)}
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder={motTraduit(langIndex, 53)}
+        value={passwordCrea}
+        onChangeText={setPasswordCrea}
+        secureTextEntry
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder={motTraduit(langIndex, 60)}
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        secureTextEntry
+      />
+
+      <View style={styles.checkboxContainer}>
+        <Checkbox
+          value={acceptTerms}
+          onValueChange={setAcceptTerms}
+          color={acceptTerms ? '#007AFF' : undefined}
+        />
+        <Text style={styles.checkboxLabel}>{motTraduit(langIndex, 61)}</Text>
+      </View>
+      </>
+      )}
+      <Pressable style={styles.button} onPress={isLoginForm ? handleLogin : handleSignup}>
+        <Text style={styles.buttonText}>{isLoginForm ? motTraduit(langIndex, 56) : motTraduit(langIndex, 63)}</Text>
       </Pressable>
 
       <Pressable 
@@ -140,11 +228,8 @@ export default function LoginFormScreen() {
         <Text style={styles.textButtonText}>{motTraduit(langIndex, 54)}</Text>
       </Pressable>
 
-      <Pressable 
-        style={styles.textButton}
-
-      >
-        <Text style={styles.textButtonText}>{motTraduit(langIndex, 55)}</Text>
+      <Pressable style={styles.textButton} onPress={changeForm}>
+        <Text style={styles.textButtonText}>{isLoginForm ? motTraduit(langIndex, 55) : motTraduit(langIndex, 62)}</Text>
       </Pressable>
 
     </View>

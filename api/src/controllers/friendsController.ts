@@ -19,7 +19,7 @@ export const addFriend = async (req: Request, res: Response, next: NextFunction)
     });
 
     if (!friendToAdd) {
-      return next(new HttpException("Utilisateur introuvable!", ErrCodes.CLIENT_NOT_FOUND, statusCodes.NOT_FOUND, null));
+      return next(new HttpException("Utilisateur introuvable!", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
 
     // Vérifie si l'amitié existe déjà

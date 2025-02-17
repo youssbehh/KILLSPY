@@ -33,8 +33,27 @@ export const signup = async (req: Request, res: Response, next: NextFunction) =>
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password } = req.body;
-    let user = await prisma_client.users.findFirst({ where: { Email: email } });
+    const { identifier, password } = req.body;
+
+    // Validation de l'identifiant
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isEmail = emailRegex.test(identifier);
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    const isUsername = usernameRegex.test(identifier);
+    if (!isEmail && !isUsername) {
+      return next(new HttpException("Identifiant invalide!", ErrCodes.INVALID_IDENTIFIER, statusCodes.BAD_REQUEST, null));
+    }
+
+    // Recherche de l'utilisateur par email ou nom d'utilisateur
+    let user = await prisma_client.users.findFirst({ 
+      where: { 
+        OR: [
+          { Email: isEmail ? identifier : undefined },
+          { Username: isUsername ? identifier : undefined }
+        ]
+      } 
+    });
+
     if (!user) {
       return next(new HttpException("Utilisateur introuvable!", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
