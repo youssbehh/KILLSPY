@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppRegistry, ScrollView } from 'react-native';
 import { Pressable, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { Text, View } from '@/components/Themed';
 import { Card } from '@rneui/themed';
 import { appVersion } from '../../config';
 import { useLanguageStore } from '../../store/languageStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faRobot, faBolt, faTrophy, faUsersViewfinder } from '@fortawesome/free-solid-svg-icons';
@@ -23,6 +24,7 @@ const element = () => (
 export default function GameChoiceScreen() {
   const { langIndex } = useLanguageStore();
   const router = useRouter();
+  const [username, setUsername] = useState<string>('');
 
   const handleGameChoice = (modeId: number) => {
     router.push({
@@ -30,6 +32,14 @@ export default function GameChoiceScreen() {
       params: { mode: motTraduit(langIndex, modeId) }
     });
   };
+
+  useEffect(() => {
+    const getUsername = async () => {
+      const storedUsername = await AsyncStorage.getItem('username');
+      setUsername(storedUsername || '');
+    };
+    getUsername();
+  }, []);
 
   return (
     <>
@@ -43,7 +53,7 @@ export default function GameChoiceScreen() {
     />
     <View style={styles.container}>
       <Text style={styles.titleh1}>KILLSPY</Text>
-      <Text style={styles.titleh2}>{motTraduit(langIndex, 11)} <Text style={styles.boldText}>LoremIpsum57</Text></Text>
+      <Text style={styles.titleh2}>{motTraduit(langIndex, 11)} <Text style={styles.boldText}>{username}</Text></Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       <ScrollView style={styles.cardStyle}>
         <Pressable onPress={() => handleGameChoice(12)}>
@@ -51,7 +61,7 @@ export default function GameChoiceScreen() {
               <Card.Title>{motTraduit(langIndex, 12)}</Card.Title>
               <Card.Divider />
               <View style={styles.iconContainer}>
-                  <FontAwesomeWrapper icon={faRobot} size={30} />
+                  <FontAwesomeWrapper icon={faRobot} size="2x" />
               </View>
           </Card>
         </Pressable>
@@ -60,7 +70,7 @@ export default function GameChoiceScreen() {
               <Card.Title>{motTraduit(langIndex, 13)}</Card.Title>
               <Card.Divider />
               <View style={styles.iconContainer}>
-                  <FontAwesomeWrapper icon={faBolt} size={30} />
+                  <FontAwesomeWrapper icon={faBolt} size="2x" />
               </View>
           </Card>
         </Pressable>
@@ -69,7 +79,7 @@ export default function GameChoiceScreen() {
               <Card.Title>{motTraduit(langIndex, 14)}</Card.Title>
               <Card.Divider />
               <View style={styles.iconContainer}>
-                  <FontAwesomeWrapper icon={faTrophy} size={30} />
+                  <FontAwesomeWrapper icon={faTrophy} size="2x" />
               </View>
           </Card>
         </Pressable>
@@ -78,7 +88,7 @@ export default function GameChoiceScreen() {
               <Card.Title>{motTraduit(langIndex, 15)}</Card.Title>
               <Card.Divider />
               <View style={styles.iconContainer}>
-                  <FontAwesomeWrapper icon={faUsersViewfinder} size={30} />
+                  <FontAwesomeWrapper icon={faUsersViewfinder} size="2x" />
               </View>
           </Card>
         </Pressable>

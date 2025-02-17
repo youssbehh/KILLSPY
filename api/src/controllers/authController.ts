@@ -61,7 +61,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 const generateGuestUsername = async () => {
   while (true) {
     const randomNum = Math.floor(Math.random() * 100000);
-    const guestUsername = `guest${randomNum}`;
+    const guestUsername = `Guest${randomNum}`;
     const existingUser = await prisma_client.users.findFirst({ 
       where: { Username: guestUsername } 
     });
@@ -75,7 +75,7 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
     const guest = await prisma_client.users.create({
       data: {
         Username: username,
-        Email: "guest",
+        Email: username+"@killspy.com",
         Password: hashSync("guest", 10),
         MMR: 0,
       }

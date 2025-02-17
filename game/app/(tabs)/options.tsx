@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
+import { StyleSheet, ScrollView, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
 import { appVersion } from '../../config';
 import { useLanguageStore } from '../../store/languageStore';
 import { Button } from '@rneui/themed';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import AudioContainer from '../sousoptions/optaudio';
 import CompteContainer from '../sousoptions/optcompte';
@@ -20,6 +21,34 @@ export default function OptionsScreen() {
   const { langIndex } = useLanguageStore();
   const router = useRouter();
 
+  const handleLogout = async () => {
+    Alert.alert(
+      motTraduit(langIndex, 44), // "Déconnexion"
+      motTraduit(langIndex, 46), // "Êtes-vous sûr de vouloir vous déconnecter ?"
+      [
+        {
+          text: motTraduit(langIndex, 35), // "Annuler"
+          style: 'cancel',
+        },
+        {
+          text: motTraduit(langIndex, 39), // "Déconnexion"
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Supprime toutes les données stockées
+              await AsyncStorage.clear();
+              // Redirige vers la page de connexion
+              router.replace('/');
+            } catch (error) {
+              console.error('Erreur lors de la déconnexion:', error);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.titleh1}>{motTraduit(langIndex, 7)}</Text>
@@ -31,7 +60,7 @@ export default function OptionsScreen() {
         <SupportContainer/>
         <DiversContainer/>
         <ProposContainer/>
-        <Button onPress={() => router.dismissAll()}>{motTraduit(langIndex, 51)}</Button>
+        <Button onPress={handleLogout}>{motTraduit(langIndex, 51)}</Button>
       </ScrollView>
       
       <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>

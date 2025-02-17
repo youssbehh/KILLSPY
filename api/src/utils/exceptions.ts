@@ -29,7 +29,8 @@ export enum ErrCodes {
     CLIENT_ALREADY_EXISTS = 2002,  // Client déjà existant
     CLIENT_NOT_FOUND = 2003,       // Client introuvable
 
-    LOAN_NOT_FOUND = 3001
+    FRIENDS_NOT_FOUND = 3001,
+    FRIEND_ALREADY_EXISTS = 3002
 }
 
 

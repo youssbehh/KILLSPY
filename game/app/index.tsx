@@ -3,6 +3,7 @@ import { StyleSheet, TextInput, Pressable, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
+import { appVersion, apiUrl } from '../config';
 import { useLanguageStore } from '../store/languageStore';
 import Checkbox from 'expo-checkbox';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,7 +32,7 @@ export default function LoginFormScreen() {
       // Détermine si l'identifiant est un email ou un username
       const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
       
-      const response = await fetch('http://localhost:3000/api/auth/login', {
+      const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,13 +65,41 @@ export default function LoginFormScreen() {
     }
   };
 
+  const handleGuest = async () => {
+
+    try {
+    console.log(`${apiUrl}`)
+      const response = await fetch(`${apiUrl}/auth/guest`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Erreur', data.message || 'Erreur de connexion');
+        return;
+      }
+
+      // Stockage du token et redirection
+      // TODO: Stocker data.token de manière sécurisée
+      await AsyncStorage.setItem('userId', data.user.id);
+      await AsyncStorage.setItem('username', data.user.username);
+      router.replace('/(tabs)/gamechoice');
+    } catch (error) {
+      Alert.alert('Erreur', 'Erreur de connexion au serveur');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>KILLSPY</Text>
 
       <TextInput
         style={styles.input}
-        placeholder={motTraduit(langIndex, 52)} // "Email ou nom d'utilisateur"
+        placeholder={motTraduit(langIndex, 52)}
         value={identifier}
         onChangeText={setIdentifier}
         autoCapitalize="none"
@@ -78,7 +107,7 @@ export default function LoginFormScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder={motTraduit(langIndex, 53)} // "Mot de passe"
+        placeholder={motTraduit(langIndex, 53)}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -90,35 +119,32 @@ export default function LoginFormScreen() {
           onValueChange={setRememberMe}
           color={rememberMe ? '#007AFF' : undefined}
         />
-        <Text style={styles.checkboxLabel}>{motTraduit(langIndex, 57)}</Text> {/* "Se souvenir de moi" */}
+        <Text style={styles.checkboxLabel}>{motTraduit(langIndex, 57)}</Text>
       </View>
 
-      <Pressable 
-        style={styles.button}
-        onPress={handleLogin}
-      >
-        <Text style={styles.buttonText}>{motTraduit(langIndex, 56)}</Text> {/* "Se connecter" */}
+      <Pressable style={styles.button} onPress={handleLogin}>
+        <Text style={styles.buttonText}>{motTraduit(langIndex, 56)}</Text>
       </Pressable>
 
       <Pressable 
         style={styles.buttonGuest}
-        onPress={() => router.replace('/(tabs)/gamechoice')}
+        onPress={handleGuest}
       >
-        <Text style={styles.buttonText}>{motTraduit(langIndex, 50)}</Text> {/* "Invité" */}
+        <Text style={styles.buttonText}>{motTraduit(langIndex, 50)}</Text>
       </Pressable>
 
       <Pressable 
         style={styles.textButton}
 
       >
-        <Text style={styles.textButtonText}>{motTraduit(langIndex, 54)}</Text> {/* "Mot de passe oublié ?" */}
+        <Text style={styles.textButtonText}>{motTraduit(langIndex, 54)}</Text>
       </Pressable>
 
       <Pressable 
         style={styles.textButton}
 
       >
-        <Text style={styles.textButtonText}>{motTraduit(langIndex, 55)}</Text> {/* "Créer un compte" */}
+        <Text style={styles.textButtonText}>{motTraduit(langIndex, 55)}</Text>
       </Pressable>
 
     </View>
