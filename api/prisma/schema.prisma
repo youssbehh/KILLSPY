@@ -19,20 +19,26 @@ model Users {
   Email     String  @unique
   Password  String
   MMR       Int
-  Leaderboard Leaderboard?
+  isGuest    Boolean @default(false)
+  CreatedAt  DateTime @default(now())
+
+  Leaderboard Leaderboard? 
   Roles      Roles[]
   Ranks      Ranks[]
-  Purchases  PurchaseHistory[]
-  Sessions   Session[]
-  Friends  Friends[]
-  Inventory   Inventory[]
-  Result  GameHistory[]
+  Purchases  PurchaseHistory[] 
+  Sessions   Session[] 
+  Friends    Friends[] 
+  Inventory  Inventory[] 
+  Result     GameHistory[] 
 }
 
-model Leaderboard {
-  ID_Leaderboard Int @id @default(autoincrement())
-  User          Users @relation(fields: [ID_User], references: [ID_User])
-  ID_User       Int  @unique
+model Session {
+  ID_Session      Int     @id @default(autoincrement())
+  Connected       Boolean
+  LastConnection  DateTime
+  TotalLoginCount Int
+  User            Users    @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
+  ID_User         Int
 }
 
 model Roles {
@@ -47,15 +53,6 @@ model Ranks {
   RankName  String
   MMR_Range String
   Users     Users[]
-}
-
-model PurchaseHistory {
-  ID_Achat      Int     @id @default(autoincrement())
-  PurchaseDate  DateTime
-  Qty           Int
-  User          Users    @relation(fields: [ID_User], references: [ID_User])
-  ID_User       Int
-  Shop          Shop[]
 }
 
 model Emotes {
@@ -105,11 +102,11 @@ model Themes {
 }
 
 model Friends {
-  ID_Friend    Int     @id @default(autoincrement())
-  Connected  Boolean
-  Blocked  Boolean
-  User       Users   @relation(fields: [ID_User], references: [ID_User])
-  ID_User    Int
+  ID_Friend   Int     @id @default(autoincrement())
+  Connected   Boolean
+  Blocked     Boolean
+  User        Users   @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
+  ID_User     Int
 }
 
 model GameHistory {
@@ -117,17 +114,23 @@ model GameHistory {
   V_D           Boolean
   DateGame      DateTime
   MMRWin        Int
+  User          Users  @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
   ID_User       Int
-  User          Users  @relation(fields: [ID_User], references: [ID_User])
 }
 
-model Session {
-  ID_Session      Int     @id @default(autoincrement())
-  Connected       Boolean
-  LastConnection  DateTime
-  TotalLoginCount Int
-  User            Users    @relation(fields: [ID_User], references: [ID_User])
-  ID_User         Int
+model PurchaseHistory {
+  ID_Achat      Int     @id @default(autoincrement())
+  PurchaseDate  DateTime
+  Qty           Int
+  User          Users    @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
+  ID_User       Int
+  Shop          Shop[]
+}
+
+model Leaderboard {
+  ID_Leaderboard Int @id @default(autoincrement())
+  User          Users @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
+  ID_User       Int  @unique
 }
 
 model Items {
@@ -158,8 +161,9 @@ model Inventory {
   ID_Inventory Int    @id @default(autoincrement())
   Money       Float
   Qty         Int
-  Theme       Themes? @relation(fields: [ID_ThemeBG], references: [ID_ThemeBG])
+  Theme       Themes? @relation(fields: [ID_ThemeBG], references: [ID_ThemeBG], onDelete: Cascade)
   ID_ThemeBG  Int?
-  User        Users  @relation(fields: [ID_User], references: [ID_User])
+  User        Users  @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
   ID_User     Int
 }
+

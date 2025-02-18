@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { prisma_client } from '..';
-import { hashSync, compareSync } from 'bcrypt';
+import { hashSync, compare } from 'bcrypt';
 import * as jwt from 'jsonwebtoken'
 import { JWT_SECRET } from '../secrets';
 import { HttpException, statusCodes, ErrCodes } from '../utils/exceptions';
@@ -18,6 +18,8 @@ export const signup = async (req: Request, res: Response, next: NextFunction) =>
         Email: email,
         Password: hashSync(password, 10),
         MMR: 0,
+        isGuest: false,
+        CreatedAt: new Date()
       }
     })
     res.status(200).json({ user : {
@@ -53,13 +55,33 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         ]
       } 
     });
-
+   
     if (!user) {
       return next(new HttpException("Utilisateur introuvable!", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
-    if(!compareSync(password, user.Password)){
+
+    if(!compare(password, user.Password)){
       return next(new HttpException("Mot de passe incorrect!", ErrCodes.INCORRECT_PASSWORD, statusCodes.BAD_REQUEST, null));
     }
+
+    // Vérifie si une session existe déjà pour cet utilisateur
+    const existingSession = await prisma_client.session.findFirst({
+      where: { ID_User: user.ID_User }
+    });
+
+    if (existingSession) {
+      // 🔥 Mettre à jour la session existante
+      await prisma_client.session.update({
+        where: { ID_Session: existingSession.ID_Session },
+        data: { Connected: true, LastConnection: new Date() }
+      });
+    } else {
+      // 🔥 Créer une nouvelle session si elle n'existe pas
+      await prisma_client.session.create({
+        data: { ID_User: user.ID_User, Connected: true, LastConnection: new Date(), TotalLoginCount: +1 }
+      });
+    }
+
     const token = jwt.sign({
       id : user.ID_User,
     },JWT_SECRET)
@@ -97,8 +119,21 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
         Email: username+"@killspy.com",
         Password: hashSync("guest", 10),
         MMR: 0,
+        isGuest: true,
+        CreatedAt: new Date()
       }
     })
+
+    // 🔥 Crée une session pour l'invité avec `Connected = true`
+    await prisma_client.session.create({
+      data: {
+        ID_User: guest.ID_User,
+        Connected: true,
+        LastConnection: new Date(),
+        TotalLoginCount: +1
+      }
+    });
+
     res.status(200).json({ user : {
       id : guest.ID_User,
       username: guest.Username,
@@ -108,3 +143,43 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
     return next(new HttpException("Erreur compte invité", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
   }
 }
+
+export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    console.log(userId)
+    if (!userId) {
+      console.log("test")
+      return next(new HttpException("Utilisateur non authentifié.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.UNAUTHORIZED, null));
+    }
+
+    const user = await prisma_client.users.findUnique({ where: { ID_User: userId } });
+
+    if (!user) {
+      return next(new HttpException("Utilisateur introuvable.", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
+    }
+
+    if (user.isGuest) {
+      try {
+        await prisma_client.session.deleteMany({ where: { ID_User: userId } });
+        await prisma_client.users.delete({ where: { ID_User: userId } });
+
+        console.log(`🗑️ Utilisateur invité supprimé : ${user.Username}`);
+        res.status(200).json({ message: "Utilisateur invité supprimé." });
+      } catch (error) {
+        console.error("Erreur lors de la suppression de l'utilisateur invité :", error);
+        return next(new HttpException("Erreur lors de la suppression de l'invité.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, error));
+      }
+    } else {
+      await prisma_client.session.updateMany({
+        where: { ID_User: userId },
+        data: { Connected: false, LastConnection: new Date() }
+      });
+
+      res.status(200).json({ message: "Déconnexion réussie." });
+    }
+  } catch (error) {
+    console.error("Erreur lors de la déconnexion :", error);
+    return next(new HttpException("Erreur de déconnexion.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, error));
+  }
+};

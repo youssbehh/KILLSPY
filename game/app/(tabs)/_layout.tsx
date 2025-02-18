@@ -39,7 +39,7 @@ export default function TabLayout() {
                 {({ pressed }) => (
                   <Avatar
                     rounded
-                    title='I'
+                    title='P'
                     size={30}
                     source={{ uri: 'https://example.com/your-avatar.jpg' }}
                     containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
@@ -61,7 +61,7 @@ export default function TabLayout() {
                 {({ pressed }) => (
                   <Avatar
                     rounded
-                    title='I'
+                    title='P'
                     size={30}
                     source={{ uri: 'https://example.com/your-avatar.jpg' }}
                     containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
@@ -83,7 +83,7 @@ export default function TabLayout() {
                 {({ pressed }) => (
                   <Avatar
                     rounded
-                    title='I'
+                    title='P'
                     size={30}
                     source={{ uri: 'https://example.com/your-avatar.jpg' }}
                     containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
@@ -105,7 +105,7 @@ export default function TabLayout() {
                 {({ pressed }) => (
                   <Avatar
                     rounded
-                    title='I'
+                    title='P'
                     size={30}
                     source={{ uri: 'https://example.com/your-avatar.jpg' }}
                     containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
@@ -127,7 +127,7 @@ export default function TabLayout() {
                 {({ pressed }) => (
                   <Avatar
                     rounded
-                    title='I'
+                    title='P'
                     size={30}
                     source={{ uri: 'https://example.com/your-avatar.jpg' }}
                     containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
