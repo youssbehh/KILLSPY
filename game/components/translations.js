@@ -63,6 +63,7 @@
       61: 'J\'accepte les conditions génerale',
       62: 'Déjà un compte ?',
       63: 'S\'inscrire',
+      64: 'Êtes-vous sûr de vouloir vous déconnecter ?'
     },
     1: { // Anglais
       1: 'Welcome',

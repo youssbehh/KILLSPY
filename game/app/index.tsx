@@ -97,7 +97,8 @@ export default function LoginFormScreen() {
       // Stockage du token et redirection
       // TODO: Stocker data.token de manière sécurisée
       await AsyncStorage.setItem('userToken', data.token);
-      await AsyncStorage.setItem('userId', data.id);
+      await AsyncStorage.setItem('userId', data.user.id);
+      await AsyncStorage.setItem('username', data.user.username);
       if (rememberMe){
         await AsyncStorage.setItem('User', identifier);
         await AsyncStorage.setItem('password', data.password);
@@ -231,7 +232,7 @@ export default function LoginFormScreen() {
       <Pressable style={styles.textButton} onPress={changeForm}>
         <Text style={styles.textButtonText}>{isLoginForm ? motTraduit(langIndex, 55) : motTraduit(langIndex, 62)}</Text>
       </Pressable>
-
+      <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>
     </View>
   );
 }
@@ -296,5 +297,11 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     marginLeft: 8,
     fontSize: 14,
+  },
+  footer: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#888',
+    marginBottom: 5,
   },
 });

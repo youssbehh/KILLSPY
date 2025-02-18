@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, AppRegistry } from 'react-native';
+import React, { useState, useEffect  } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, AppRegistry, TextInput, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '../../store/languageStore';
 
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
-import { faCaretDown } from '@fortawesome/free-solid-svg-icons';
+import { faCaretDown, faCheck, faEdit, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { faCaretUp } from '@fortawesome/free-solid-svg-icons';
-import { Input } from '@rneui/themed';
 
 const element = () => (
     <View>
@@ -37,15 +37,88 @@ interface CompteParamProps {
 };
   const CompteContainer = () => {
     const { langIndex, setLanguage } = useLanguageStore();
+    const [username, setUsername] = useState<string | null>(null);
+    const [userChange, setUserChange] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const handleLanguageChange = async (value: number) => {
        await setLanguage(value);
     };
 
+    useEffect(() => {
+      const fetchUsername = async () => {
+          const storedUsername = await AsyncStorage.getItem('username');
+          setUsername(storedUsername);
+      };
+      fetchUsername();
+  }, []);
+
+  // Fonction pour activer le mode édition
+  const startEditing = () => {
+      setUserChange(username || '');
+      setIsEditing(true);
+  };
+
+  // Fonction pour annuler la modification
+  const cancelEditing = () => {
+      setIsEditing(false);
+      setUserChange(username || '');
+  };
+
+  // Fonction pour appliquer la mise à jour du nom d'utilisateur
+  const updateUsername = async () => {
+      setLoading(true);
+      try {
+          // Appelle l'API pour mettre à jour le nom d'utilisateur
+          const response = await fetch('http://localhost:4000/api/user/update-username', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ newUsername: userChange }),
+          });
+
+          if (!response.ok) {
+              throw new Error('Erreur lors de la mise à jour du nom d\'utilisateur.');
+          }
+
+          // Met à jour AsyncStorage et l'état local
+          await AsyncStorage.setItem('username', userChange);
+          setUsername(userChange);
+          setIsEditing(false);
+      } catch (error) {
+          console.error(error);
+      }
+      setLoading(false);
+  };
+
     return (
         <View>
             <CompteParam title={motTraduit(langIndex, 20)}>
                 <Text>{motTraduit(langIndex, 46)} :</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder={username || 'Nom d\'utilisateur'}
+                    value={userChange}
+                    onChangeText={setUserChange}
+                    editable={isEditing}
+                    autoCapitalize="none"
+                  />
+                  {isEditing ? (
+                        <View style={styles.buttonContainer}>
+                            <TouchableOpacity style={styles.applyButton} onPress={updateUsername} disabled={loading}>
+                                {loading ? <ActivityIndicator color="white" /> : <FontAwesomeWrapper icon={faCheck} />}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.cancelButton} onPress={cancelEditing}>
+                                <FontAwesomeWrapper icon={faTimes} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity style={styles.editButton} onPress={startEditing}>
+                            <FontAwesomeWrapper icon={faEdit} />
+                        </TouchableOpacity>
+                    )}
                 <Text>{motTraduit(langIndex, 25)} :</Text>
                 <View style={styles.radioContainer}>
                     <TouchableOpacity 
@@ -89,6 +162,39 @@ const styles = StyleSheet.create({
    padding: 10,
    backgroundColor: '#fff',
  },
+ inputContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  borderBottomWidth: 1,
+  borderBottomColor: '#ccc',
+  marginVertical: 10,
+},
+input: {
+  flex: 1,
+  padding: 10,
+  fontSize: 16,
+},
+buttonContainer: {
+  flexDirection: 'row',
+  padding : 5
+},
+editButton: {
+  marginLeft: 10,
+  padding: 8,
+  backgroundColor: '#007bff',
+  borderRadius: 5,
+},
+applyButton: {
+  padding: 8,
+  backgroundColor: 'green',
+  borderRadius: 5,
+  marginRight: 5,
+},
+cancelButton: {
+  padding: 8,
+  backgroundColor: 'red',
+  borderRadius: 5,
+},
  radioContainer: {
   marginTop: 10,
 },

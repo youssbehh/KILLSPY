@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { StyleSheet, ScrollView, Alert } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { StyleSheet, ScrollView, Alert, Modal } from 'react-native';
+import { useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
-import { appVersion } from '../../config';
+import { apiUrl, appVersion } from '../../config';
 import { useLanguageStore } from '../../store/languageStore';
 import { Button } from '@rneui/themed';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,33 +20,48 @@ import ProposContainer from '../sousoptions/optpropos';
 export default function OptionsScreen() {
   const { langIndex } = useLanguageStore();
   const router = useRouter();
+  const [modalVisible, setModalVisible] = useState(false);
 
   const handleLogout = async () => {
-    Alert.alert(
-      motTraduit(langIndex, 44), // "Déconnexion"
-      motTraduit(langIndex, 46), // "Êtes-vous sûr de vouloir vous déconnecter ?"
-      [
-        {
-          text: motTraduit(langIndex, 35), // "Annuler"
-          style: 'cancel',
+    setModalVisible(true);
+  
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      console.log("Token récupéré :", token);
+  
+      if (!token) {
+        console.warn("Aucun token trouvé, l'utilisateur est peut-être déjà déconnecté.");
+        await AsyncStorage.clear();
+        router.replace('/');
+        return;
+      }
+  
+      const response = await fetch(`${apiUrl}/auth/logout`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        {
-          text: motTraduit(langIndex, 39), // "Déconnexion"
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Supprime toutes les données stockées
-              await AsyncStorage.clear();
-              // Redirige vers la page de connexion
-              router.replace('/');
-            } catch (error) {
-              console.error('Erreur lors de la déconnexion:', error);
-            }
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+      });
+
+      console.log("Réponse serveur :", response.status, await response.text());
+  
+      if (!response.ok) {
+        throw new Error(`Erreur serveur: ${response.status}`);
+      }
+  
+      console.log("Déconnexion réussie");
+      await AsyncStorage.clear();
+      router.replace('/');
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error);
+    }
+  };
+  
+  const confirmLogout = async () => {
+    setModalVisible(false);
+    await AsyncStorage.clear();
+    router.replace('/');
   };
 
   return (
@@ -61,6 +76,16 @@ export default function OptionsScreen() {
         <DiversContainer/>
         <ProposContainer/>
         <Button onPress={handleLogout}>{motTraduit(langIndex, 51)}</Button>
+
+        <Modal visible={modalVisible} transparent>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <View style={{ width: 300, padding: 20, backgroundColor: 'white', borderRadius: 10 }}>
+              <Text style={{ padding: 5 }}>{motTraduit(langIndex, 64)}</Text>
+              <Button title={motTraduit(langIndex, 35)} onPress={() => setModalVisible(false)} style={{ padding: 5 }} />
+              <Button title={motTraduit(langIndex, 51)} onPress={confirmLogout} style={{ padding: 5 }} />
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
       
       <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>

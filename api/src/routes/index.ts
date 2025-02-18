@@ -3,7 +3,7 @@ import authRoutes from './authRoutes'
 import usersRoutes from './usersRoutes'
 import friendsRoutes from './friendsRoutes'
 import inventoryRoutes from './inventoryRoutes'
-import settingsRoutes from './settingsRoutes'
+import settingsRoutes from './sessionRoutes'
 
 const rootRouter: Router = Router()
 
