@@ -47,7 +47,7 @@ jobs:
       working-directory: game
 
     - name: ------------ EXECUTION DES TESTS JEST (GAME) ------------
-      run: npm test
+      run: npm test -- -u
       working-directory: game
 
     - name: ------------ ARRÊTER LE SERVEUR EXPO ------------
