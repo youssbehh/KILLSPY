@@ -3,7 +3,7 @@ import { StyleSheet, ScrollView, Alert, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
-import { apiUrl, appVersion } from '../../config';
+import { appVersion } from '../../config';
 import { useLanguageStore } from '../../store/languageStore';
 import { Button } from '@rneui/themed';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,6 +21,7 @@ export default function OptionsScreen() {
   const { langIndex } = useLanguageStore();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   const handleLogout = async () => {
     setModalVisible(true);
