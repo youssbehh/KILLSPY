@@ -21,6 +21,8 @@ model Users {
   MMR       Int
   isGuest    Boolean @default(false)
   CreatedAt  DateTime @default(now())
+  archived  Boolean @default(false)
+  deletionDate  DateTime?
 
   Leaderboard Leaderboard? 
   Roles      Roles[]

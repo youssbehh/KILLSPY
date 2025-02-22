@@ -23,8 +23,11 @@ export default function OptionsScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  const handleLogout = async () => {
+  const confirmLogoutMessage = async () => {
     setModalVisible(true);
+  };
+
+  const handleLogout = async () => {
   
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -76,7 +79,7 @@ export default function OptionsScreen() {
         <SupportContainer/>
         <DiversContainer/>
         <ProposContainer/>
-        <Button onPress={handleLogout}>{motTraduit(langIndex, 51)}</Button>
+        <Button onPress={confirmLogoutMessage}>{motTraduit(langIndex, 51)}</Button>
 
         <Modal visible={modalVisible} transparent>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>

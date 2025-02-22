@@ -72,6 +72,12 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
           return next(new HttpException("Utilisateur introuvable.", ErrCodes.UNAUTHORIZED_ACCESS, statusCodes.NOT_FOUND, null));
       }
 
+      // Vérifiez si l'utilisateur est un invité
+      if (user.isGuest) {
+        return next(new HttpException("Les utilisateurs invités ne peuvent pas changer leur nom d'utilisateur.", ErrCodes.IS_GUEST, statusCodes.FORBIDDEN, null));
+    }
+
+
       // Mettre à jour le nom d'utilisateur
       const updatedUser = await prisma_client.users.update({
           where: { ID_User: req.user.id },
@@ -85,14 +91,29 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-export const getAllTAgs = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const tags = await prisma_client.users.findMany({ where : { ID_User: req.user.id }, select: { Username: true }})
-    if(!tags) return next(new HttpException("Aucun Username trouvé.", ErrCodes.UNAUTHORIZED_ACCESS, statusCodes.NOT_FOUND, null))
+      // Vérifiez si l'utilisateur existe
+      const user = await prisma_client.users.findUnique({
+          where: { ID_User: req.user.id }
+      });
 
-    res.status(200).json({ msg: "Usernames bien trouvés.", tags })
-  } catch(e:any) {
-    console.log(e)
-    return next(new HttpException("Erreur dans la récupération des usernames.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
+      if (!user) {
+          return next(new HttpException("Utilisateur introuvable.", ErrCodes.UNAUTHORIZED_ACCESS, statusCodes.NOT_FOUND, null));
+      }
+
+      // Marquer l'utilisateur comme supprimé
+      await prisma_client.users.update({
+          where: { ID_User: req.user.id },
+          data: {
+              archived: true,
+              deletionDate: new Date() // Enregistrer la date de la demande de suppression
+          }
+      });
+
+      res.status(200).json({ msg: "Demande de suppression de compte enregistrée. Votre compte sera supprimé dans 30 jours." });
+  } catch (e: any) {
+      console.log(e);
+      return next(new HttpException("Erreur lors de la demande de suppression du compte.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null));
   }
-}
+};

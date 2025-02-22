@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, AppRegistry } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, AppRegistry, Alert, Modal } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '../../store/languageStore';
+import { useRouter } from 'expo-router';
+import { Button } from '@rneui/themed';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faCaretDown, faCaretUp } from '@fortawesome/free-solid-svg-icons';
@@ -33,12 +36,111 @@ interface ProposParamProps {
       </View>
     );
 };
+
 const ProposContainer = () => {
     const { langIndex } = useLanguageStore();
+    const [modalVisible, setModalVisible] = useState(false);
+    const [countdown, setCountdown] = useState(5);
+    const [isCountdownActive, setIsCountdownActive] = useState(false);
+    const router = useRouter();
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL; 
+    
+    const handleDeleteAccount = () => {
+      setModalVisible(true);
+      setIsCountdownActive(true);
+  };
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isCountdownActive && countdown > 0) {
+        timer = setInterval(() => {
+            setCountdown(prev => prev - 1);
+        }, 1000);
+    } else if (countdown === 0) {
+        setIsCountdownActive(false);
+    }
+    return () => clearInterval(timer);
+}, [isCountdownActive, countdown]);
+
+
+    const confirmDeleteAccount = async () => {
+        try {
+            const token = await AsyncStorage.getItem('userToken');
+            const response = await fetch(`${apiUrl}/user/deleteUser`, {
+                method: 'DELETE', // Utilisez DELETE pour la suppression
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Erreur lors de la suppression du compte.');
+            }
+
+            // Si la suppression est réussie, vous pouvez rediriger l'utilisateur ou afficher un message
+            await AsyncStorage.clear();
+            router.replace('/');
+            Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
+            // Optionnel : Rediriger l'utilisateur vers l'écran de connexion ou d'accueil
+        } catch (error) {
+            console.error(error);
+            Alert.alert("Erreur", "Une erreur est survenue lors de la suppression de votre compte.");
+        } finally {
+          setModalVisible(false); // Ferme le modal après la suppression
+      }
+    };
+    
  return (
    <View>
      <ProposParam title={motTraduit(langIndex, 29)}>
-       <Text>Contenu de l'élément 1</Text>
+     <Text style={styles.title}>Informations sur la protection des données</Text>
+            <Text style={styles.content}>
+                Nous nous engageons à protéger vos données personnelles. Voici les informations que nous collectons et conservons :
+            </Text>
+            <Text style={styles.content}>
+                1. **Nom d'utilisateur** : Utilisé pour identifier votre compte.
+            </Text>
+            <Text style={styles.content}>
+                2. **Adresse e-mail** : Utilisée pour la communication et la récupération de compte.
+            </Text>
+            <Text style={styles.content}>
+                3. **Historique de jeu** : Conserve vos performances et vos statistiques de jeu.
+            </Text>
+            <Text style={styles.content}>
+                4. **Données de connexion** : Enregistrées pour des raisons de sécurité et d'analyse.
+            </Text>
+            <Text style={styles.content}>
+                5. **Préférences utilisateur** : Pour personnaliser votre expérience sur notre plateforme.
+            </Text>
+            <Text style={styles.content}>
+                Nous ne partageons pas vos données personnelles avec des tiers sans votre consentement, sauf si la loi l'exige.
+            </Text>
+            <Text style={styles.content}>
+                Vous avez le droit de demander l'accès à vos données, de les corriger ou de les supprimer à tout moment.
+            </Text>
+            <Button title="Supprimer mon compte" onPress={handleDeleteAccount} />
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalView}>
+                    <Text style={styles.modalText}>Êtes-vous sûr de vouloir supprimer votre compte ?</Text>
+                    <Text style={styles.countdownText}>{isCountdownActive ? `Attendez ${countdown} secondes...` : ''}</Text>
+                    <TouchableOpacity
+                        style={[styles.confirmButton, { backgroundColor: isCountdownActive ? 'gray' : 'red' }]}
+                        onPress={isCountdownActive ? () => {} : confirmDeleteAccount}
+                        disabled={isCountdownActive}
+                    >
+                        <Text style={styles.buttonText}>Oui</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+                        <Text style={styles.buttonText}>Non</Text>
+                    </TouchableOpacity>
+                    </View>
+                    </Modal>
      </ProposParam>
    </View>
  );
@@ -64,6 +166,49 @@ const styles = StyleSheet.create({
    padding: 10,
    backgroundColor: '#fff',
  },
+ modalView: {
+  margin: 20,
+  backgroundColor: 'white',
+  borderRadius: 20,
+  padding: 35,
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOffset: {
+      width: 0,
+      height: 2,
+  },
+  shadowOpacity: 0.25,
+  shadowRadius: 4,
+  elevation: 5,
+},
+modalText: {
+  marginBottom: 15,
+  textAlign: 'center',
+},
+countdownText: {
+  marginBottom: 15,
+  fontSize: 16,
+  color: 'orange',
+},
+confirmButton: {
+  padding: 10,
+  borderRadius: 5,
+  marginBottom: 10,
+  width: '100%',
+  alignItems: 'center',
+},
+cancelButton: {
+  backgroundColor: 'gray',
+  padding: 10,
+  borderRadius: 5,
+  width: '100%',
+  alignItems: 'center',
+},
+buttonText: {
+  color: 'white',
+  fontWeight: 'bold',
+  textAlign: 'center',
+},
 });
 
 export default ProposContainer;

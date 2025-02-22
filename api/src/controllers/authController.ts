@@ -120,7 +120,9 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
         Password: hashSync("guest", 10),
         MMR: 0,
         isGuest: true,
-        CreatedAt: new Date()
+        CreatedAt: new Date(),
+        archived: false,
+        deletionDate: null
       }
     })
 

@@ -41,6 +41,7 @@ interface CompteParamProps {
     const [userChange, setUserChange] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
     const handleLanguageChange = async (value: number) => {
        await setLanguage(value);
@@ -71,10 +72,11 @@ interface CompteParamProps {
       setLoading(true);
       try {
           // Appelle l'API pour mettre à jour le nom d'utilisateur
-          const response = await fetch('http://localhost:4000/api/user/update-username', {
+          const response = await fetch(`${apiUrl}/user/update-username/${username}`, {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${await AsyncStorage.getItem('userToken')}`,
               },
               body: JSON.stringify({ newUsername: userChange }),
           });
@@ -99,7 +101,7 @@ interface CompteParamProps {
                 <Text>{motTraduit(langIndex, 46)} :</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder={username || 'Nom d\'utilisateur'}
+                    placeholder={username || motTraduit(langIndex, 58)}
                     value={userChange}
                     onChangeText={setUserChange}
                     editable={isEditing}
