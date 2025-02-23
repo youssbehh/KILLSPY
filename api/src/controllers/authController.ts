@@ -90,6 +90,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         username: user.Username,
         email: user.Email,
         mmr : user.MMR,
+        guest : user.isGuest
       }, 
       token
     })
@@ -140,6 +141,7 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
       id : guest.ID_User,
       username: guest.Username,
       mmr : guest.MMR,
+      guest : guest.isGuest
     }})
   } catch (e:any) {
     return next(new HttpException("Erreur compte invité", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
