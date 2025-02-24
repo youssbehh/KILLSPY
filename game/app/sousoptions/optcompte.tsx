@@ -41,6 +41,7 @@ interface CompteParamProps {
     const [userChange, setUserChange] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isGuest, setIsGuest] = useState<boolean>(false);
     const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
     const handleLanguageChange = async (value: number) => {
@@ -49,6 +50,8 @@ interface CompteParamProps {
 
     useEffect(() => {
       const fetchUsername = async () => {
+          const isGuest = await AsyncStorage.getItem('isGuest');
+          setIsGuest(isGuest === 'true');
           const storedUsername = await AsyncStorage.getItem('username');
           setUsername(storedUsername);
       };
@@ -71,12 +74,13 @@ interface CompteParamProps {
   const updateUsername = async () => {
       setLoading(true);
       try {
+          const token = await AsyncStorage.getItem('userToken');
           // Appelle l'API pour mettre à jour le nom d'utilisateur
           const response = await fetch(`${apiUrl}/user/update-username/${username}`, {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${await AsyncStorage.getItem('userToken')}`,
+                  'Authorization': `${token}`,
               },
               body: JSON.stringify({ newUsername: userChange }),
           });
@@ -107,7 +111,8 @@ interface CompteParamProps {
                     editable={isEditing}
                     autoCapitalize="none"
                   />
-                  {isEditing ? (
+                  {!isGuest ? (
+                    isEditing ? (
                         <View style={styles.buttonContainer}>
                             <TouchableOpacity style={styles.applyButton} onPress={updateUsername} disabled={loading}>
                                 {loading ? <ActivityIndicator color="white" /> : <FontAwesomeWrapper icon={faCheck} />}
@@ -120,7 +125,10 @@ interface CompteParamProps {
                         <TouchableOpacity style={styles.editButton} onPress={startEditing}>
                             <FontAwesomeWrapper icon={faEdit} />
                         </TouchableOpacity>
-                    )}
+                    )
+                  ) : (
+                    <Text style={{marginBottom: 10}}>{motTraduit(langIndex, 59)}</Text>
+                  )}
                 <Text>{motTraduit(langIndex, 25)} :</Text>
                 <View style={styles.radioContainer}>
                     <TouchableOpacity 

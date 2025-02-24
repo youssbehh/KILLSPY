@@ -32,6 +32,7 @@ export default function OptionsScreen() {
   
     try {
       const token = await AsyncStorage.getItem('userToken');
+      const id = await AsyncStorage.getItem('userId');
       console.log("Token récupéré :", token);
   
       if (!token) {
@@ -41,12 +42,15 @@ export default function OptionsScreen() {
         return;
       }
   
-      const response = await fetch(`${apiUrl}/auth/logout`, {
-        method: 'GET',
+      const response = await fetch(`${apiUrl}/auth/logout/${id}`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          id,
+        }),
       });
 
       console.log("Réponse serveur :", response.status, await response.text());

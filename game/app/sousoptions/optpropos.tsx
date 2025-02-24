@@ -68,11 +68,12 @@ const ProposContainer = () => {
   const confirmDeleteAccount = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      console.log(token);
-      const response = await fetch(`${apiUrl}/user/deleteUser`, {
-        method: 'GET',
+      const id = await AsyncStorage.getItem('userId');
+
+      const response = await fetch(`${apiUrl}/users/deleteUser/${id}`, {
+        method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `${token}`,
           'Content-Type': 'application/json',
         },
       });

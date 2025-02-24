@@ -1,3 +1,4 @@
+/*
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Pressable, View } from 'react-native';
 import { Text } from '@/components/Themed';
@@ -5,7 +6,7 @@ import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '@/store/languageStore';
 import io from 'socket.io-client';
 
-const socket = io('http://192.168.1.107:3000'); // Remplacez par l'URL de votre serveur Socket.IO
+const socket = io('http://localhost:3000'); // Remplacez par l'URL de votre serveur Socket.IO
 
 export default function PartieRapideGameScreen() {
     const { langIndex } = useLanguageStore();
@@ -129,3 +130,4 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
 });
+*/

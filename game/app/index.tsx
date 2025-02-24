@@ -98,9 +98,10 @@ export default function LoginFormScreen() {
       // Stockage du token et redirection
       // TODO: Stocker data.token de manière sécurisée
       await AsyncStorage.setItem('userToken', data.token);
+      console.log(data.token)
       await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
-      await AsyncStorage.setItem('isGuest', data.user.isGuest);
+      await AsyncStorage.setItem('isGuest', data.user.guest);
       if (rememberMe){
         await AsyncStorage.setItem('User', identifier);
         await AsyncStorage.setItem('password', data.password);
@@ -128,12 +129,13 @@ export default function LoginFormScreen() {
         Alert.alert('Erreur', data.message || 'Erreur de connexion');
         return;
       }
-
+      console.log(data.user)
       // Stockage du token et redirection
       // TODO: Stocker data.token de manière sécurisée
+      await AsyncStorage.setItem('userToken', data.token);
       await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
-      await AsyncStorage.setItem('isGuest', data.user.isGuest);
+      await AsyncStorage.setItem('isGuest', data.user.guest);
       router.replace('/(tabs)/gamechoice');
     } catch (error) {
       Alert.alert('Erreur', 'Erreur de connexion au serveur');

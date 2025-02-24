@@ -65,7 +65,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
 
       // Vérifiez si l'utilisateur existe
       const user = await prisma_client.users.findUnique({
-          where: { ID_User: req.user.id } // Assurez-vous que l'utilisateur est authentifié
+          where: { ID_User: req.user.ID_User } // Assurez-vous que l'utilisateur est authentifié
       });
 
       if (!user) {
@@ -80,7 +80,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
 
       // Mettre à jour le nom d'utilisateur
       const updatedUser = await prisma_client.users.update({
-          where: { ID_User: req.user.id },
+          where: { ID_User: req.user.ID_User },
           data: { Username: newUsername }
       });
 
@@ -93,9 +93,12 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
 
 export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
+
+      const { id } = req.params;
+      const userId = parseInt(id);
       // Vérifiez si l'utilisateur existe
       const user = await prisma_client.users.findUnique({
-          where: { ID_User: req.user.id }
+          where: { ID_User: userId }
       });
 
       if (!user) {
@@ -104,7 +107,7 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
 
       // Marquer l'utilisateur comme supprimé
       await prisma_client.users.update({
-          where: { ID_User: req.user.id },
+          where: { ID_User: req.user.ID_User },
           data: {
               archived: true,
               deletionDate: new Date() // Enregistrer la date de la demande de suppression
