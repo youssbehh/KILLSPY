@@ -57,11 +57,15 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     });
    
     if (!user) {
-      return next(new HttpException("Utilisateur introuvable!", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
+      return next(new HttpException("Utilisateur introuvable !", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
 
     if(!compare(password, user.Password)){
-      return next(new HttpException("Mot de passe incorrect!", ErrCodes.INCORRECT_PASSWORD, statusCodes.BAD_REQUEST, null));
+      return next(new HttpException("Mot de passe incorrect !", ErrCodes.INCORRECT_PASSWORD, statusCodes.BAD_REQUEST, null));
+    }
+
+    if (user.archived){
+      return next(new HttpException("Utilisateur Supprimé !", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
 
     // Vérifie si une session existe déjà pour cet utilisateur
@@ -73,7 +77,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       // 🔥 Mettre à jour la session existante
       await prisma_client.session.update({
         where: { ID_Session: existingSession.ID_Session },
-        data: { Connected: true, LastConnection: new Date() }
+        data: { Connected: true, LastConnection: new Date(), TotalLoginCount: existingSession.TotalLoginCount + 1 }
       });
     } else {
       // 🔥 Créer une nouvelle session si elle n'existe pas
@@ -85,11 +89,13 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const token = jwt.sign({
       id : user.ID_User,
     },JWT_SECRET)
+    console.log(token)
     res.json({  user : {
         id : user.ID_User,
         username: user.Username,
         email: user.Email,
         mmr : user.MMR,
+        guest : user.isGuest
       }, 
       token
     })
@@ -120,7 +126,9 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
         Password: hashSync("guest", 10),
         MMR: 0,
         isGuest: true,
-        CreatedAt: new Date()
+        CreatedAt: new Date(),
+        archived: false,
+        deletionDate: null
       }
     })
 
@@ -134,11 +142,18 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
       }
     });
 
-    res.status(200).json({ user : {
+    const token = jwt.sign({
+      id : guest.ID_User,
+    },JWT_SECRET)
+    console.log(token)
+    res.json({ user : {
       id : guest.ID_User,
       username: guest.Username,
       mmr : guest.MMR,
-    }})
+      guest : guest.isGuest
+    },
+    token
+    })
   } catch (e:any) {
     return next(new HttpException("Erreur compte invité", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
   }
@@ -146,10 +161,10 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
 
 export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const userId = req.user?.id;
-    console.log(userId)
-    if (!userId) {
-      console.log("test")
+    const { id } = req.params;
+    const userId = parseInt(id);
+
+    if (!id) {
       return next(new HttpException("Utilisateur non authentifié.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.UNAUTHORIZED, null));
     }
 

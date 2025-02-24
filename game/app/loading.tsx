@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Stack } from 'expo-router';
 import { useLocalSearchParams } from 'expo-router';
 import LoadingGame from '@/components/LoadingGame';

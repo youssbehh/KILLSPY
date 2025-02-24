@@ -3,7 +3,7 @@ import { StyleSheet, TextInput, Pressable, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
-import { appVersion, apiUrl } from '../config';
+import { appVersion } from '../config';
 import { useLanguageStore } from '../store/languageStore';
 import Checkbox from 'expo-checkbox';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +20,7 @@ export default function LoginFormScreen() {
   const [passwordCrea, setPasswordCrea] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   const changeForm = () => {
       setIsLoginForm(isLoginForm => !isLoginForm);
@@ -97,8 +98,10 @@ export default function LoginFormScreen() {
       // Stockage du token et redirection
       // TODO: Stocker data.token de manière sécurisée
       await AsyncStorage.setItem('userToken', data.token);
-      await AsyncStorage.setItem('userId', data.user.id);
+      console.log(data.token)
+      await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
+      await AsyncStorage.setItem('isGuest', data.user.guest);
       if (rememberMe){
         await AsyncStorage.setItem('User', identifier);
         await AsyncStorage.setItem('password', data.password);
@@ -126,11 +129,13 @@ export default function LoginFormScreen() {
         Alert.alert('Erreur', data.message || 'Erreur de connexion');
         return;
       }
-
+      console.log(data.user)
       // Stockage du token et redirection
       // TODO: Stocker data.token de manière sécurisée
-      await AsyncStorage.setItem('userId', data.user.id);
+      await AsyncStorage.setItem('userToken', data.token);
+      await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
+      await AsyncStorage.setItem('isGuest', data.user.guest);
       router.replace('/(tabs)/gamechoice');
     } catch (error) {
       Alert.alert('Erreur', 'Erreur de connexion au serveur');

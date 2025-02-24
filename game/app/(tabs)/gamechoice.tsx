@@ -8,6 +8,7 @@ import { Card } from '@rneui/themed';
 import { appVersion } from '../../config';
 import { useLanguageStore } from '../../store/languageStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+//import socket from '@/services/socket';
 
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faRobot, faBolt, faTrophy, faUsersViewfinder } from '@fortawesome/free-solid-svg-icons';
@@ -27,6 +28,7 @@ export default function GameChoiceScreen() {
   const [username, setUsername] = useState<string>('');
 
   const handleGameChoice = (modeId: number) => {
+    //socket.emit('joinGame');
     router.push({
       pathname: '../loading',
       params: { mode: motTraduit(langIndex, modeId) }

@@ -3,17 +3,23 @@ import { StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { Text, View } from '@/components/Themed';
 import { motTraduit } from './translationHelper';
 import { useLanguageStore } from '@/store/languageStore';
-import { router } from 'expo-router';
+import { router, useRouter } from 'expo-router';
+import socket from '@/services/socket';
 
 interface LoadingGameProps {
   gameMode: string;
   onGameFound: () => void;
 }
 
+interface GameFoundData {
+    opponentId: string; // Define the type for opponentId
+}
+
 const dotAnimation = ['.', '..', '...'];
 
 export default function LoadingGame({ gameMode, onGameFound }: LoadingGameProps) {
     const { langIndex } = useLanguageStore();
+    const router = useRouter();
     const [dotIndex, setDotIndex] = useState(0);
     const [isGameFound, setIsGameFound] = useState(false);
 
@@ -35,6 +41,25 @@ export default function LoadingGame({ gameMode, onGameFound }: LoadingGameProps)
         }
     }, [gameMode, langIndex, onGameFound]);
 
+    useEffect(() => {
+        socket.on('gameFound', (data: GameFoundData) => {
+            const { opponentId } = data;
+            console.log('Jeu trouvé avec l\'opposant:', opponentId);
+            setIsGameFound(true);
+            onGameFound();
+            router.push('/play/partieRapide');
+        });
+
+        return () => {
+            socket.off('gameFound');
+        };
+    }, []);
+
+    const handleCancelSearch = () => {
+        socket.emit('cancelSearch');
+        router.back();
+    };
+
     return (
         <View style={styles.container}>
             <Text style={styles.title}>{gameMode}</Text>
@@ -43,7 +68,7 @@ export default function LoadingGame({ gameMode, onGameFound }: LoadingGameProps)
                 {isGameFound ? motTraduit(langIndex, 34) : motTraduit(langIndex, 33) + dotAnimation[dotIndex]}
             </Text>
             {!isGameFound && (
-                <Pressable onPress={() => router.back()}>
+                <Pressable onPress={handleCancelSearch}>
                     <Text style={styles.backButton}>{motTraduit(langIndex, 35)}</Text>
                 </Pressable>
             )}

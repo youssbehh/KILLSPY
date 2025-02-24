@@ -3,10 +3,11 @@ import { StyleSheet, ScrollView, Alert, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
-import { apiUrl, appVersion } from '../../config';
+import { appVersion } from '../../config';
 import { useLanguageStore } from '../../store/languageStore';
 import { Button } from '@rneui/themed';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AlertModal from '@/components/AlertModal';
 
 import AudioContainer from '../sousoptions/optaudio';
 import CompteContainer from '../sousoptions/optcompte';
@@ -21,12 +22,17 @@ export default function OptionsScreen() {
   const { langIndex } = useLanguageStore();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  const confirmLogoutMessage = async () => {
+    setModalVisible(true);
+  };
 
   const handleLogout = async () => {
-    setModalVisible(true);
   
     try {
       const token = await AsyncStorage.getItem('userToken');
+      const id = await AsyncStorage.getItem('userId');
       console.log("Token récupéré :", token);
   
       if (!token) {
@@ -36,12 +42,15 @@ export default function OptionsScreen() {
         return;
       }
   
-      const response = await fetch(`${apiUrl}/auth/logout`, {
-        method: 'GET',
+      const response = await fetch(`${apiUrl}/auth/logout/${id}`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          id,
+        }),
       });
 
       console.log("Réponse serveur :", response.status, await response.text());
@@ -57,12 +66,6 @@ export default function OptionsScreen() {
       console.error("Erreur lors de la déconnexion:", error);
     }
   };
-  
-  const confirmLogout = async () => {
-    setModalVisible(false);
-    await AsyncStorage.clear();
-    router.replace('/');
-  };
 
   return (
     <View style={styles.container}>
@@ -75,17 +78,16 @@ export default function OptionsScreen() {
         <SupportContainer/>
         <DiversContainer/>
         <ProposContainer/>
-        <Button onPress={handleLogout}>{motTraduit(langIndex, 51)}</Button>
+        <Button onPress={confirmLogoutMessage}>{motTraduit(langIndex, 51)}</Button>
 
-        <Modal visible={modalVisible} transparent>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-            <View style={{ width: 300, padding: 20, backgroundColor: 'white', borderRadius: 10 }}>
-              <Text style={{ padding: 5 }}>{motTraduit(langIndex, 64)}</Text>
-              <Button title={motTraduit(langIndex, 35)} onPress={() => setModalVisible(false)} style={{ padding: 5 }} />
-              <Button title={motTraduit(langIndex, 51)} onPress={confirmLogout} style={{ padding: 5 }} />
-            </View>
-          </View>
-        </Modal>
+        <AlertModal
+                visible={modalVisible}
+                text1={motTraduit(langIndex, 64)}
+                button1={motTraduit(langIndex, 51)}
+                onPress1={handleLogout}
+                button2={motTraduit(langIndex, 35)}
+                onPress2={() => setModalVisible(false)}
+        />
       </ScrollView>
       
       <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>
