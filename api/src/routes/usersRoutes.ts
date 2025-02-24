@@ -7,7 +7,7 @@ const usersRoutes: Router = Router()
 // usersRoutes.get('/', getOwnUser)
 usersRoutes.post('/add', authMiddleware("1"), addUser)
 usersRoutes.get('/myUsers', authMiddleware("1"), getUsersById)
-usersRoutes.get('/user/update-username/:oldUser', authMiddleware("1"), updateUsername)
+usersRoutes.post('/update-username/:oldUser', authMiddleware("1"), updateUsername)
 usersRoutes.put('/deleteUser/:id', authMiddleware("1"), deleteUser)
 
 export default usersRoutes

@@ -76,7 +76,7 @@ interface CompteParamProps {
       try {
           const token = await AsyncStorage.getItem('userToken');
           // Appelle l'API pour mettre à jour le nom d'utilisateur
-          const response = await fetch(`${apiUrl}/user/update-username/${username}`, {
+          const response = await fetch(`${apiUrl}/users/update-username/${username}`, {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
