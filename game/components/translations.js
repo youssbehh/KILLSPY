@@ -63,7 +63,11 @@
       61: 'J\'accepte les conditions génerale',
       62: 'Déjà un compte ?',
       63: 'S\'inscrire',
-      64: 'Êtes-vous sûr de vouloir vous déconnecter ?'
+      64: 'Êtes-vous sûr de vouloir vous déconnecter ?',
+      65: 'Oui',
+      66: 'Non',
+      67: 'Êtes-vous sûr de vouloir supprimer votre compte ?',
+      68: 'Supprimer mon compte'
     },
     1: { // Anglais
       1: 'Welcome',
@@ -122,7 +126,18 @@
       54: 'Forgot password ?',
       55: 'Create an account',
       56: 'Login',
-      57: 'Remember me'
+      57: 'Remember me',
+      58: 'Username',
+      59: 'Email',
+      60: 'Password confirmation',
+      61: 'I accept general conditions',
+      62: 'Already have an account ?',
+      63: 'Sing in',
+      64: 'Êtes-vous sûr de vouloir vous déconnecter ?',
+      65: 'Yes',
+      66: 'No',
+      67: 'Êtes-vous sûr de vouloir supprimer votre compte ?',
+      68: 'Supprimer mon compte'
     },
   };
 

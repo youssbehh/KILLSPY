@@ -57,11 +57,15 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     });
    
     if (!user) {
-      return next(new HttpException("Utilisateur introuvable!", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
+      return next(new HttpException("Utilisateur introuvable !", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
 
     if(!compare(password, user.Password)){
-      return next(new HttpException("Mot de passe incorrect!", ErrCodes.INCORRECT_PASSWORD, statusCodes.BAD_REQUEST, null));
+      return next(new HttpException("Mot de passe incorrect !", ErrCodes.INCORRECT_PASSWORD, statusCodes.BAD_REQUEST, null));
+    }
+
+    if (user.archived){
+      return next(new HttpException("Utilisateur Supprimé !", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
 
     // Vérifie si une session existe déjà pour cet utilisateur
