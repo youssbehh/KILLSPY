@@ -4,7 +4,7 @@ import { Text, View } from '@/components/Themed';
 import { motTraduit } from './translationHelper';
 import { useLanguageStore } from '@/store/languageStore';
 import { router, useRouter } from 'expo-router';
-import socket from '@/services/socket';
+//import socket from '@/services/socket';
 
 interface LoadingGameProps {
   gameMode: string;
@@ -41,22 +41,22 @@ export default function LoadingGame({ gameMode, onGameFound }: LoadingGameProps)
         }
     }, [gameMode, langIndex, onGameFound]);
 
-    useEffect(() => {
-        socket.on('gameFound', (data: GameFoundData) => {
-            const { opponentId } = data;
-            console.log('Jeu trouvé avec l\'opposant:', opponentId);
-            setIsGameFound(true);
-            onGameFound();
-            router.push('/play/partieRapide');
-        });
+    // useEffect(() => {
+    //     socket.on('gameFound', (data: GameFoundData) => {
+    //         const { opponentId } = data;
+    //         console.log('Jeu trouvé avec l\'opposant:', opponentId);
+    //         setIsGameFound(true);
+    //         onGameFound();
+    //         router.push('/play/partieRapide');
+    //     });
 
-        return () => {
-            socket.off('gameFound');
-        };
-    }, []);
+    //     return () => {
+    //         socket.off('gameFound');
+    //     };
+    // }, []);
 
     const handleCancelSearch = () => {
-        socket.emit('cancelSearch');
+        //socket.emit('cancelSearch');
         router.back();
     };
 
