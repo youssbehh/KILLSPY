@@ -65,7 +65,7 @@ export const updateUsername = async (req: Request, res: Response, next: NextFunc
 
       // Vérifiez si l'utilisateur existe
       const user = await prisma_client.users.findUnique({
-          where: { ID_User: req.user.ID_User } // Assurez-vous que l'utilisateur est authentifié
+          where: { Username: oldUser } // Assurez-vous que l'utilisateur est authentifié
       });
 
       if (!user) {

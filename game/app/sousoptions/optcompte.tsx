@@ -1,5 +1,6 @@
 import React, { useState, useEffect  } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, AppRegistry, TextInput, ActivityIndicator } from 'react-native';
+import { Button } from '@rneui/themed';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '../../store/languageStore';
@@ -122,14 +123,12 @@ interface CompteParamProps {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <TouchableOpacity style={styles.editButton} onPress={startEditing}>
-                            <FontAwesomeWrapper icon={faEdit} />
-                        </TouchableOpacity>
+                        <Button onPress={startEditing}><FontAwesomeWrapper icon={faEdit} /></Button>
                     )
                   ) : (
-                    <Text style={{marginBottom: 10}}>{motTraduit(langIndex, 59)}</Text>
+                    <Button>{motTraduit(langIndex, 70)}</Button>
                   )}
-                <Text>{motTraduit(langIndex, 25)} :</Text>
+                <Text style={{marginTop: 5}}>{motTraduit(langIndex, 25)} :</Text>
                 <View style={styles.radioContainer}>
                     <TouchableOpacity 
                         style={styles.radioOption} 
@@ -182,17 +181,16 @@ const styles = StyleSheet.create({
 input: {
   flex: 1,
   padding: 10,
+  borderWidth: 1,
+  borderColor: '#ccc',
+  borderRadius: 8,
   fontSize: 16,
+  marginBottom: 10,
+  marginTop: 10
 },
 buttonContainer: {
   flexDirection: 'row',
   padding : 5
-},
-editButton: {
-  marginLeft: 10,
-  padding: 8,
-  backgroundColor: '#007bff',
-  borderRadius: 5,
 },
 applyButton: {
   padding: 8,

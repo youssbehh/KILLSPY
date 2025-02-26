@@ -67,7 +67,9 @@
       65: 'Oui',
       66: 'Non',
       67: 'Êtes-vous sûr de vouloir supprimer votre compte ?',
-      68: 'Supprimer mon compte'
+      68: 'Supprimer mon compte',
+      69: 'En construction',
+      70: 'Veuillez vous inscrire pour accéder à cette fonctionnalité'
     },
     1: { // Anglais
       1: 'Welcome',
@@ -137,7 +139,8 @@
       65: 'Yes',
       66: 'No',
       67: 'Êtes-vous sûr de vouloir supprimer votre compte ?',
-      68: 'Supprimer mon compte'
+      68: 'Delete my account',
+      69: 'Comming soon'
     },
   };
 

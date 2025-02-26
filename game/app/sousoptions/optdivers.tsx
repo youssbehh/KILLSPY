@@ -38,7 +38,7 @@ const DiversContainer = () => {
  return (
    <View>
      <DiversParam title={motTraduit(langIndex, 22)}>
-       <Text>Contenu de l'élément 1</Text>
+      <Text style={styles.title}>{motTraduit(langIndex, 69)}</Text>
      </DiversParam>
    </View>
  );

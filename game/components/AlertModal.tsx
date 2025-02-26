@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Button } from '@rneui/themed';
 
 interface AlertModalProps {
     visible: boolean;
@@ -32,13 +33,9 @@ const AlertModal: React.FC<AlertModalProps> = ({
                     {text2 && (
                         <Text style={styles.titleopt}>{text2}</Text>
                     )}
-                    <TouchableOpacity style={[styles.button, button1Style]} onPress={disabled1 ? () => {} : onPress1} disabled={disabled1}>
-                        <Text style={styles.buttonText}>{button1}</Text>
-                    </TouchableOpacity>
+                        <Button style={[styles.button, button1Style]} onPress={disabled1 ? () => {} : onPress1} disabled={disabled1}>{button1}</Button>
                     {button2 && onPress2 && (
-                        <TouchableOpacity style={styles.button} onPress={onPress2}>
-                            <Text style={styles.buttonText}>{button2}</Text>
-                        </TouchableOpacity>
+                        <Button style={styles.button} onPress={onPress2}>{button2}</Button>
                     )}
                 </View>
             </View>
@@ -70,13 +67,6 @@ const styles = StyleSheet.create({
     },
     button: {
         padding: 10,
-        backgroundColor: '#007bff',
-        borderRadius: 5,
-        marginVertical: 5,
-    },
-    buttonText: {
-        color: 'white',
-        textAlign: 'center',
     },
     closeButton: {
         padding: 10,

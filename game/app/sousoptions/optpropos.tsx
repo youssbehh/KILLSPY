@@ -43,6 +43,7 @@ const ProposContainer = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [isCountdownActive, setIsCountdownActive] = useState(false);
+  const [isGuest, setIsGuest] = useState<boolean>(false);
   const router = useRouter();
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
@@ -51,6 +52,14 @@ const ProposContainer = () => {
     setCountdown(5);
     setIsCountdownActive(true);
   };
+
+  useEffect(() => {
+    const fetchGuest = async () => {
+        const isGuest = await AsyncStorage.getItem('isGuest');
+        setIsGuest(isGuest === 'true');
+    };
+    fetchGuest();
+}, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -125,8 +134,11 @@ const ProposContainer = () => {
         <Text style={styles.content}>
           Vous avez le droit de demander l'accès à vos données, de les corriger ou de les supprimer à tout moment.
         </Text>
+        {!isGuest ? (
         <Button title={motTraduit(langIndex, 68)} onPress={handleDeleteAccount} />
-
+        ) : (
+          <></>
+        )}
         <AlertModal
           visible={modalVisible}
           text1={motTraduit(langIndex, 67)}

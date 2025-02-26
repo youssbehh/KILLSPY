@@ -86,6 +86,36 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       });
     }
 
+    const existingRole = await prisma_client.roles.findFirst({
+      where: { ID_User: user.ID_User }
+    });
+
+    if (existingRole) {
+      await prisma_client.roles.update({
+        where: { ID_Role: existingRole.ID_Role },
+        data: { Role: 'player', ID_User: user.ID_User }
+      });
+    } else {
+      await prisma_client.roles.create({
+        data: { ID_User: user.ID_User, Role: 'player' }
+      });
+    }
+
+    const existingLeaderboard = await prisma_client.leaderboard.findFirst({
+      where: { ID_User: user.ID_User }
+    });
+
+    if (existingLeaderboard) {
+      await prisma_client.leaderboard.update({
+        where: { ID_Leaderboard: existingLeaderboard.ID_Leaderboard },
+        data: { ID_User: user.ID_User }
+      });
+    } else {
+      await prisma_client.leaderboard.create({
+        data: { ID_User: user.ID_User }
+      });
+    }
+
     const token = jwt.sign({
       id : user.ID_User,
     },JWT_SECRET)

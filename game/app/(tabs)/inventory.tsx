@@ -1,18 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
-import EditScreenInfo from '@/components/EditScreenInfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View } from '@/components/Themed';
 import { useLanguageStore } from '../../store/languageStore';
 
 export default function InventoryScreen() {
   const { langIndex } = useLanguageStore();
+  const [isGuest, setIsGuest] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchGuest = async () => {
+        const isGuest = await AsyncStorage.getItem('isGuest');
+        setIsGuest(isGuest === 'true');
+    };
+    fetchGuest();
+}, []);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{motTraduit(langIndex, 8)}</Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/two.tsx" />
+      {!isGuest ? (
+        <Text style={styles.title}>{motTraduit(langIndex, 69)}</Text>
+       ) : (
+        <Text>{motTraduit(langIndex, 70)}</Text>
+      )}
     </View>
   );
 }

@@ -38,7 +38,7 @@ const SecuriteContainer = () => {
  return (
    <View>
      <SecuriteParam title={motTraduit(langIndex, 21)}>
-       <Text>Contenu de l'élément 1</Text>
+      <Text style={styles.title}>{motTraduit(langIndex, 69)}</Text>
      </SecuriteParam>
    </View>
  );

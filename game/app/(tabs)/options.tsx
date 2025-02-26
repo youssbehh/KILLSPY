@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, ScrollView, Alert, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
@@ -22,11 +22,20 @@ export default function OptionsScreen() {
   const { langIndex } = useLanguageStore();
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
+  const [isGuest, setIsGuest] = useState<boolean>(false);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   const confirmLogoutMessage = async () => {
     setModalVisible(true);
   };
+
+  useEffect(() => {
+    const fetchGuest = async () => {
+        const isGuest = await AsyncStorage.getItem('isGuest');
+        setIsGuest(isGuest === 'true');
+    };
+    fetchGuest();
+}, []);
 
   const handleLogout = async () => {
   
@@ -78,12 +87,12 @@ export default function OptionsScreen() {
         <SupportContainer/>
         <DiversContainer/>
         <ProposContainer/>
-        <Button onPress={confirmLogoutMessage}>{motTraduit(langIndex, 51)}</Button>
+        <Button onPress={confirmLogoutMessage}>{!isGuest ? motTraduit(langIndex, 51) : motTraduit(langIndex, 39)}</Button>
 
         <AlertModal
                 visible={modalVisible}
-                text1={motTraduit(langIndex, 64)}
-                button1={motTraduit(langIndex, 51)}
+                text1={!isGuest ? motTraduit(langIndex, 64) : motTraduit(langIndex, 45)}
+                button1={!isGuest ? motTraduit(langIndex, 51) : motTraduit(langIndex, 39)}
                 onPress1={handleLogout}
                 button2={motTraduit(langIndex, 35)}
                 onPress2={() => setModalVisible(false)}

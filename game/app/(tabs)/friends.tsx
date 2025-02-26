@@ -16,7 +16,7 @@ export default function TabOneScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.titleh1}>{motTraduit(langIndex, 10)} <FontAwesomeWrapper icon={faUserSecret} size={30} /></Text>
+      <Text style={styles.titleh1}>{motTraduit(langIndex, 10)} <FontAwesomeWrapper icon={faUserSecret} size="2x" /></Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       <ScrollView style={styles.optfriendcontainer}>
         <View style={styles.componantcontainer}>
