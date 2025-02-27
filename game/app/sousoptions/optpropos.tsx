@@ -143,12 +143,11 @@ const ProposContainer = () => {
           visible={modalVisible}
           text1={motTraduit(langIndex, 67)}
           text2={isCountdownActive ? `Attendez ${countdown} secondes...` : ''}
-          button1={motTraduit(langIndex, 65)}
-          onPress1={isCountdownActive ? () => { } : confirmDeleteAccount}
-          button1Style={{ backgroundColor: isCountdownActive ? 'gray' : 'red' }}
-          disabled1={isCountdownActive}
-          button2={motTraduit(langIndex, 66)}
-          onPress2={() => setModalVisible(false)}
+          error1Button={motTraduit(langIndex, 65)}
+          onPressError1={isCountdownActive ? () => { } : confirmDeleteAccount}
+          disabledError1={isCountdownActive}
+          button1={motTraduit(langIndex, 66)}
+          onPress1={() => setModalVisible(false)}
         />
       </ProposParam>
     </View>

@@ -55,7 +55,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         ]
       } 
     });
-   
+    
     if (!user) {
       return next(new HttpException("Utilisateur introuvable !", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
@@ -64,7 +64,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return next(new HttpException("Mot de passe incorrect !", ErrCodes.INCORRECT_PASSWORD, statusCodes.BAD_REQUEST, null));
     }
 
-    if (user.archived){
+    if (user?.archived){
       return next(new HttpException("Utilisateur Supprimé !", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
 
@@ -200,6 +200,10 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
 
     const user = await prisma_client.users.findUnique({ where: { ID_User: userId } });
 
+    const existingSession = await prisma_client.session.findFirst({
+      where: { ID_User: userId }
+    });
+
     if (!user) {
       return next(new HttpException("Utilisateur introuvable.", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
@@ -216,8 +220,8 @@ export const logout = async (req: Request, res: Response, next: NextFunction): P
         return next(new HttpException("Erreur lors de la suppression de l'invité.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, error));
       }
     } else {
-      await prisma_client.session.updateMany({
-        where: { ID_User: userId },
+      await prisma_client.session.update({
+        where: { ID_Session: existingSession?.ID_Session },
         data: { Connected: false, LastConnection: new Date() }
       });
 

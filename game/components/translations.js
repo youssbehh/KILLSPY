@@ -69,7 +69,9 @@
       67: 'Êtes-vous sûr de vouloir supprimer votre compte ?',
       68: 'Supprimer mon compte',
       69: 'En construction',
-      70: 'Veuillez vous inscrire pour accéder à cette fonctionnalité'
+      70: 'Veuillez vous inscrire pour accéder à cette fonctionnalité',
+      71: 'J\'accepte',
+      72: 'Je refuse',
     },
     1: { // Anglais
       1: 'Welcome',

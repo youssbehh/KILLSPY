@@ -7,7 +7,7 @@ export const getSession = async (req: Request, res: Response, next: NextFunction
     console.log(req)
     res.status(200).json({ msg: "getSession atteint."})
   } catch (e:any) {
-    return next(new HttpException("Erreur durant l'ajout d'un remboursement", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
+    return next(new HttpException("Erreur", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
   }
 }
 
@@ -17,6 +17,6 @@ export const setSessionDisconnected = async (req: Request, res: Response, next: 
     res.status(200).json({ msg: "setSessionDisconnected atteint."})
   } catch(e:any) {
     console.log(e)
-    return next(new HttpException("Erreur dans la récupération des remboursements.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
+    return next(new HttpException("Erreur", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
   }
 }

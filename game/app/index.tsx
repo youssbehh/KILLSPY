@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, TextInput, Pressable, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, TextInput, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
@@ -7,6 +7,8 @@ import { appVersion } from '../config';
 import { useLanguageStore } from '../store/languageStore';
 import Checkbox from 'expo-checkbox';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import AlertModal from '@/components/AlertModal';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function LoginFormScreen() {
   const { langIndex } = useLanguageStore();
@@ -20,11 +22,68 @@ export default function LoginFormScreen() {
   const [passwordCrea, setPasswordCrea] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const [isCountdownActive, setIsCountdownActive] = useState(false);
+  const [serverStatus, setServerStatus] = useState('');
+  const [serverColor, setServerColor] = useState(''); 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const [isLoading, setIsLoading] = useState(false);
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+  const checkServerStatus = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/ping/getPing`);
+      if (response.ok) {
+        setServerStatus('Serveur opérationnel');
+        setServerColor('green'); // Vert si le serveur est opérationnel
+      } else {
+        setServerStatus('Serveur en attente');
+        setServerColor('orange'); // Orange si en attente
+      }
+    } catch (error) {
+      setServerStatus('Serveur hors ligne');
+      setServerColor('red'); // Rouge si le serveur est hors ligne
+    }
+  };
+
+  useEffect(() => {
+    checkServerStatus(); // Vérifie le statut du serveur au chargement du composant
+  }, []);
 
   const changeForm = () => {
       setIsLoginForm(isLoginForm => !isLoginForm);
   };
+
+  const rgpdModal = async () => {
+    setModalVisible(true);
+    setCountdown(5);
+    setIsCountdownActive(true);
+  };
+
+  const rgpdModalAccept = async () => {
+    setModalVisible(false);
+    setAcceptTerms(true);
+  };
+
+  const rgpdModalRefuse = async () => {
+    setModalVisible(false);
+    setAcceptTerms(false);
+  };
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isCountdownActive && countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown(prev => prev - 1);
+      }, 1000);
+    } else if (countdown === 0) {
+      setIsCountdownActive(false);
+    }
+    return () => clearInterval(timer);
+  }, [isCountdownActive, countdown]);
 
   const handleSignup = async () => {
     if (!acceptTerms) {
@@ -40,7 +99,18 @@ export default function LoginFormScreen() {
       Alert.alert('Erreur', 'Les champs sont vides.');
       return;
     }
+
+    if (!emailRegex.test(email)) {
+      Alert.alert('Erreur', 'Veuillez entrer une adresse email valide.');
+      return;
+  }
+
+  if (!passwordRegex.test(passwordCrea)) {
+      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.');
+      return;
+  }
     
+    setIsLoading(true);
     try {
       
       const response = await fetch(`${apiUrl}/auth/signup`, {
@@ -66,6 +136,8 @@ export default function LoginFormScreen() {
       changeForm();
     } catch (error) {
       Alert.alert('Erreur', 'Erreur de connexion au serveur');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -75,6 +147,7 @@ export default function LoginFormScreen() {
       return;
     }
 
+    setIsLoading(true);
     try {
       
       const response = await fetch(`${apiUrl}/auth/login`, {
@@ -109,11 +182,14 @@ export default function LoginFormScreen() {
       router.replace('/(tabs)/gamechoice');
     } catch (error) {
       Alert.alert('Erreur', 'Erreur de connexion au serveur');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleGuest = async () => {
 
+    setIsLoading(true);
     try {
     console.log(`${apiUrl}`)
       const response = await fetch(`${apiUrl}/auth/guest`, {
@@ -139,11 +215,14 @@ export default function LoginFormScreen() {
       router.replace('/(tabs)/gamechoice');
     } catch (error) {
       Alert.alert('Erreur', 'Erreur de connexion au serveur');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
+      <LoadingOverlay isLoading={isLoading} />
       <Text style={styles.title}>KILLSPY</Text>
       {isLoginForm ? (
         <>
@@ -190,6 +269,10 @@ export default function LoginFormScreen() {
         autoCapitalize="none"
       />
 
+      <Text style={styles.passwordInfo}>
+        Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial [@$!%*?&].
+      </Text>
+
       <TextInput
         style={styles.input}
         placeholder={motTraduit(langIndex, 53)}
@@ -209,10 +292,10 @@ export default function LoginFormScreen() {
       <View style={styles.checkboxContainer}>
         <Checkbox
           value={acceptTerms}
-          onValueChange={setAcceptTerms}
+          onValueChange={rgpdModal}
           color={acceptTerms ? '#007AFF' : undefined}
         />
-        <Text style={styles.checkboxLabel}>{motTraduit(langIndex, 61)}</Text>
+        <Text style={styles.checkboxLabel} onPress={rgpdModal}>{motTraduit(langIndex, 61)}</Text>
       </View>
       </>
       )}
@@ -237,6 +320,20 @@ export default function LoginFormScreen() {
       <Pressable style={styles.textButton} onPress={changeForm}>
         <Text style={styles.textButtonText}>{isLoginForm ? motTraduit(langIndex, 55) : motTraduit(langIndex, 62)}</Text>
       </Pressable>
+
+      <AlertModal
+                visible={modalVisible}
+                text1={"Nous nous engageons à protéger vos données personnelles. Voici les informations que nous collectons et conservons :"}
+                text2={"Nom d'utilisateur / Adresse e-mail / Historique de jeu / Données de connexion / Préférences utilisateur" }
+                text3={"Pour personnaliser votre expérience sur notre plateforme. Nous ne partageons pas vos données personnelles avec des tiers sans votre consentement, sauf si la loi l'exige. Vous avez le droit de demander l'accès à vos données, de les corriger ou de les supprimer à tout moment."}
+                error1Button={isCountdownActive ? `Attendez ${countdown} secondes...` : motTraduit(langIndex, 71)}
+                onPressError1={isCountdownActive ? () => { } : rgpdModalAccept}
+                disabledError1={isCountdownActive}
+                button1={motTraduit(langIndex, 72)}
+                onPress1={rgpdModalRefuse}
+      />
+
+      <Text style={{ color: serverColor }}>{serverStatus}</Text>
       <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>
     </View>
   );
@@ -309,4 +406,9 @@ const styles = StyleSheet.create({
     color: '#888',
     marginBottom: 5,
   },
+  passwordInfo: {
+    fontSize: 12,
+    color: 'gray',
+    marginTop: 5,
+},
 });

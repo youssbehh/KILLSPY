@@ -107,7 +107,7 @@ export const deleteUser = async (req: Request, res: Response, next: NextFunction
 
       // Marquer l'utilisateur comme supprimé
       await prisma_client.users.update({
-          where: { ID_User: req.user.ID_User },
+          where: { ID_User: userId },
           data: {
               archived: true,
               deletionDate: new Date() // Enregistrer la date de la demande de suppression
