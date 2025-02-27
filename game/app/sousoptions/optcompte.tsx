@@ -8,6 +8,7 @@ import { useLanguageStore } from '../../store/languageStore';
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faCaretDown, faCheck, faEdit, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { faCaretUp } from '@fortawesome/free-solid-svg-icons';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 const element = () => (
     <View>
@@ -41,8 +42,8 @@ interface CompteParamProps {
     const [username, setUsername] = useState<string | null>(null);
     const [userChange, setUserChange] = useState('');
     const [isEditing, setIsEditing] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [isGuest, setIsGuest] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState(false);
     const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
     const handleLanguageChange = async (value: number) => {
@@ -73,7 +74,7 @@ interface CompteParamProps {
 
   // Fonction pour appliquer la mise à jour du nom d'utilisateur
   const updateUsername = async () => {
-      setLoading(true);
+    setIsLoading(true);
       try {
           const token = await AsyncStorage.getItem('userToken');
           // Appelle l'API pour mettre à jour le nom d'utilisateur
@@ -97,11 +98,12 @@ interface CompteParamProps {
       } catch (error) {
           console.error(error);
       }
-      setLoading(false);
+      setIsLoading(false);
   };
 
     return (
         <View>
+          <LoadingOverlay isLoading={isLoading} />
             <CompteParam title={motTraduit(langIndex, 20)}>
                 <Text>{motTraduit(langIndex, 46)} :</Text>
                 <TextInput
@@ -115,8 +117,8 @@ interface CompteParamProps {
                   {!isGuest ? (
                     isEditing ? (
                         <View style={styles.buttonContainer}>
-                            <TouchableOpacity style={styles.applyButton} onPress={updateUsername} disabled={loading}>
-                                {loading ? <ActivityIndicator color="white" /> : <FontAwesomeWrapper icon={faCheck} />}
+                            <TouchableOpacity style={styles.applyButton} onPress={updateUsername} disabled={isLoading}>
+                                {isLoading ? <ActivityIndicator color="white" /> : <FontAwesomeWrapper icon={faCheck} />}
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.cancelButton} onPress={cancelEditing}>
                                 <FontAwesomeWrapper icon={faTimes} />

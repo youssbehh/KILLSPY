@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { StyleSheet, TextInput, Pressable, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
 import { appVersion } from '../config';
@@ -9,6 +9,7 @@ import Checkbox from 'expo-checkbox';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AlertModal from '@/components/AlertModal';
 import LoadingOverlay from '../components/LoadingOverlay';
+import ErrorModal from '@/components/ErrorModal';
 
 export default function LoginFormScreen() {
   const { langIndex } = useLanguageStore();
@@ -23,15 +24,18 @@ export default function LoginFormScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorTitle, setErrorTitle] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [countdown, setCountdown] = useState(5);
   const [isCountdownActive, setIsCountdownActive] = useState(false);
   const [serverStatus, setServerStatus] = useState('');
   const [serverColor, setServerColor] = useState(''); 
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const [isLoading, setIsLoading] = useState(false);
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  //const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  //const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
   const checkServerStatus = async () => {
     try {
@@ -47,6 +51,12 @@ export default function LoginFormScreen() {
       setServerStatus('Serveur hors ligne');
       setServerColor('red'); // Rouge si le serveur est hors ligne
     }
+  };
+
+  const showErrorModal = (title: string, message: string) => {
+    setErrorTitle(title);
+    setErrorMessage(message);
+    setErrorModalVisible(true);
   };
 
   useEffect(() => {
@@ -87,32 +97,32 @@ export default function LoginFormScreen() {
 
   const handleSignup = async () => {
     if (!acceptTerms) {
-      Alert.alert('Erreur', 'Veuillez accepter les conditions.');
+      showErrorModal('Erreur', 'Veuillez accepter les conditions.');
       return;
     }
     if (passwordCrea !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
+      showErrorModal('Erreur', 'Les mots de passe ne correspondent pas.');
       return;
     }
 
     if (!username && !email) {
-      Alert.alert('Erreur', 'Les champs sont vides.');
+      showErrorModal('Erreur', 'Les champs sont vides.');
       return;
     }
 
-    if (!emailRegex.test(email)) {
-      Alert.alert('Erreur', 'Veuillez entrer une adresse email valide.');
-      return;
-  }
+    //if (!emailRegex.test(email)) {
+    //  showErrorModal('Erreur', 'Veuillez entrer une adresse email valide.');
+    //  return;
+    //}
 
-  if (!passwordRegex.test(passwordCrea)) {
-      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.');
-      return;
-  }
+    //if (!passwordRegex.test(passwordCrea)) {
+    //  showErrorModal('Erreur', 'Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.');
+    //  return;
+    //}
     
     setIsLoading(true);
     try {
-      
+      console.log(passwordCrea)
       const response = await fetch(`${apiUrl}/auth/signup`, {
         method: 'POST',
         headers: {
@@ -121,21 +131,26 @@ export default function LoginFormScreen() {
         body: JSON.stringify({
           username,
           email,
-          password,
+          passwordCrea,
         }),
       });
 
       const data = await response.json();
-
+      
       if (!response.ok) {
-        Alert.alert('Erreur', data.message || 'Erreur de connexion');
+        showErrorModal('Erreur', data.message || 'Erreur de connexion');
         return;
       } 
 
+      setUsername('')
+      setEmail('')
+      setPasswordCrea('')
+      setConfirmPassword('')
+      setAcceptTerms(false)
       Alert.alert('Inscription réussie', 'Bienvenue agent veuillez vous connecter');
       changeForm();
     } catch (error) {
-      Alert.alert('Erreur', 'Erreur de connexion au serveur');
+      showErrorModal('Erreur', 'Erreur de connexion au serveur');
     } finally {
       setIsLoading(false);
     }
@@ -143,7 +158,7 @@ export default function LoginFormScreen() {
 
   const handleLogin = async () => {
     if (!identifier) {
-      Alert.alert('Erreur', 'Identifiant invalide');
+      showErrorModal('Erreur', 'Identifiant invalide');
       return;
     }
 
@@ -164,14 +179,13 @@ export default function LoginFormScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        Alert.alert('Erreur', data.message || 'Erreur de connexion');
+        showErrorModal('Erreur', data.message || 'Erreur de connexion');
         return;
       }
 
       // Stockage du token et redirection
       // TODO: Stocker data.token de manière sécurisée
       await AsyncStorage.setItem('userToken', data.token);
-      console.log(data.token)
       await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
       await AsyncStorage.setItem('isGuest', data.user.guest);
@@ -181,7 +195,7 @@ export default function LoginFormScreen() {
       }
       router.replace('/(tabs)/gamechoice');
     } catch (error) {
-      Alert.alert('Erreur', 'Erreur de connexion au serveur');
+      showErrorModal('Erreur', 'Erreur de connexion au serveur');
     } finally {
       setIsLoading(false);
     }
@@ -191,7 +205,6 @@ export default function LoginFormScreen() {
 
     setIsLoading(true);
     try {
-    console.log(`${apiUrl}`)
       const response = await fetch(`${apiUrl}/auth/guest`, {
         method: 'GET',
         headers: {
@@ -202,10 +215,9 @@ export default function LoginFormScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        Alert.alert('Erreur', data.message || 'Erreur de connexion');
+        showErrorModal('Erreur', data.message || 'Erreur de connexion');
         return;
       }
-      console.log(data.user)
       // Stockage du token et redirection
       // TODO: Stocker data.token de manière sécurisée
       await AsyncStorage.setItem('userToken', data.token);
@@ -214,7 +226,7 @@ export default function LoginFormScreen() {
       await AsyncStorage.setItem('isGuest', data.user.guest);
       router.replace('/(tabs)/gamechoice');
     } catch (error) {
-      Alert.alert('Erreur', 'Erreur de connexion au serveur');
+      showErrorModal('Erreur', 'Erreur de connexion au serveur');
     } finally {
       setIsLoading(false);
     }
@@ -223,6 +235,14 @@ export default function LoginFormScreen() {
   return (
     <View style={styles.container}>
       <LoadingOverlay isLoading={isLoading} />
+
+      <ErrorModal
+        visible={errorModalVisible}
+        title={errorTitle}
+        message={errorMessage}
+        onClose={() => setErrorModalVisible(false)} // Gérer la fermeture du modal
+      />
+
       <Text style={styles.title}>KILLSPY</Text>
       {isLoginForm ? (
         <>

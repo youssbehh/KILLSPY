@@ -3,6 +3,7 @@ import { StyleSheet, FlatList } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
 import { useLanguageStore } from '../../store/languageStore';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 interface LeaderboardItem {
   ID_Leaderboard: number;
@@ -16,10 +17,12 @@ interface LeaderboardItem {
 export default function LeaderboardScreen() {
   const { langIndex } = useLanguageStore();
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
+      setIsLoading(true);
       try { 
         const response = await fetch(`${apiUrl}/leaderbord/getLeaderboard`, {
           method: 'GET',
@@ -37,6 +40,7 @@ export default function LeaderboardScreen() {
       } catch (error) {
         console.error("Erreur lors de la récupération du classement:", error);
       }
+      setIsLoading(false);
     };
 
     fetchLeaderboard();
@@ -60,6 +64,7 @@ export default function LeaderboardScreen() {
 
   return (
     <View style={styles.container}>
+      <LoadingOverlay isLoading={isLoading} />
       <Text style={styles.title}>{motTraduit(langIndex, 16)}</Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       <FlatList

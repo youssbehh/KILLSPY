@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Button } from '@rneui/themed';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AlertModal from '@/components/AlertModal';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faCaretDown, faCaretUp } from '@fortawesome/free-solid-svg-icons';
@@ -44,6 +45,7 @@ const ProposContainer = () => {
   const [countdown, setCountdown] = useState(5);
   const [isCountdownActive, setIsCountdownActive] = useState(false);
   const [isGuest, setIsGuest] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
@@ -75,6 +77,7 @@ const ProposContainer = () => {
 
 
   const confirmDeleteAccount = async () => {
+    setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
       const id = await AsyncStorage.getItem('userId');
@@ -102,12 +105,15 @@ const ProposContainer = () => {
       console.error(error);
       Alert.alert("Erreur", "Une erreur est survenue lors de la suppression de votre compte.");
     } finally {
-      setModalVisible(false); // Ferme le modal après la suppression
+      setModalVisible(false);
+      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
   return (
     <View>
+      <LoadingOverlay isLoading={isLoading} />
       <ProposParam title={motTraduit(langIndex, 29)}>
         <Text style={styles.title}>Informations sur la protection des données</Text>
         <Text style={styles.content}>

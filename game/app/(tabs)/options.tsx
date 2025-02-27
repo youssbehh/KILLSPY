@@ -8,6 +8,7 @@ import { useLanguageStore } from '../../store/languageStore';
 import { Button } from '@rneui/themed';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AlertModal from '@/components/AlertModal';
+import LoadingOverlay from '@/components/LoadingOverlay';
 
 import AudioContainer from '../sousoptions/optaudio';
 import CompteContainer from '../sousoptions/optcompte';
@@ -23,6 +24,7 @@ export default function OptionsScreen() {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
   const [isGuest, setIsGuest] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   const confirmLogoutMessage = async () => {
@@ -38,7 +40,7 @@ export default function OptionsScreen() {
 }, []);
 
   const handleLogout = async () => {
-  
+    setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
       const id = await AsyncStorage.getItem('userId');
@@ -67,17 +69,19 @@ export default function OptionsScreen() {
       if (!response.ok) {
         throw new Error(`Erreur serveur: ${response.status}`);
       }
-  
+      setIsLoading(false);
       console.log("Déconnexion réussie");
       await AsyncStorage.clear();
       router.replace('/');
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error);
     }
+    setIsLoading(false);
   };
 
   return (
     <View style={styles.container}>
+      <LoadingOverlay isLoading={isLoading} />
       <Text style={styles.titleh1}>{motTraduit(langIndex, 7)}</Text>
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       <ScrollView style={{width:'90%'}}>

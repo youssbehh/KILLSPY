@@ -46,7 +46,7 @@ model Session {
 model Roles {
   ID_Role  Int    @id @default(autoincrement())
   Role     String
-  User     Users   @relation(fields: [ID_User], references: [ID_User])
+  User     Users   @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
   ID_User  Int
 }
 

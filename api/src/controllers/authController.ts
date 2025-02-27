@@ -1,31 +1,34 @@
 import { NextFunction, Request, Response } from 'express'
 import { prisma_client } from '..';
-import { hashSync, compare } from 'bcrypt';
+import { hashSync, compareSync } from 'bcrypt';
 import * as jwt from 'jsonwebtoken'
 import { JWT_SECRET } from '../secrets';
 import { HttpException, statusCodes, ErrCodes } from '../utils/exceptions';
 
 export const signup = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, passwordCrea } = req.body;
     let user = await prisma_client.users.findFirst({ where: { Email: email } });
     if (user) {
       return next(new HttpException("Utilisateur déjà existant!", ErrCodes.USER_ALREADY_EXISTS, statusCodes.UNAUTHORIZED, null))
     }
+
     user = await prisma_client.users.create({
       data: {
         Username: username,
         Email: email,
-        Password: hashSync(password, 10),
+        Password: hashSync(passwordCrea, 12),
         MMR: 0,
         isGuest: false,
         CreatedAt: new Date()
       }
     })
+
     res.status(200).json({ user : {
       id : user.ID_User,
       username: user.Username,
       email: user.Email,
+      password: user.Password,
       mmr : user.MMR,
     }})
   } catch (e:any) {
@@ -60,7 +63,9 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       return next(new HttpException("Utilisateur introuvable !", ErrCodes.USER_NOT_FOUND, statusCodes.NOT_FOUND, null));
     }
 
-    if(!compare(password, user.Password)){
+    const comparePassword = compareSync(password, user.Password);
+
+    if(!comparePassword){
       return next(new HttpException("Mot de passe incorrect !", ErrCodes.INCORRECT_PASSWORD, statusCodes.BAD_REQUEST, null));
     }
 
@@ -91,11 +96,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     });
 
     if (existingRole) {
-      await prisma_client.roles.update({
-        where: { ID_Role: existingRole.ID_Role },
-        data: { Role: 'player', ID_User: user.ID_User }
-      });
-    } else {
       await prisma_client.roles.create({
         data: { ID_User: user.ID_User, Role: 'player' }
       });
@@ -106,11 +106,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     });
 
     if (existingLeaderboard) {
-      await prisma_client.leaderboard.update({
-        where: { ID_Leaderboard: existingLeaderboard.ID_Leaderboard },
-        data: { ID_User: user.ID_User }
-      });
-    } else {
       await prisma_client.leaderboard.create({
         data: { ID_User: user.ID_User }
       });
@@ -119,7 +114,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const token = jwt.sign({
       id : user.ID_User,
     },JWT_SECRET)
-    console.log(token)
+
     res.json({  user : {
         id : user.ID_User,
         username: user.Username,
@@ -130,7 +125,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       token
     })
   } catch (e:any) {
-    console.log(e)
+
     return next(new HttpException("Erreur durant la connexion.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
   }
 }
@@ -175,7 +170,7 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
     const token = jwt.sign({
       id : guest.ID_User,
     },JWT_SECRET)
-    console.log(token)
+
     res.json({ user : {
       id : guest.ID_User,
       username: guest.Username,
