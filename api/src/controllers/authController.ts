@@ -20,7 +20,11 @@ export const signup = async (req: Request, res: Response, next: NextFunction) =>
         Password: hashSync(passwordCrea, 12),
         MMR: 0,
         isGuest: false,
-        CreatedAt: new Date()
+        CreatedAt: new Date(),
+        archived: false,
+        deletionDate: null,
+        Role: { connect: { ID_Role: 1 } },
+        Rank: { connect: { ID_Rank: 1 } }
       }
     })
 
@@ -91,16 +95,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       });
     }
 
-    const existingRole = await prisma_client.roles.findFirst({
-      where: { ID_User: user.ID_User }
-    });
-
-    if (existingRole) {
-      await prisma_client.roles.create({
-        data: { ID_User: user.ID_User, Role: 'player' }
-      });
-    }
-
     const existingLeaderboard = await prisma_client.leaderboard.findFirst({
       where: { ID_User: user.ID_User }
     });
@@ -153,7 +147,9 @@ export const guest = async (req: Request, res: Response, next: NextFunction) => 
         isGuest: true,
         CreatedAt: new Date(),
         archived: false,
-        deletionDate: null
+        deletionDate: null,
+        Role: { connect: { ID_Role: 1 } },
+        Rank: { connect: { ID_Rank: 1 } }
       }
     })
 

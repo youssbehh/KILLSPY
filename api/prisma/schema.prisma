@@ -13,6 +13,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Roles {
+  ID_Role  Int    @id @default(autoincrement())
+  Role     String
+  User      Users[] @relation("UserRole")
+}
+
+model Ranks {
+  ID_Rank   Int    @id @default(autoincrement())
+  RankName  String
+  MMR_Range String
+  User     Users[] @relation("UserRank")
+}
+
 model Users {
   ID_User   Int     @id @default(autoincrement())
   Username  String  @unique
@@ -23,10 +36,12 @@ model Users {
   CreatedAt  DateTime @default(now())
   archived  Boolean @default(false)
   deletionDate  DateTime?
+  Role     Roles   @relation("UserRole", fields: [ID_Role], references: [ID_Role])
+  ID_Role  Int
+  Rank     Ranks   @relation("UserRank", fields: [ID_Rank], references: [ID_Rank])
+  ID_Rank  Int
 
   Leaderboard Leaderboard? 
-  Roles      Roles[]
-  Ranks      Ranks[]
   Purchases  PurchaseHistory[] 
   Sessions   Session[] 
   Friends    Friends[] 
@@ -41,20 +56,6 @@ model Session {
   TotalLoginCount Int
   User            Users    @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
   ID_User         Int
-}
-
-model Roles {
-  ID_Role  Int    @id @default(autoincrement())
-  Role     String
-  User     Users   @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
-  ID_User  Int
-}
-
-model Ranks {
-  ID_Rank   Int    @id @default(autoincrement())
-  RankName  String
-  MMR_Range String
-  Users     Users[]
 }
 
 model Emotes {

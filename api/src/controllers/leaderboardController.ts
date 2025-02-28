@@ -15,7 +15,7 @@ export const getLeaderboard = async (req: Request, res: Response, next: NextFunc
           select: {
             Username: true,
             MMR: true,
-            Ranks: {
+            Rank: {
               select: {
                 RankName: true
               }
