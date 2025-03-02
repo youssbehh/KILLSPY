@@ -99,7 +99,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       where: { ID_User: user.ID_User }
     });
 
-    if (existingLeaderboard) {
+    if (!existingLeaderboard) {
       await prisma_client.leaderboard.create({
         data: { ID_User: user.ID_User }
       });

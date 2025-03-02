@@ -36,7 +36,7 @@ export default function LeaderboardScreen() {
         }
         const data = await response.json();
         setLeaderboard(data.leaderboard);
-        console.log(data.leaderboard); // Vérifiez les données
+
       } catch (error) {
         console.error("Erreur lors de la récupération du classement:", error);
       }
@@ -57,7 +57,9 @@ export default function LeaderboardScreen() {
       <Text style={styles.username}>{item.User.Username}</Text>
       <Text style={styles.mmr}>MMR: {item.User.MMR}</Text>
       <Text style={styles.rank}>
-        {item.User.Ranks.length > 0 ? item.User.Ranks[0].RankName : 'Aucun rang'}
+      {item.User.Ranks && Array.isArray(item.User.Ranks) && item.User.Ranks.length > 0 
+        ? item.User.Ranks[0].RankName 
+        : 'Aucun rang'}
       </Text>
     </View>
   );

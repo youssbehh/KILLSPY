@@ -71,7 +71,17 @@ export default function OptionsScreen() {
       }
       setIsLoading(false);
       console.log("Déconnexion réussie");
-      await AsyncStorage.clear();
+      const rememberMe = await AsyncStorage.getItem('rememberMe');
+      if (rememberMe === 'true') {
+        const savedIdentifier = await AsyncStorage.getItem('User');
+        const savedPassword = await AsyncStorage.getItem('password');
+        await AsyncStorage.clear();
+        await AsyncStorage.setItem('User', savedIdentifier || '');
+        await AsyncStorage.setItem('password', savedPassword || '');
+        await AsyncStorage.setItem('rememberMe', rememberMe || '');
+      } else {
+        await AsyncStorage.clear();
+      }
       router.replace('/');
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error);

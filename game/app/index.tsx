@@ -84,6 +84,23 @@ export default function LoginFormScreen() {
   };
 
   useEffect(() => {
+    const fetchRememberMe = async () => {
+        const rememberMe = await AsyncStorage.getItem('rememberMe');
+        const identifier = await AsyncStorage.getItem('User');
+        const password = await AsyncStorage.getItem('password');
+        if (rememberMe === 'true') {
+          setRememberMe(true)
+          setIdentifier(identifier || '')
+          setPassword(password || '')
+
+        } else {
+          setRememberMe(false)
+        }
+    };
+    fetchRememberMe();
+}, []);
+
+  useEffect(() => {
     let timer: NodeJS.Timeout;
     if (isCountdownActive && countdown > 0) {
       timer = setInterval(() => {
@@ -122,7 +139,6 @@ export default function LoginFormScreen() {
     
     setIsLoading(true);
     try {
-      console.log(passwordCrea)
       const response = await fetch(`${apiUrl}/auth/signup`, {
         method: 'POST',
         headers: {
@@ -190,8 +206,11 @@ export default function LoginFormScreen() {
       await AsyncStorage.setItem('username', data.user.username);
       await AsyncStorage.setItem('isGuest', data.user.guest);
       if (rememberMe){
-        await AsyncStorage.setItem('User', identifier);
-        await AsyncStorage.setItem('password', data.password);
+          await AsyncStorage.setItem('rememberMe', 'true');
+          await AsyncStorage.setItem('User', identifier);
+          await AsyncStorage.setItem('password', password);
+      } else {
+        await AsyncStorage.setItem('rememberMe', 'false');
       }
       router.replace('/(tabs)/gamechoice');
     } catch (error) {

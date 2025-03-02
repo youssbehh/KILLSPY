@@ -61,7 +61,7 @@ const ProposContainer = () => {
         setIsGuest(isGuest === 'true');
     };
     fetchGuest();
-}, []);
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
