@@ -30,7 +30,6 @@ export const getLeaderboard = async (req: Request, res: Response, next: NextFunc
         }
       }
     });
-    console.log(leaderboard)
 
     res.status(200).json({ msg: "Classement récupéré avec succès.", leaderboard });
   } catch (e: any) {

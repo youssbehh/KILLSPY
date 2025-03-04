@@ -4,6 +4,7 @@ import { Text } from '@/components/Themed';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '@/store/languageStore';
 import { router, Stack } from 'expo-router';
+import { Button } from '@rneui/themed';
 import QuitButton from '@/components/QuitButton';
 
 type Action = string | null;
@@ -168,6 +169,7 @@ export default function GameScreen() {
           /*headerRight: () => <QuitButton />,*/
           headerBackTitle: ' ', 
           headerBackVisible: false,
+          //headerShown: false,
           gestureEnabled: false,
           headerStyle: {
             backgroundColor: '#fff',
@@ -183,18 +185,8 @@ export default function GameScreen() {
                          isWinner ? motTraduit(langIndex, 36) : motTraduit(langIndex, 37)}
                     </Text>
                     <View style={styles.buttonsRow}>
-                        <Pressable 
-                            style={styles.restartButton}
-                            onPress={() => router.push('/play/bot')}
-                        >
-                            <Text style={styles.buttonText}>{motTraduit(langIndex, 38)}</Text>
-                        </Pressable>
-                        <Pressable 
-                            style={styles.restartButton}
-                            onPress={() => router.replace('/(tabs)/gamechoice')}
-                        >
-                            <Text style={styles.buttonText}>{motTraduit(langIndex, 43)}</Text>
-                        </Pressable>
+                        <Button onPress={() => router.push('/play/bot')} style={{marginRight: 5}}>{motTraduit(langIndex, 38)}</Button>
+                        <Button onPress={() => router.replace('/(tabs)/gamechoice')} style={{marginLeft: 5}}>{motTraduit(langIndex, 43)}</Button>
                     </View>
                 </View>
             ) : !isGameStarted ? (
@@ -301,11 +293,5 @@ const styles = StyleSheet.create({
         width: '100%',
         paddingHorizontal: 20,
     },
-    restartButton: {
-        padding: 15,
-        backgroundColor: '#007AFF',
-        borderRadius: 10,
-        minWidth: 150,
-        alignItems: 'center',
-    },
+
 });

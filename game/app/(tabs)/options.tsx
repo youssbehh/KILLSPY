@@ -44,7 +44,6 @@ export default function OptionsScreen() {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const id = await AsyncStorage.getItem('userId');
-      console.log("Token récupéré :", token);
   
       if (!token) {
         console.warn("Aucun token trouvé, l'utilisateur est peut-être déjà déconnecté.");
@@ -63,8 +62,6 @@ export default function OptionsScreen() {
           id,
         }),
       });
-
-      console.log("Réponse serveur :", response.status, await response.text());
   
       if (!response.ok) {
         throw new Error(`Erreur serveur: ${response.status}`);

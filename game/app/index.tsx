@@ -202,7 +202,7 @@ export default function LoginFormScreen() {
       await AsyncStorage.setItem('userToken', data.token);
       await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
-      await AsyncStorage.setItem('isGuest', data.user.guest);
+      await AsyncStorage.setItem('isGuest', JSON.stringify(data.user.guest));
       if (rememberMe){
           await AsyncStorage.setItem('rememberMe', 'true');
           await AsyncStorage.setItem('User', identifier);
@@ -239,7 +239,7 @@ export default function LoginFormScreen() {
       await AsyncStorage.setItem('userToken', data.token);
       await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
-      await AsyncStorage.setItem('isGuest', data.user.guest);
+      await AsyncStorage.setItem('isGuest', JSON.stringify(data.user.guest));
       router.replace('/(tabs)/gamechoice');
     } catch (error) {
       showErrorModal('Erreur', 'Erreur de connexion au serveur');

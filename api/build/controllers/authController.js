@@ -126,7 +126,7 @@ const login = (req, res, next) => __awaiter(void 0, void 0, void 0, function* ()
         const token = jwt.sign({
             id: user.ID_User,
         }, secrets_1.JWT_SECRET);
-        console.log(token);
+
         res.json({ user: {
                 id: user.ID_User,
                 username: user.Username,
@@ -181,7 +181,7 @@ const guest = (req, res, next) => __awaiter(void 0, void 0, void 0, function* ()
         const token = jwt.sign({
             id: guest.ID_User,
         }, secrets_1.JWT_SECRET);
-        console.log(token);
+        
         res.json({ user: {
                 id: guest.ID_User,
                 username: guest.Username,

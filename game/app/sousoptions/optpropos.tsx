@@ -120,19 +120,19 @@ const ProposContainer = () => {
           Nous nous engageons à protéger vos données personnelles. Voici les informations que nous collectons et conservons :
         </Text>
         <Text style={styles.content}>
-          1. **Nom d'utilisateur** : Utilisé pour identifier votre compte.
+          1. Nom d'utilisateur : Utilisé pour identifier votre compte.
         </Text>
         <Text style={styles.content}>
-          2. **Adresse e-mail** : Utilisée pour la communication et la récupération de compte.
+          2. Adresse e-mail : Utilisée pour la communication et la récupération de compte.
         </Text>
         <Text style={styles.content}>
-          3. **Historique de jeu** : Conserve vos performances et vos statistiques de jeu.
+          3. Historique de jeu : Conserve vos performances et vos statistiques de jeu.
         </Text>
         <Text style={styles.content}>
-          4. **Données de connexion** : Enregistrées pour des raisons de sécurité et d'analyse.
+          4. Données de connexion : Enregistrées pour des raisons de sécurité et d'analyse.
         </Text>
         <Text style={styles.content}>
-          5. **Préférences utilisateur** : Pour personnaliser votre expérience sur notre plateforme.
+          5. Préférences utilisateur : Pour personnaliser votre expérience sur notre plateforme.
         </Text>
         <Text style={styles.content}>
           Nous ne partageons pas vos données personnelles avec des tiers sans votre consentement, sauf si la loi l'exige.
