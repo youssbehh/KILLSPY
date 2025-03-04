@@ -34,8 +34,8 @@ export default function LoginFormScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  //const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  //const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
   const checkServerStatus = async () => {
     try {
@@ -127,15 +127,15 @@ export default function LoginFormScreen() {
       return;
     }
 
-    //if (!emailRegex.test(email)) {
-    //  showErrorModal('Erreur', 'Veuillez entrer une adresse email valide.');
-    //  return;
-    //}
+    if (!emailRegex.test(email)) {
+      showErrorModal('Erreur', 'Veuillez entrer une adresse email valide.');
+      return;
+    }
 
-    //if (!passwordRegex.test(passwordCrea)) {
-    //  showErrorModal('Erreur', 'Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.');
-    //  return;
-    //}
+    if (!passwordRegex.test(passwordCrea)) {
+      showErrorModal('Erreur', 'Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.');
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -199,8 +199,6 @@ export default function LoginFormScreen() {
         return;
       }
 
-      // Stockage du token et redirection
-      // TODO: Stocker data.token de manière sécurisée
       await AsyncStorage.setItem('userToken', data.token);
       await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
@@ -237,8 +235,7 @@ export default function LoginFormScreen() {
         showErrorModal('Erreur', data.message || 'Erreur de connexion');
         return;
       }
-      // Stockage du token et redirection
-      // TODO: Stocker data.token de manière sécurisée
+
       await AsyncStorage.setItem('userToken', data.token);
       await AsyncStorage.setItem('userId', JSON.stringify(data.user.id));
       await AsyncStorage.setItem('username', data.user.username);
