@@ -35,7 +35,7 @@ export default function LoginFormScreen() {
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
 
   const checkServerStatus = async () => {
     try {
@@ -133,7 +133,7 @@ export default function LoginFormScreen() {
     }
 
     if (!passwordRegex.test(passwordCrea)) {
-      showErrorModal('Erreur', 'Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.');
+      showErrorModal('Erreur', 'Le mot de passe doit contenir au moins 12 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial.');
       return;
     }
     
@@ -306,7 +306,7 @@ export default function LoginFormScreen() {
       />
 
       <Text style={styles.passwordInfo}>
-        Le mot de passe doit contenir au moins 8 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial [@$!%*?&].
+        Le mot de passe doit contenir au moins 12 caractères, une lettre majuscule, une lettre minuscule, un chiffre et un caractère spécial [@$!%*?&].
       </Text>
 
       <TextInput
