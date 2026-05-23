@@ -1,5 +1,5 @@
 import { hashSync } from 'bcrypt';
-import { createPrismaMock, PrismaMock } from './__mocks__/prismaMock';
+import { createPrismaMock, PrismaMock, resetPrismaMock } from './__mocks__/prismaMock';
 
 const prismaMock: PrismaMock = createPrismaMock();
 jest.mock('../src/lib/prisma', () => ({ prisma: prismaMock }));
@@ -9,11 +9,7 @@ import { app } from '../src/app';
 
 const VALID_PASSWORD = 'Aa1@strong';
 
-beforeEach(() => {
-  Object.values(prismaMock).forEach((model) =>
-    Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
-  );
-});
+beforeEach(() => resetPrismaMock(prismaMock));
 
 describe('POST /api/auth/signup', () => {
   it('crée un user et renvoie sans le hash de mdp', async () => {

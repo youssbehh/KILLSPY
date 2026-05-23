@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { createPrismaMock, PrismaMock } from './__mocks__/prismaMock';
+import { createPrismaMock, PrismaMock, resetPrismaMock } from './__mocks__/prismaMock';
 
 const prismaMock: PrismaMock = createPrismaMock();
 jest.mock('../src/lib/prisma', () => ({ prisma: prismaMock }));
@@ -22,11 +22,7 @@ const fakeUser = (id = 1) => ({
   CreatedAt: new Date(),
 });
 
-beforeEach(() => {
-  Object.values(prismaMock).forEach((model) =>
-    Object.values(model).forEach((fn) => (fn as jest.Mock).mockReset()),
-  );
-});
+beforeEach(() => resetPrismaMock(prismaMock));
 
 describe('POST /api/friends/add', () => {
   it('refuse sans token', async () => {

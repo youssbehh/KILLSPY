@@ -55,3 +55,28 @@ export const createPrismaMock = () => ({
 });
 
 export type PrismaMock = ReturnType<typeof createPrismaMock>;
+
+const defaultTransactionImpl = async (ops: any) => {
+  if (typeof ops === 'function') return ops({});
+  return Promise.all(ops as any[]);
+};
+
+/**
+ * Reset every jest mock function on the prisma mock (model methods + $transaction),
+ * then restore the default $transaction implementation so services that use it
+ * keep working without each test having to re-set it.
+ */
+export const resetPrismaMock = (mock: PrismaMock) => {
+  for (const value of Object.values(mock)) {
+    if (typeof value === 'function' && (value as jest.Mock).mockReset) {
+      (value as jest.Mock).mockReset();
+    } else if (value && typeof value === 'object') {
+      for (const fn of Object.values(value)) {
+        if (typeof fn === 'function' && (fn as jest.Mock).mockReset) {
+          (fn as jest.Mock).mockReset();
+        }
+      }
+    }
+  }
+  (mock.$transaction as jest.Mock).mockImplementation(defaultTransactionImpl);
+};
