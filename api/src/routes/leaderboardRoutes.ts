@@ -1,10 +1,9 @@
-import { Router } from 'express'
+import { Router } from 'express';
+import { getLeaderboard } from '../controllers/leaderboardController';
 
-import { getLeaderboard, setLeaderboard } from '../controllers/leaderboardController'
+const leaderboardRoutes: Router = Router();
 
-const leaderboardRoutes: Router = Router()
+leaderboardRoutes.get('/', getLeaderboard);
+leaderboardRoutes.get('/getLeaderboard', getLeaderboard); // legacy alias
 
-leaderboardRoutes.get('/getLeaderboard', getLeaderboard)
-leaderboardRoutes.post('/setLeaderboard', setLeaderboard)
-
-export default leaderboardRoutes
+export default leaderboardRoutes;

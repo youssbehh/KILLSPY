@@ -1,28 +1,21 @@
-   import { PrismaClient } from '@prisma/client';
-   import cron from 'node-cron';
+import cron from 'node-cron';
+import { prisma } from '../lib/prisma';
+import { logger } from '../lib/logger';
 
-   const prisma = new PrismaClient();
+const deleteMarkedUsers = async () => {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-   const deleteMarkedUsers = async () => {
-       const thirtyDaysAgo = new Date();
-       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const result = await prisma.users.deleteMany({
+    where: {
+      archived: true,
+      deletionDate: { lte: thirtyDaysAgo }
+    }
+  });
 
-       const usersToDelete = await prisma.users.findMany({
-           where: {
-               archived: true,
-               deletionDate: {
-                   lte: thirtyDaysAgo
-               }
-           }
-       });
+  if (result.count > 0) {
+    logger.info({ deleted: result.count }, 'cron: archived accounts purged');
+  }
+};
 
-       for (const user of usersToDelete) {
-           await prisma.users.delete({
-               where: { ID_User: user.ID_User }
-           });
-           console.log(`Utilisateur supprimé : ${user.Username}`);
-       }
-   };
-
-   // Exécutez la fonction toutes les 24 heures
-   cron.schedule('0 0 * * *', deleteMarkedUsers); // Exécute tous les jours à minuit
+cron.schedule('0 0 * * *', deleteMarkedUsers);

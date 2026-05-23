@@ -1,27 +1,17 @@
-import express, { Express } from 'express';
-import { PrismaClient } from '@prisma/client';
-import cors from 'cors';
+import http from 'http';
+import { PORT, NODE_ENV } from './secrets';
+import { app } from './app';
+import { prisma } from './lib/prisma';
+import { logger } from './lib/logger';
+import { attachSockets } from './sockets';
+import './jobs/cronJobs';
 
-import { PORT } from './secrets';
-import rootRouter from './routes';
-import { errorMiddleware } from './middlewares/errors';
+const httpServer = http.createServer(app);
+const io = attachSockets(httpServer);
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-app.use('/api', rootRouter);
-
-export const prisma_client = new PrismaClient({
-  log: ['error', 'info', 'warn'],
-  errorFormat: 'pretty',
+const server = httpServer.listen(PORT, () => {
+  logger.info({ port: PORT, env: NODE_ENV }, 'server running (HTTP + sockets)');
 });
 
-app.use(errorMiddleware);
-
-// Démarrer le serveur et l'exporter
-const server = app.listen(PORT, () => {
-  console.log("server running port : ", PORT);
-});
-
-export { app, server }; // 🔥 On exporte `server` pour le fermer après les tests
+export const prisma_client = prisma;
+export { app, server, io };

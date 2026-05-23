@@ -1,231 +1,132 @@
-import React, { useState, useEffect  } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, AppRegistry, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { Button } from '@rneui/themed';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useMutation } from '@tanstack/react-query';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '../../store/languageStore';
-
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
-import { faCaretDown, faCheck, faEdit, faTimes } from '@fortawesome/free-solid-svg-icons';
-import { faCaretUp } from '@fortawesome/free-solid-svg-icons';
+import { faCaretDown, faCheck, faEdit, faTimes, faCaretUp } from '@fortawesome/free-solid-svg-icons';
 import LoadingOverlay from '@/components/LoadingOverlay';
-
-const element = () => (
-    <View>
-      <FontAwesomeWrapper icon={faCaretDown} />
-      <FontAwesomeWrapper icon={faCaretUp} />
-    </View>
-);
+import { useAuthStore } from '@/src/stores/authStore';
+import { updateUsername as apiUpdateUsername } from '@/src/api/users';
+import { extractApiError } from '@/src/api/client';
 
 interface CompteParamProps {
-    title: string;
-    children: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
 }
-   const CompteParam: React.FC<CompteParamProps> = ({ title, children }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    
-    const toggleAccordion = () => {
-      setIsOpen(!isOpen);
-    };
-     return (
-      <View style={styles.container}>
-        <TouchableOpacity onPress={toggleAccordion} style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
-        </TouchableOpacity>
-        {isOpen && <View style={styles.content}>{children}</View>}
-      </View>
-    );
+
+const CompteParam: React.FC<CompteParamProps> = ({ title, children }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <View style={styles.container}>
+      <TouchableOpacity onPress={() => setIsOpen(!isOpen)} style={styles.header}>
+        <Text style={styles.title}>{title}</Text>
+        <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
+      </TouchableOpacity>
+      {isOpen && <View style={styles.content}>{children}</View>}
+    </View>
+  );
 };
-  const CompteContainer = () => {
-    const { langIndex, setLanguage } = useLanguageStore();
-    const [username, setUsername] = useState<string | null>(null);
-    const [userChange, setUserChange] = useState('');
-    const [isEditing, setIsEditing] = useState(false);
-    const [isGuest, setIsGuest] = useState<boolean>(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-    const handleLanguageChange = async (value: number) => {
-       await setLanguage(value);
-    };
+const CompteContainer = () => {
+  const { langIndex, setLanguage } = useLanguageStore();
+  const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
+  const [userChange, setUserChange] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-    useEffect(() => {
-      const fetchUsername = async () => {
-          const isGuest = await AsyncStorage.getItem('isGuest');
-          setIsGuest(isGuest === 'true');
-          const storedUsername = await AsyncStorage.getItem('username');
-          setUsername(storedUsername);
-      };
-      fetchUsername();
-  }, []);
-
-  // Fonction pour activer le mode édition
-  const startEditing = () => {
-      setUserChange(username || '');
-      setIsEditing(true);
-  };
-
-  // Fonction pour annuler la modification
-  const cancelEditing = () => {
+  const updateUsernameMutation = useMutation({
+    mutationFn: apiUpdateUsername,
+    onSuccess: (updated) => {
+      updateUser({ username: updated.username });
       setIsEditing(false);
-      setUserChange(username || '');
+      setErrorMsg('');
+    },
+    onError: (e) => setErrorMsg(extractApiError(e).message),
+  });
+
+  const isGuest = user?.guest ?? false;
+  const username = user?.username ?? '';
+
+  const startEditing = () => {
+    setUserChange(username);
+    setIsEditing(true);
+    setErrorMsg('');
   };
 
-  // Fonction pour appliquer la mise à jour du nom d'utilisateur
-  const updateUsername = async () => {
-    setIsLoading(true);
-      try {
-          const token = await AsyncStorage.getItem('userToken');
-          // Appelle l'API pour mettre à jour le nom d'utilisateur
-          const response = await fetch(`${apiUrl}/users/update-username/${username}`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `${token}`,
-              },
-              body: JSON.stringify({ newUsername: userChange }),
-          });
-
-          if (!response.ok) {
-              throw new Error('Erreur lors de la mise à jour du nom d\'utilisateur.');
-          }
-
-          // Met à jour AsyncStorage et l'état local
-          await AsyncStorage.setItem('username', userChange);
-          setUsername(userChange);
-          setIsEditing(false);
-      } catch (error) {
-          console.error(error);
-      }
-      setIsLoading(false);
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setUserChange(username);
+    setErrorMsg('');
   };
 
-    return (
-        <View>
-          <LoadingOverlay isLoading={isLoading} />
-            <CompteParam title={motTraduit(langIndex, 20)}>
-                <Text>{motTraduit(langIndex, 46)} :</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder={username || motTraduit(langIndex, 58)}
-                    value={userChange}
-                    onChangeText={setUserChange}
-                    editable={isEditing}
-                    autoCapitalize="none"
-                  />
-                  {!isGuest ? (
-                    isEditing ? (
-                        <View style={styles.buttonContainer}>
-                            <TouchableOpacity style={styles.applyButton} onPress={updateUsername} disabled={isLoading}>
-                                {isLoading ? <ActivityIndicator color="white" /> : <FontAwesomeWrapper icon={faCheck} />}
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.cancelButton} onPress={cancelEditing}>
-                                <FontAwesomeWrapper icon={faTimes} />
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <Button onPress={startEditing}><FontAwesomeWrapper icon={faEdit} /></Button>
-                    )
-                  ) : (
-                    <Button>{motTraduit(langIndex, 70)}</Button>
-                  )}
-                <Text style={{marginTop: 5}}>{motTraduit(langIndex, 25)} :</Text>
-                <View style={styles.radioContainer}>
-                    <TouchableOpacity 
-                        style={styles.radioOption} 
-                        onPress={() => handleLanguageChange(0)}
-                    >
-                        <View style={[styles.radio, langIndex === 0 && styles.radioSelected]} />
-                        <Text>{motTraduit(langIndex, 26)}</Text>
-                    </TouchableOpacity>
+  return (
+    <View>
+      <LoadingOverlay isLoading={updateUsernameMutation.isPending} />
+      <CompteParam title={motTraduit(langIndex, 20)}>
+        <Text>{motTraduit(langIndex, 46)} :</Text>
+        <TextInput
+          style={styles.input}
+          placeholder={username || motTraduit(langIndex, 58)}
+          value={userChange}
+          onChangeText={setUserChange}
+          editable={isEditing}
+          autoCapitalize="none"
+        />
+        {!isGuest ? (
+          isEditing ? (
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.applyButton}
+                onPress={() => updateUsernameMutation.mutate(userChange)}
+                disabled={updateUsernameMutation.isPending}
+              >
+                {updateUsernameMutation.isPending ? <ActivityIndicator color="white" /> : <FontAwesomeWrapper icon={faCheck} />}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={cancelEditing}>
+                <FontAwesomeWrapper icon={faTimes} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Button onPress={startEditing}><FontAwesomeWrapper icon={faEdit} /></Button>
+          )
+        ) : (
+          <Button>{motTraduit(langIndex, 70)}</Button>
+        )}
+        {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-                    <TouchableOpacity 
-                        style={styles.radioOption} 
-                        onPress={() => handleLanguageChange(1)}
-                    >
-                        <View style={[styles.radio, langIndex === 1 && styles.radioSelected]} />
-                        <Text>{motTraduit(langIndex, 27)}</Text>
-                    </TouchableOpacity>
-                </View>
-            </CompteParam>
+        <Text style={{ marginTop: 5 }}>{motTraduit(langIndex, 25)} :</Text>
+        <View style={styles.radioContainer}>
+          <TouchableOpacity style={styles.radioOption} onPress={() => setLanguage(0)}>
+            <View style={[styles.radio, langIndex === 0 && styles.radioSelected]} />
+            <Text>{motTraduit(langIndex, 26)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.radioOption} onPress={() => setLanguage(1)}>
+            <View style={[styles.radio, langIndex === 1 && styles.radioSelected]} />
+            <Text>{motTraduit(langIndex, 27)}</Text>
+          </TouchableOpacity>
         </View>
-    );
+      </CompteParam>
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
- container: {
-   marginBottom: 10,
-   borderWidth: 1,
-   borderColor: '#ccc',
-   borderRadius: 5,
- },
- header: {
-    flexDirection: 'row',
-   justifyContent: 'space-between',
-   padding: 10,
-   backgroundColor: '#f1f1f1',
- },
- title: {
-   fontSize: 16,
- },
- content: {
-   padding: 10,
-   backgroundColor: '#fff',
- },
- inputContainer: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  borderBottomWidth: 1,
-  borderBottomColor: '#ccc',
-  marginVertical: 10,
-},
-input: {
-  flex: 1,
-  padding: 10,
-  borderWidth: 1,
-  borderColor: '#ccc',
-  borderRadius: 8,
-  fontSize: 16,
-  marginBottom: 10,
-  marginTop: 10
-},
-buttonContainer: {
-  flexDirection: 'row',
-  padding : 5
-},
-applyButton: {
-  padding: 8,
-  backgroundColor: 'green',
-  borderRadius: 5,
-  marginRight: 5,
-},
-cancelButton: {
-  padding: 8,
-  backgroundColor: 'red',
-  borderRadius: 5,
-},
- radioContainer: {
-  marginTop: 10,
-},
-radioOption: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginVertical: 8,
-},
-radio: {
-  height: 20,
-  width: 20,
-  borderRadius: 10,
-  borderWidth: 2,
-  borderColor: '#000',
-  marginRight: 10,
-},
-radioSelected: {
-  backgroundColor: '#000',
-},
+  container: { marginBottom: 10, borderWidth: 1, borderColor: '#ccc', borderRadius: 5 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, backgroundColor: '#f1f1f1' },
+  title: { fontSize: 16 },
+  content: { padding: 10, backgroundColor: '#fff' },
+  input: { flex: 1, padding: 10, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, fontSize: 16, marginBottom: 10, marginTop: 10 },
+  buttonContainer: { flexDirection: 'row', padding: 5 },
+  applyButton: { padding: 8, backgroundColor: 'green', borderRadius: 5, marginRight: 5 },
+  cancelButton: { padding: 8, backgroundColor: 'red', borderRadius: 5 },
+  radioContainer: { marginTop: 10 },
+  radioOption: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
+  radio: { height: 20, width: 20, borderRadius: 10, borderWidth: 2, borderColor: '#000', marginRight: 10 },
+  radioSelected: { backgroundColor: '#000' },
+  errorText: { color: 'red', marginTop: 6 },
 });
 
 export default CompteContainer;
-
-AppRegistry.registerComponent('KILLSPY', () => element);

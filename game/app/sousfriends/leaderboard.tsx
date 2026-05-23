@@ -1,64 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { StyleSheet, FlatList } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
 import { useLanguageStore } from '../../store/languageStore';
 import LoadingOverlay from '@/components/LoadingOverlay';
-
-interface LeaderboardItem {
-  ID_Leaderboard: number;
-  User: {
-    Username: string;
-    MMR: number;
-    Ranks: { RankName: string }[];
-  };
-}
+import { useLeaderboard } from '@/src/hooks/useLeaderboard';
+import { LeaderboardEntry } from '@/src/api/leaderboard';
 
 export default function LeaderboardScreen() {
   const { langIndex } = useLanguageStore();
-  const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const { data: leaderboard = [], isLoading } = useLeaderboard();
 
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      setIsLoading(true);
-      try { 
-        const response = await fetch(`${apiUrl}/leaderbord/getLeaderboard`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Erreur lors de la récupération du classement');
-        }
-        const data = await response.json();
-        setLeaderboard(data.leaderboard);
-        console.log(data.leaderboard); // Vérifiez les données
-      } catch (error) {
-        console.error("Erreur lors de la récupération du classement:", error);
-      }
-      setIsLoading(false);
-    };
-
-    fetchLeaderboard();
-  }, []);
-
-  const formatRank = (index: number) => {
-    const rankSuffixes = ["er", "ème", "ème", "ème", "ème"]; // Suffixes pour les rangs
-    return (index === 0 ? (index + 1) + rankSuffixes[0] : (index + 1) + rankSuffixes[1]);
-  };
-
-  const renderItem = ({ item, index }: { item: LeaderboardItem; index: number }) => (
+  const renderItem = ({ item }: { item: LeaderboardEntry }) => (
     <View style={styles.item}>
-      <Text style={styles.rank}>Rang: {formatRank(index)}</Text>
-      <Text style={styles.username}>{item.User.Username}</Text>
-      <Text style={styles.mmr}>MMR: {item.User.MMR}</Text>
-      <Text style={styles.rank}>
-        {item.User.Ranks.length > 0 ? item.User.Ranks[0].RankName : 'Aucun rang'}
-      </Text>
+      <Text style={styles.position}>#{item.position}</Text>
+      <View style={styles.middle}>
+        <Text style={styles.username}>{item.username}</Text>
+        <Text style={[styles.rank, { color: item.rank.color }]}>{item.rank.label}</Text>
+      </View>
+      <Text style={styles.mmr}>{item.mmr} MMR</Text>
     </View>
   );
 
@@ -69,8 +29,8 @@ export default function LeaderboardScreen() {
       <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
       <FlatList
         data={leaderboard}
-        renderItem={({ item, index }) => renderItem({ item, index })}
-        keyExtractor={(item) => item.ID_Leaderboard.toString()}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.userId.toString()}
         style={styles.list}
       />
     </View>
@@ -78,35 +38,20 @@ export default function LeaderboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
-  list: {
-    width: '100%',
-  },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 20, fontWeight: 'bold' },
+  separator: { marginVertical: 20, height: 1, width: '80%' },
+  list: { width: '100%' },
   item: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#ccc',
   },
-  username: {
-    fontWeight: 'bold',
-  },
-  mmr: {
-    color: 'gray',
-  },
-  rank: {
-    color: 'blue',
-  },
+  position: { width: 40, fontWeight: 'bold', fontSize: 16 },
+  middle: { flex: 1 },
+  username: { fontWeight: '600' },
+  rank: { fontSize: 12 },
+  mmr: { color: 'gray' },
 });

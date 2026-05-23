@@ -1,5 +1,3 @@
-      import translations from './translations';
+import { tByIndex } from '@/src/i18n';
 
-      export const motTraduit = (langIndex, wordIndex) => {
-        return translations[langIndex][wordIndex] || '';
-      };
+export const motTraduit = (langIndex, wordIndex) => tByIndex(langIndex, wordIndex);

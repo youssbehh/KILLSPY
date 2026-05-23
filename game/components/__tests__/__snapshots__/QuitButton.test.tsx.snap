@@ -45,7 +45,7 @@ exports[`QuitButton crée un snapshot du bouton QuitButton 1`] = `
     style={
       [
         {
-          "color": "#000",
+          "color": "#ffffff",
         },
         {
           "color": "#FF3B30",

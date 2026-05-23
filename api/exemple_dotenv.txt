@@ -1,3 +1,8 @@
 DATABASE_URL="postgresql://postgres.[SUPABASE-PROJECT-ID]:[SUPABASE-PASSWORD]@aws-0-eu-west-3.pooler.supabase.com:[SUPABASE-PORT]/postgres?pgbouncer=true"
-PORT=XXXX
-JWT_SECRET=XXXX
+PORT=4000
+# 32+ caractères recommandés. Générer avec :
+#   node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+JWT_SECRET=remplace-moi-par-un-secret-aleatoire-de-32-caracteres-minimum
+# Origines autorisées pour CORS et sockets (vide = tout autorisé en dev)
+ALLOWED_ORIGINS=
+NODE_ENV=development

@@ -1,22 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, AppRegistry, Alert, Modal } from 'react-native';
-import { motTraduit } from '@/components/translationHelper';
-import { useLanguageStore } from '../../store/languageStore';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button } from '@rneui/themed';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useMutation } from '@tanstack/react-query';
+import { motTraduit } from '@/components/translationHelper';
+import { useLanguageStore } from '../../store/languageStore';
 import AlertModal from '@/components/AlertModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
-
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faCaretDown, faCaretUp } from '@fortawesome/free-solid-svg-icons';
-
-const element = () => (
-  <View>
-    <FontAwesomeWrapper icon={faCaretDown} />
-    <FontAwesomeWrapper icon={faCaretUp} />
-  </View>
-);
+import { useAuthStore } from '@/src/stores/authStore';
+import { deleteAccount } from '@/src/api/users';
+import { extractApiError } from '@/src/api/client';
 
 interface ProposParamProps {
   title: string;
@@ -24,13 +19,9 @@ interface ProposParamProps {
 }
 const ProposParam: React.FC<ProposParamProps> = ({ title, children }) => {
   const [isOpen, setIsOpen] = useState(false);
-
-  const toggleAccordion = () => {
-    setIsOpen(!isOpen);
-  };
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={toggleAccordion} style={styles.header}>
+      <TouchableOpacity onPress={() => setIsOpen(!isOpen)} style={styles.header}>
         <Text style={styles.title}>{title}</Text>
         <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
       </TouchableOpacity>
@@ -41,13 +32,29 @@ const ProposParam: React.FC<ProposParamProps> = ({ title, children }) => {
 
 const ProposContainer = () => {
   const { langIndex } = useLanguageStore();
+  const router = useRouter();
+  const user = useAuthStore((s) => s.user);
+  const clearSession = useAuthStore((s) => s.clearSession);
+  const isGuest = user?.guest ?? false;
   const [modalVisible, setModalVisible] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [isCountdownActive, setIsCountdownActive] = useState(false);
-  const [isGuest, setIsGuest] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  const deleteMutation = useMutation({
+    mutationFn: () => {
+      if (!user) throw new Error('Aucun utilisateur connecté.');
+      return deleteAccount(user.id);
+    },
+    onSuccess: async () => {
+      await clearSession();
+      setModalVisible(false);
+      Alert.alert('Compte supprimé', 'Votre compte a été archivé. Suppression définitive dans 30 jours.');
+      router.replace('/');
+    },
+    onError: (e) => {
+      Alert.alert('Erreur', extractApiError(e).message);
+    },
+  });
 
   const handleDeleteAccount = () => {
     setModalVisible(true);
@@ -56,101 +63,40 @@ const ProposContainer = () => {
   };
 
   useEffect(() => {
-    const fetchGuest = async () => {
-        const isGuest = await AsyncStorage.getItem('isGuest');
-        setIsGuest(isGuest === 'true');
-    };
-    fetchGuest();
-}, []);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
     if (isCountdownActive && countdown > 0) {
-      timer = setInterval(() => {
-        setCountdown(prev => prev - 1);
-      }, 1000);
+      timer = setInterval(() => setCountdown((p) => p - 1), 1000);
     } else if (countdown === 0) {
       setIsCountdownActive(false);
     }
     return () => clearInterval(timer);
   }, [isCountdownActive, countdown]);
 
-
-  const confirmDeleteAccount = async () => {
-    setIsLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const id = await AsyncStorage.getItem('userId');
-
-      const response = await fetch(`${apiUrl}/users/deleteUser/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Response:', response);
-
-      if (!response.ok) {
-        const errorMessage = await response.text();
-        throw new Error(`Erreur lors de la suppression du compte : ${errorMessage}`);
-      }
-
-      // Si la suppression est réussie, vous pouvez rediriger l'utilisateur ou afficher un message
-      await AsyncStorage.clear();
-      router.replace('/');
-      Alert.alert("Compte supprimé", "Votre compte a été supprimé avec succès.");
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Erreur", "Une erreur est survenue lors de la suppression de votre compte.");
-    } finally {
-      setModalVisible(false);
-      setIsLoading(false);
-    }
-    setIsLoading(false);
-  };
-
   return (
     <View>
-      <LoadingOverlay isLoading={isLoading} />
+      <LoadingOverlay isLoading={deleteMutation.isPending} />
       <ProposParam title={motTraduit(langIndex, 29)}>
         <Text style={styles.title}>Informations sur la protection des données</Text>
-        <Text style={styles.content}>
+        <Text style={styles.contentText}>
           Nous nous engageons à protéger vos données personnelles. Voici les informations que nous collectons et conservons :
         </Text>
-        <Text style={styles.content}>
-          1. **Nom d'utilisateur** : Utilisé pour identifier votre compte.
+        <Text style={styles.contentText}>1. Nom d'utilisateur : Utilisé pour identifier votre compte.</Text>
+        <Text style={styles.contentText}>2. Adresse e-mail : Communication et récupération de compte.</Text>
+        <Text style={styles.contentText}>3. Historique de jeu : Performances et statistiques.</Text>
+        <Text style={styles.contentText}>4. Données de connexion : Sécurité et analyse.</Text>
+        <Text style={styles.contentText}>5. Préférences utilisateur : Personnalisation.</Text>
+        <Text style={styles.contentText}>
+          Nous ne partageons pas vos données avec des tiers sans votre consentement, sauf si la loi l'exige.
         </Text>
-        <Text style={styles.content}>
-          2. **Adresse e-mail** : Utilisée pour la communication et la récupération de compte.
-        </Text>
-        <Text style={styles.content}>
-          3. **Historique de jeu** : Conserve vos performances et vos statistiques de jeu.
-        </Text>
-        <Text style={styles.content}>
-          4. **Données de connexion** : Enregistrées pour des raisons de sécurité et d'analyse.
-        </Text>
-        <Text style={styles.content}>
-          5. **Préférences utilisateur** : Pour personnaliser votre expérience sur notre plateforme.
-        </Text>
-        <Text style={styles.content}>
-          Nous ne partageons pas vos données personnelles avec des tiers sans votre consentement, sauf si la loi l'exige.
-        </Text>
-        <Text style={styles.content}>
-          Vous avez le droit de demander l'accès à vos données, de les corriger ou de les supprimer à tout moment.
-        </Text>
-        {!isGuest ? (
-        <Button title={motTraduit(langIndex, 68)} onPress={handleDeleteAccount} />
-        ) : (
-          <></>
+        {!isGuest && (
+          <Button title={motTraduit(langIndex, 68)} onPress={handleDeleteAccount} />
         )}
         <AlertModal
           visible={modalVisible}
           text1={motTraduit(langIndex, 67)}
           text2={isCountdownActive ? `Attendez ${countdown} secondes...` : ''}
           error1Button={motTraduit(langIndex, 65)}
-          onPressError1={isCountdownActive ? () => { } : confirmDeleteAccount}
+          onPressError1={isCountdownActive ? () => {} : () => deleteMutation.mutate()}
           disabledError1={isCountdownActive}
           button1={motTraduit(langIndex, 66)}
           onPress1={() => setModalVisible(false)}
@@ -161,71 +107,11 @@ const ProposContainer = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 10,
-    backgroundColor: '#f1f1f1',
-  },
-  title: {
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  content: {
-    padding: 10,
-    backgroundColor: '#fff',
-  },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalText: {
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  countdownText: {
-    marginBottom: 15,
-    fontSize: 16,
-    color: 'orange',
-  },
-  confirmButton: {
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-    width: '100%',
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: 'gray',
-    padding: 10,
-    borderRadius: 5,
-    width: '100%',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
+  container: { marginBottom: 10, borderWidth: 1, borderColor: '#ccc', borderRadius: 5 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, backgroundColor: '#f1f1f1' },
+  title: { fontSize: 16, marginBottom: 10 },
+  content: { padding: 10, backgroundColor: '#fff' },
+  contentText: { padding: 5 },
 });
 
 export default ProposContainer;
-
-AppRegistry.registerComponent('KILLSPY', () => element);

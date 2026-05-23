@@ -5,7 +5,7 @@ exports[`Text Component crée un snapshot du composant Text 1`] = `
   style={
     [
       {
-        "color": "#000",
+        "color": "#ffffff",
       },
       undefined,
     ]
@@ -20,7 +20,7 @@ exports[`View Component crée un snapshot du composant View 1`] = `
   style={
     [
       {
-        "backgroundColor": "#fff",
+        "backgroundColor": "#343a40",
       },
       undefined,
     ]
@@ -30,7 +30,7 @@ exports[`View Component crée un snapshot du composant View 1`] = `
     style={
       [
         {
-          "color": "#000",
+          "color": "#ffffff",
         },
         undefined,
       ]

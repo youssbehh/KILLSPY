@@ -1,311 +1,179 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Pressable, View } from 'react-native';
-import { Text } from '@/components/Themed';
-import { motTraduit } from '@/components/translationHelper';
-import { useLanguageStore } from '@/store/languageStore';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { router, Stack } from 'expo-router';
-import QuitButton from '@/components/QuitButton';
+import { Screen } from '@/src/ui/Screen';
+import { Button } from '@/src/ui/Button';
+import { Card } from '@/src/ui/Card';
+import { ThemedText, Separator } from '@/src/ui/ThemedText';
+import {
+  GameAction,
+  GameState,
+  COUNTDOWN_DURATION_MS,
+  TURN_DURATION_MS,
+  MAX_AMMO,
+  createInitialState,
+  forcedAction,
+  isActionLegal,
+  resolveTurn,
+} from '@/src/game/gameEngine';
+import { BotMemory, chooseBotAction, createBotMemory, rememberPlayerAction } from '@/src/game/botAI';
+import { spacing } from '@/src/theme/tokens';
+import { useT } from '@/src/i18n';
+import { useBotStore } from '@/src/stores/botStore';
 
-type Action = string | null;
+type Phase = 'countdown' | 'choosing' | 'resolving' | 'finished';
 
-export default function GameScreen() {
-    const { langIndex } = useLanguageStore();
-    const [countdown, setCountdown] = useState(3);
-    const [isGameStarted, setIsGameStarted] = useState(false);
-    const [actionCountdown, setActionCountdown] = useState(5);
-    const [playerAction, setPlayerAction] = useState<Action>(null);
-    const [botAction, setBotAction] = useState<Action>(null);
-    const [playerMunitions, setPlayerMunitions] = useState(0);
-    const [botMunitions, setBotMunitions] = useState(0);
-    const [playerLives, setPlayerLives] = useState(3);
-    const [botLives, setBotLives] = useState(3);
-    const [showingResult, setShowingResult] = useState(false);
-    const [gameOver, setGameOver] = useState(false);
-    const [isWinner, setIsWinner] = useState<boolean | null>(false);
+// PvE games are NOT persisted — no MMR, no V/D stats. Just training.
+export default function BotGameScreen() {
+  const t = useT();
+  const difficulty = useBotStore((s) => s.difficulty);
+  const [state, setState] = useState<GameState>(createInitialState());
+  const [phase, setPhase] = useState<Phase>('countdown');
+  const [secondsLeft, setSecondsLeft] = useState(Math.ceil(COUNTDOWN_DURATION_MS / 1000));
+  const [playerAction, setPlayerAction] = useState<GameAction | null>(null);
+  const memoryRef = useRef<BotMemory>(createBotMemory());
 
-    // Décompte initial de 3 secondes
-    useEffect(() => {
-        if (countdown > 0) {
-            const timer = setTimeout(() => {
-                setCountdown(countdown - 1);
-            }, 1000);
-            return () => clearTimeout(timer);
-        } else {
-            setIsGameStarted(true);
-        }
-    }, [countdown]);
+  // Countdown initial
+  useEffect(() => {
+    if (phase !== 'countdown') return;
+    if (secondsLeft <= 0) {
+      setPhase('choosing');
+      setSecondsLeft(Math.ceil(TURN_DURATION_MS / 1000));
+      return;
+    }
+    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [phase, secondsLeft]);
 
-    // Fonction pour obtenir une action aléatoire
-    const getRandomAction = (): Action => {
-        const actions: Action[] = [motTraduit(langIndex, 42), motTraduit(langIndex, 41), motTraduit(langIndex, 40)];
-        if (playerMunitions === 0) return motTraduit(langIndex, 42);
-        if (playerMunitions === 3) return actions[1 + Math.floor(Math.random() * 2)];
-        return actions[Math.floor(Math.random() * 3)];
-    };
+  // Tour de choix
+  useEffect(() => {
+    if (phase !== 'choosing') return;
+    if (secondsLeft <= 0) {
+      // Joueur AFK ou action choisie : on résout
+      resolveRound(playerAction ?? forcedAction(state.player));
+      return;
+    }
+    const id = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [phase, secondsLeft, playerAction, state]);
 
-    // Décompte de 5 secondes pour l'action
-    useEffect(() => {
-        if (gameOver) return; // Arrêter si game over
+  const resolveRound = (chosenPlayerAction: GameAction) => {
+    setPhase('resolving');
+    const botAction = chooseBotAction(state, memoryRef.current, difficulty);
+    memoryRef.current = rememberPlayerAction(memoryRef.current, chosenPlayerAction);
 
-        if (isGameStarted && actionCountdown > 0) {
-            const timer = setTimeout(() => {
-                setActionCountdown(actionCountdown - 1);
-            }, 1000);
-            return () => clearTimeout(timer);
-        } else if (isGameStarted && actionCountdown === 0) {
-            // Exécuter l'action aléatoire UNIQUEMENT si le joueur n'a pas joué
-            if (!playerAction) {
-                const randomAction = getRandomAction();
-                setPlayerAction(randomAction);
-            }
-            // Exécuter l'action du bot
-            executeBotAction();
-        }
-    }, [isGameStarted, actionCountdown, gameOver]);
+    const next = resolveTurn(state, chosenPlayerAction, botAction);
+    setState(next);
+    setPlayerAction(null);
 
-    // Ajout d'un useEffect pour surveiller les changements d'actions
-    useEffect(() => {
-        if (actionCountdown === 0 && playerAction && botAction) {
-            executeActions();
-        }
-    }, [playerAction, botAction]);
+    setTimeout(() => {
+      if (next.status === 'choosing') {
+        setPhase('choosing');
+        setSecondsLeft(Math.ceil(TURN_DURATION_MS / 1000));
+      } else {
+        // PvE: pas d'enregistrement (pas de V/D, pas de MMR).
+        setPhase('finished');
+      }
+    }, 1500);
+  };
 
-    const executeBotAction = () => {
-        // Logique simple du bot
-        let action: Action;
-        const random = Math.random(); // Un seul nombre aléatoire
+  const handleAction = (action: GameAction) => {
+    if (phase !== 'choosing') return;
+    if (!isActionLegal(state.player, action)) return;
+    setPlayerAction(action);
+    // Petite pause visuelle puis résolution
+    setTimeout(() => resolveRound(action), 300);
+  };
 
-        if (botMunitions === 0) {
-            action = motTraduit(langIndex, 42); // Forcé de recharger
-        } else if (botMunitions === 3) {
-            action = random > 0.5 ? motTraduit(langIndex, 41) : motTraduit(langIndex, 40); // Tirer ou bouclier
-        } else {
-            if (random < 0.33) action = motTraduit(langIndex, 42);      // 33% recharger
-            else if (random < 0.66) action = motTraduit(langIndex, 41); // 33% tirer
-            else action = motTraduit(langIndex, 40);                    // 33% bouclier
-        }
-        setBotAction(action);
-    };
+  const outcomeText = useMemo(() => {
+    if (state.status === 'won') return t('youWon');
+    if (state.status === 'lost') return t('youLost');
+    if (state.status === 'draw') return t('draw');
+    return '';
+  }, [state.status, t]);
 
-    const executeActions = () => {
-        const currentPlayerAction = playerAction;
-        const currentBotAction = botAction;
+  return (
+    <>
+      <Stack.Screen options={{ title: '', headerBackVisible: false, gestureEnabled: false }} />
+      <Screen centered>
+        <Card style={styles.opponentCard}>
+          <ThemedText variant="h3">Bot ({difficulty})</ThemedText>
+          <ThemedText variant="muted">
+            Vies : {state.opponent.lives} · Munitions : {state.opponent.ammo}/{MAX_AMMO}
+          </ThemedText>
+          <ThemedText variant="caption">
+            Action : {state.lastOpponentAction ? humanAction(state.lastOpponentAction, t) : '...'}
+          </ThemedText>
+        </Card>
 
-        // Match nul si les deux tirent en même temps
-        if (currentPlayerAction === motTraduit(langIndex, 41) && 
-            currentBotAction === motTraduit(langIndex, 41) && 
-            playerLives === 1 && 
-            botLives === 1) {
-            setPlayerLives(prev => prev - 1);
-            setBotLives(prev => prev - 1);
-            setShowingResult(true);
-            setTimeout(() => {
-                setGameOver(true);
-                setIsWinner(null); // null pour match nul
-            }, 3000);
-            setPlayerMunitions(prev => prev - 1);
-            setBotMunitions(prev => prev - 1);
-            return; // Arrêter l'exécution ici
-        }
+        {phase === 'countdown' ? (
+          <ThemedText variant="h1">{secondsLeft}</ThemedText>
+        ) : phase === 'choosing' ? (
+          <ThemedText variant="h1">{secondsLeft}</ThemedText>
+        ) : phase === 'resolving' ? (
+          <ThemedText variant="h3">Résolution…</ThemedText>
+        ) : null}
 
-        // Recharge
-        if (currentPlayerAction === motTraduit(langIndex, 42)) {
-            setPlayerMunitions(prev => Math.min(prev + 1, 3));
-        }
-        if (currentBotAction === motTraduit(langIndex, 42)) {
-            setBotMunitions(prev => Math.min(prev + 1, 3));
-        }
+        <Card style={styles.youCard} variant="highlighted">
+          <ThemedText variant="h3">{t('welcomeAgent')}</ThemedText>
+          <ThemedText variant="muted">
+            Vies : {state.player.lives} · Munitions : {state.player.ammo}/{MAX_AMMO}
+          </ThemedText>
+          <ThemedText variant="caption">
+            Action : {playerAction ? humanAction(playerAction, t) : '...'}
+          </ThemedText>
+        </Card>
 
-        // Tirs du joueur
-        if (currentPlayerAction === motTraduit(langIndex, 41) && playerMunitions > 0) {
-            setPlayerMunitions(prev => prev - 1); // Déduire la munition dans tous les cas
-            if (currentBotAction !== motTraduit(langIndex, 40)) { // Vérifier si le tir touche
-                setBotLives(prev => {
-                    const newLives = prev - 1;
-                    if (newLives <= 0) {
-                        setShowingResult(true);
-                        setTimeout(() => {
-                            setGameOver(true);
-                            setIsWinner(true);
-                        }, 3000);
-                    }
-                    return newLives;
-                });
-            }
-        }
+        {phase === 'choosing' && (
+          <View style={styles.actionRow}>
+            <Button
+              label={t('reload')}
+              onPress={() => handleAction('reload')}
+              disabled={!isActionLegal(state.player, 'reload') || !!playerAction}
+              fullWidth={false}
+            />
+            <Button
+              label={t('shoot')}
+              onPress={() => handleAction('shoot')}
+              disabled={!isActionLegal(state.player, 'shoot') || !!playerAction}
+              variant="danger"
+              fullWidth={false}
+            />
+            <Button
+              label={t('shield')}
+              onPress={() => handleAction('shield')}
+              disabled={!!playerAction}
+              variant="secondary"
+              fullWidth={false}
+            />
+          </View>
+        )}
 
-        // Tirs du bot
-        if (currentBotAction === motTraduit(langIndex, 41) && botMunitions > 0) {
-            setBotMunitions(prev => prev - 1); // Déduire la munition dans tous les cas
-            if (currentPlayerAction !== motTraduit(langIndex, 40)) { // Vérifier si le tir touche
-                setPlayerLives(prev => {
-                    const newLives = prev - 1;
-                    if (newLives <= 0) {
-                        setShowingResult(true);
-                        setTimeout(() => {
-                            setGameOver(true);
-                            setIsWinner(false);
-                        }, 3000);
-                    }
-                    return newLives;
-                });
-            }
-        }
-
-        // Réinitialisation pour le prochain tour
-        setTimeout(() => {
-            setPlayerAction(null);
-            setBotAction(null);
-            setActionCountdown(5);
-        }, 2000);
-    };
-
-    return (
-        <>
-        <Stack.Screen 
-        options={{
-          title: '',
-          /*headerRight: () => <QuitButton />,*/
-          headerBackTitle: ' ', 
-          headerBackVisible: false,
-          gestureEnabled: false,
-          headerStyle: {
-            backgroundColor: '#fff',
-          },
-          headerShadowVisible: false,
-        }} 
-      />
-        <View style={styles.container}>
-            {gameOver ? (
-                <View style={styles.gameOverContainer}>
-                    <Text style={styles.gameOverText}>
-                        {isWinner === null ? motTraduit(langIndex, 32) : // Match nul
-                         isWinner ? motTraduit(langIndex, 36) : motTraduit(langIndex, 37)}
-                    </Text>
-                    <View style={styles.buttonsRow}>
-                        <Pressable 
-                            style={styles.restartButton}
-                            onPress={() => router.push('/play/bot')}
-                        >
-                            <Text style={styles.buttonText}>{motTraduit(langIndex, 38)}</Text>
-                        </Pressable>
-                        <Pressable 
-                            style={styles.restartButton}
-                            onPress={() => router.replace('/(tabs)/gamechoice')}
-                        >
-                            <Text style={styles.buttonText}>{motTraduit(langIndex, 43)}</Text>
-                        </Pressable>
-                    </View>
-                </View>
-            ) : !isGameStarted ? (
-                <Text style={styles.countdown}>{countdown}</Text>
-            ) : (
-                <>
-                    <View style={styles.statsContainer}>
-                        <Text style={styles.statsText}>Vies Bot: {botLives} | Munitions: {botMunitions}</Text>
-                        <Text style={styles.statsText}>Action Bot: {botAction || '...'}</Text>
-                    </View>
-
-                    <Text style={styles.countdown}>{actionCountdown}</Text>
-
-                    <View style={styles.statsContainer}>
-                        <Text style={styles.statsText}>Vos vies: {playerLives} | Munitions: {playerMunitions}</Text>
-                        <Text style={styles.statsText}>Votre action: {playerAction || '...'}</Text>
-                    </View>
-
-                    <View style={styles.buttonsContainer}>
-                        <Pressable 
-                            style={[styles.button, playerAction === motTraduit(langIndex, 42) && styles.selectedButton]} 
-                            onPress={() => setPlayerAction(motTraduit(langIndex, 42))}
-                            disabled={actionCountdown === 0 || playerMunitions === 3}
-                        >
-                            <Text style={styles.buttonText}>{motTraduit(langIndex, 42)}</Text>
-                        </Pressable>
-                        <Pressable 
-                            style={[styles.button, playerAction === motTraduit(langIndex, 41) && styles.selectedButton]} 
-                            onPress={() => setPlayerAction(motTraduit(langIndex, 41))}
-                            disabled={actionCountdown === 0 || playerMunitions === 0}
-                        >
-                            <Text style={styles.buttonText}>{motTraduit(langIndex, 41)}</Text>
-                        </Pressable>
-                        <Pressable 
-                            style={[styles.button, playerAction === motTraduit(langIndex, 40) && styles.selectedButton]} 
-                            onPress={() => setPlayerAction(motTraduit(langIndex, 40))}
-                            disabled={actionCountdown === 0}
-                        >
-                            <Text style={styles.buttonText}>{motTraduit(langIndex, 40)}</Text>
-                        </Pressable>
-                    </View>
-                </>
-            )}
-        </View>
-        </>
-    );
+        {phase === 'finished' && (
+          <View style={styles.endRow}>
+            <Separator />
+            <ThemedText variant="h2">{outcomeText}</ThemedText>
+            <View style={styles.endButtons}>
+              <Button label={t('restart')} onPress={() => router.replace('/play/bot')} fullWidth={false} />
+              <Button label={t('quit')} onPress={() => router.replace('/(tabs)/gamechoice')} variant="ghost" fullWidth={false} />
+            </View>
+          </View>
+        )}
+      </Screen>
+    </>
+  );
 }
 
+const humanAction = (action: GameAction, t: ReturnType<typeof useT>) => {
+  if (action === 'shield') return t('shield');
+  if (action === 'shoot') return t('shoot');
+  return t('reload');
+};
+
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#fff',
-    },
-    countdown: {
-        fontSize: 48,
-        fontWeight: 'bold',
-        marginVertical: 20,
-        color: '#000',
-    },
-    statsContainer: {
-        alignItems: 'center',
-        marginVertical: 20,
-    },
-    statsText: {
-        color: '#000',
-        fontSize: 16,
-    },
-    buttonsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        width: '100%',
-        padding: 20,
-    },
-    button: {
-        padding: 15,
-        backgroundColor: '#007AFF',
-        borderRadius: 10,
-        minWidth: 100,
-        alignItems: 'center',
-    },
-    selectedButton: {
-        backgroundColor: '#004999',
-    },
-    buttonText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    gameOverContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    gameOverText: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        marginBottom: 30,
-        textAlign: 'center',
-        color: '#000',
-    },
-    buttonsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        width: '100%',
-        paddingHorizontal: 20,
-    },
-    restartButton: {
-        padding: 15,
-        backgroundColor: '#007AFF',
-        borderRadius: 10,
-        minWidth: 150,
-        alignItems: 'center',
-    },
+  opponentCard: { width: '90%' },
+  youCard: { width: '90%' },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  endRow: { alignItems: 'center', marginTop: spacing.md },
+  endButtons: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
 });

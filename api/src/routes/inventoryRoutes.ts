@@ -1,11 +1,13 @@
-import { Router } from 'express'
-import authMiddleware from '../middlewares/authMiddleware'
+import { Router } from 'express';
+import authMiddleware from '../middlewares/authMiddleware';
+import { validate } from '../middlewares/validate';
+import { equipBodySchema, unequipParamSchema } from '../validators/shop';
+import { getInventory, equip, unequip } from '../controllers/inventoryController';
 
-import { addInventory, myInventory } from '../controllers/inventoryController'
+const inventoryRoutes: Router = Router();
 
-const inventoryRoutes: Router = Router()
+inventoryRoutes.get('/', authMiddleware(), getInventory);
+inventoryRoutes.post('/equip', authMiddleware(), validate(equipBodySchema), equip);
+inventoryRoutes.delete('/equip/:type', authMiddleware(), validate(unequipParamSchema, 'params'), unequip);
 
-inventoryRoutes.post('/add', authMiddleware("1"), addInventory)
-inventoryRoutes.get('/myInventory', authMiddleware("1"), myInventory)
-
-export default inventoryRoutes
+export default inventoryRoutes;

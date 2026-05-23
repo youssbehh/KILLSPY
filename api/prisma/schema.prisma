@@ -1,8 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// KILLSPY Prisma schema
+// Cleaned Phase 6 — dropped legacy shop tables, added cosmetic system.
 
 generator client {
   provider = "prisma-client-js"
@@ -13,29 +10,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Users {
-  ID_User   Int     @id @default(autoincrement())
-  Username  String  @unique
-  Email     String  @unique
-  Password  String
-  MMR       Int
-  isGuest    Boolean @default(false)
-  CreatedAt  DateTime @default(now())
-  archived  Boolean @default(false)
-  deletionDate  DateTime?
+// =====================================================================
+// CORE
+// =====================================================================
 
-  Leaderboard Leaderboard? 
-  Roles      Roles[]
-  Ranks      Ranks[]
-  Purchases  PurchaseHistory[] 
-  Sessions   Session[] 
-  Friends    Friends[] 
-  Inventory  Inventory[] 
-  Result     GameHistory[] 
+model Users {
+  ID_User      Int       @id @default(autoincrement())
+  Username     String    @unique
+  Email        String    @unique
+  Password     String
+  MMR          Int       @default(0)
+  Money        Int       @default(100)
+  isGuest      Boolean   @default(false)
+  CreatedAt    DateTime  @default(now())
+  archived     Boolean   @default(false)
+  deletionDate DateTime?
+
+  Roles     Roles[]
+  Sessions  Session[]
+  Friends   Friends[]     @relation("user_friendships")
+  FriendOf  Friends[]     @relation("friend_of")
+  Result    GameHistory[]
+  Cosmetics UserCosmetic[]
+  Equipped  EquippedCosmetic[]
 }
 
 model Session {
-  ID_Session      Int     @id @default(autoincrement())
+  ID_Session      Int      @id @default(autoincrement())
   Connected       Boolean
   LastConnection  DateTime
   TotalLoginCount Int
@@ -44,128 +45,122 @@ model Session {
 }
 
 model Roles {
-  ID_Role  Int    @id @default(autoincrement())
-  Role     String
-  User     Users   @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
-  ID_User  Int
-}
-
-model Ranks {
-  ID_Rank   Int    @id @default(autoincrement())
-  RankName  String
-  MMR_Range String
-  Users     Users[]
-}
-
-model Emotes {
-  ID_Emote      Int    @id @default(autoincrement())
-  EmoteName     String
-  EmotePicture  String
-  Shop          Shop[]
-}
-
-model DailyGift {
-  ID_Dailygift  Int     @id @default(autoincrement())
-  ClaimedAt     DateTime
-  Gift_Item     String
-}
-
-model ProfilePictures {
-  ID_PP   Int    @id @default(autoincrement())
-  PPName  String
-  PP      String
-  Theme       Themes[]
-}
-
-model Cards {
-  ID_THCard    Int    @id @default(autoincrement())
-  THCardName   String
-  THCard       String
-  Theme       Themes[]
-}
-
-model Coupons {
-  ID_Coupon  Int    @id @default(autoincrement())
-  Code       String @unique
-  State      Boolean
-  Qty        Int
-}
-
-model Themes {
-  ID_ThemeBG  Int    @id @default(autoincrement())
-  ThemeBGName String
-  ThemeBG     String
-  Card        Cards   @relation(fields: [ID_THCard], references: [ID_THCard])
-  ProfilePic  ProfilePictures @relation(fields: [ID_PP], references: [ID_PP])
-  ID_THCard   Int
-  ID_PP       Int
-  Shop        Shop[]
-  Inventory   Inventory[]
+  ID_Role Int    @id @default(autoincrement())
+  Role    String
+  User    Users  @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
+  ID_User Int
 }
 
 model Friends {
-  ID_Friend   Int     @id @default(autoincrement())
-  Connected   Boolean
-  Blocked     Boolean
-  User        Users   @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
-  ID_User     Int
+  ID_Friendship Int      @id @default(autoincrement())
+  Connected     Boolean  @default(false)
+  Blocked       Boolean  @default(false)
+  CreatedAt     DateTime @default(now())
+
+  User      Users @relation("user_friendships", fields: [ID_User], references: [ID_User], onDelete: Cascade)
+  ID_User   Int
+  Friend    Users @relation("friend_of",        fields: [ID_Friend], references: [ID_User], onDelete: Cascade)
+  ID_Friend Int
+
+  @@unique([ID_User, ID_Friend])
+}
+
+// =====================================================================
+// GAMES
+// =====================================================================
+
+enum GameModePersisted {
+  pvp_quick
+  pvp_ranked
 }
 
 model GameHistory {
-  ID_GameHistory Int @id @default(autoincrement())
-  V_D           Boolean
-  DateGame      DateTime
-  MMRWin        Int
-  User          Users  @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
-  ID_User       Int
+  ID_GameHistory Int               @id @default(autoincrement())
+  V_D            Boolean
+  DateGame       DateTime          @default(now())
+  MMRWin         Int               @default(0)
+  Mode           GameModePersisted @default(pvp_quick)
+  User           Users             @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
+  ID_User        Int
+
+  @@index([ID_User, Mode, DateGame])
 }
 
-model PurchaseHistory {
-  ID_Achat      Int     @id @default(autoincrement())
-  PurchaseDate  DateTime
-  Qty           Int
-  User          Users    @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
-  ID_User       Int
-  Shop          Shop[]
+// =====================================================================
+// COSMETICS / SHOP
+// =====================================================================
+
+enum CosmeticType {
+  avatar         // photo de profil
+  card_skin      // habillage des cartes / interface jeu
+  emote          // réaction in-game
+  background     // fond achetable (différent du thème UI)
+  shoot_anim     // animation de tir (futur)
+  shield_anim    // animation de bouclier (futur)
+  name_effect    // effet visuel sur le pseudo (futur)
 }
 
-model Leaderboard {
-  ID_Leaderboard Int @id @default(autoincrement())
-  User          Users @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
-  ID_User       Int  @unique
+enum Rarity {
+  common      // gris
+  uncommon    // vert
+  rare        // bleu
+  epic        // violet
+  legendary   // or
+  mythic      // rouge
+  secret      // noir étoilé
 }
 
-model Items {
-  ID_Item       Int     @id @default(autoincrement())
-  ItemName      String
-  ItemPrice     Float
-  ItemImage     String
-  ItemOutDate   DateTime
-  ItemDisplay   Boolean
-  Stock         Int
-  Shop          Shop[]
+model CosmeticItem {
+  id        Int          @id @default(autoincrement())
+  type      CosmeticType
+  name      String       @unique
+  imageUrl  String
+  basePrice Int
+  rarity    Rarity       @default(common)
+  available Boolean      @default(true)
+  createdAt DateTime     @default(now())
+
+  owned     UserCosmetic[]
+  equipped  EquippedCosmetic[]
+  offers    ShopOffer[]
+
+  @@index([type, available])
+  @@index([rarity])
 }
 
-model Shop {
-  ID_Shop    Int    @id @default(autoincrement())
-  TimeLeft   DateTime
-  Theme      Themes? @relation(fields: [ID_ThemeBG], references: [ID_ThemeBG])
-  ID_ThemeBG Int?
-  Achat      PurchaseHistory? @relation(fields: [ID_Achat], references: [ID_Achat])
-  ID_Achat   Int?
-  Emote      Emotes? @relation(fields: [ID_Emote], references: [ID_Emote])
-  ID_Emote   Int?
-  Item       Items? @relation(fields: [ID_Item], references: [ID_Item])
-  ID_Item    Int?
+model UserCosmetic {
+  id         Int          @id @default(autoincrement())
+  user       Users        @relation(fields: [userId], references: [ID_User], onDelete: Cascade)
+  userId     Int
+  item       CosmeticItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId     Int
+  pricePaid  Int
+  acquiredAt DateTime     @default(now())
+
+  @@unique([userId, itemId])
+  @@index([userId])
 }
 
-model Inventory {
-  ID_Inventory Int    @id @default(autoincrement())
-  Money       Float
-  Qty         Int
-  Theme       Themes? @relation(fields: [ID_ThemeBG], references: [ID_ThemeBG], onDelete: Cascade)
-  ID_ThemeBG  Int?
-  User        Users  @relation(fields: [ID_User], references: [ID_User], onDelete: Cascade)
-  ID_User     Int
+model EquippedCosmetic {
+  id     Int          @id @default(autoincrement())
+  user   Users        @relation(fields: [userId], references: [ID_User], onDelete: Cascade)
+  userId Int
+  type   CosmeticType
+  item   CosmeticItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId Int
+
+  @@unique([userId, type])
+  @@index([userId])
 }
 
+model ShopOffer {
+  id         Int          @id @default(autoincrement())
+  item       CosmeticItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId     Int
+  price      Int
+  validUntil DateTime
+  position   Int          @default(0)
+  active     Boolean      @default(true)
+
+  @@index([active, validUntil])
+}

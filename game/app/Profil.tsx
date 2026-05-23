@@ -1,24 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
 import ProfilmmrScreen from './sousfriends/profilmmr';
 import PrflHistoricScreen from './sousprofile/prflhistoric';
 import PrflInfoScreen from './sousprofile/prflinfo';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Text, View } from '@/components/Themed';
 import { useLanguageStore } from '../store/languageStore';
+import { useAuthStore } from '@/src/stores/authStore';
 
 export default function ProfilScreen() {
   const { langIndex } = useLanguageStore();
-  const [isGuest, setIsGuest] = useState<boolean>(false);
-
-  useEffect(() => {
-    const fetchGuest = async () => {
-        const isGuest = await AsyncStorage.getItem('isGuest');
-        setIsGuest(isGuest === 'true');
-    };
-    fetchGuest();
-}, []);
+  const isGuest = useAuthStore((s) => s.user?.guest ?? false);
 
   return (
     <View style={styles.container}>

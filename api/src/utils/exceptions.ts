@@ -1,12 +1,11 @@
 export class HttpException extends Error {
-    msg: string;
     errorCode: ErrCodes;
     statusCode: statusCodes;
-    errors: any;
+    errors: unknown;
 
-    constructor(msg: string, errorCode: ErrCodes, statusCode: statusCodes, errors: any){
-        super(msg) // Appelle le constructeur de la classe "Error" (parent de la classe HttpException) et initie le message d'erreur
-        this.msg = msg;
+    constructor(message: string, errorCode: ErrCodes, statusCode: statusCodes, errors: unknown){
+        super(message);
+        this.name = 'HttpException';
         this.errorCode = errorCode;
         this.statusCode = statusCode;
         this.errors = errors;

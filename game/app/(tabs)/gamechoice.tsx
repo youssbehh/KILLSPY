@@ -1,47 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { AppRegistry, ScrollView } from 'react-native';
-import { Pressable, StyleSheet } from 'react-native';
+import React from 'react';
+import { ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { motTraduit } from '@/components/translationHelper';
 import { Text, View } from '@/components/Themed';
 import { Card } from '@rneui/themed';
 import { appVersion } from '../../config';
 import { useLanguageStore } from '../../store/languageStore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-//import socket from '@/services/socket';
+import { useAuthStore } from '@/src/stores/authStore';
 
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
 import { faRobot, faBolt, faTrophy, faUsersViewfinder } from '@fortawesome/free-solid-svg-icons';
 
-const element = () => (
-  <View>
-    <FontAwesomeWrapper icon={faRobot} />
-    <FontAwesomeWrapper icon={faBolt} />
-    <FontAwesomeWrapper icon={faTrophy} />
-    <FontAwesomeWrapper icon={faUsersViewfinder} />
-  </View>
-);
-
 export default function GameChoiceScreen() {
   const { langIndex } = useLanguageStore();
   const router = useRouter();
-  const [username, setUsername] = useState<string>('');
+  const username = useAuthStore((s) => s.user?.username ?? '');
 
   const handleGameChoice = (modeId: number) => {
-    //socket.emit('joinGame');
     router.push({
       pathname: '../loading',
-      params: { mode: motTraduit(langIndex, modeId) }
+      params: { mode: motTraduit(langIndex, modeId) },
     });
   };
-
-  useEffect(() => {
-    const getUsername = async () => {
-      const storedUsername = await AsyncStorage.getItem('username');
-      setUsername(storedUsername || '');
-    };
-    getUsername();
-  }, []);
 
   return (
     <>
@@ -139,4 +119,3 @@ const styles = StyleSheet.create({
   },
 });
 
-AppRegistry.registerComponent('KILLSPY', () => element);
