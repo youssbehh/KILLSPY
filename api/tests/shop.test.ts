@@ -2,23 +2,11 @@ import jwt from 'jsonwebtoken';
 import { createPrismaMock, PrismaMock } from './__mocks__/prismaMock';
 
 const prismaMock: PrismaMock = createPrismaMock();
-(prismaMock as any).cosmeticItem = { findUnique: jest.fn(), findMany: jest.fn() };
-(prismaMock as any).userCosmetic = {
-  findUnique: jest.fn(),
-  findMany: jest.fn(),
-  create: jest.fn(),
-};
-(prismaMock as any).equippedCosmetic = {
-  findUnique: jest.fn(),
-  findMany: jest.fn(),
-  upsert: jest.fn(),
-  delete: jest.fn(),
-};
-(prismaMock as any).shopOffer = {
-  findMany: jest.fn(),
-  findUnique: jest.fn(),
-};
-(prismaMock as any).$transaction = jest.fn(async (cb: any) => cb(prismaMock));
+// shop.service uses tx callbacks — make $transaction call the cb with the mock itself.
+(prismaMock.$transaction as jest.Mock).mockImplementation(async (cb: any) => {
+  if (typeof cb === 'function') return cb(prismaMock);
+  return Promise.all(cb);
+});
 
 jest.mock('../src/lib/prisma', () => ({ prisma: prismaMock }));
 
@@ -63,18 +51,24 @@ const fakeOffer = (overrides: any = {}) => ({
 });
 
 beforeEach(() => {
-  [prismaMock.users, (prismaMock as any).cosmeticItem, (prismaMock as any).userCosmetic,
-   (prismaMock as any).equippedCosmetic, (prismaMock as any).shopOffer].forEach((m: any) =>
-    Object.values(m).forEach((fn: any) => fn?.mockReset?.()),
-  );
-  (prismaMock as any).$transaction.mockImplementation(async (cb: any) => cb(prismaMock));
+  [
+    prismaMock.users,
+    prismaMock.cosmeticItem,
+    prismaMock.userCosmetic,
+    prismaMock.equippedCosmetic,
+    prismaMock.shopOffer,
+  ].forEach((m) => Object.values(m).forEach((fn) => (fn as jest.Mock).mockReset()));
+  (prismaMock.$transaction as jest.Mock).mockImplementation(async (cb: any) => {
+    if (typeof cb === 'function') return cb(prismaMock);
+    return Promise.all(cb);
+  });
 });
 
 describe('GET /api/shop', () => {
   it('lists active offers with alreadyOwned flag', async () => {
     prismaMock.users.findUnique.mockResolvedValue(fakeUser());
-    (prismaMock as any).shopOffer.findMany.mockResolvedValue([fakeOffer()]);
-    (prismaMock as any).userCosmetic.findMany.mockResolvedValue([{ itemId: 10 }]);
+    prismaMock.shopOffer.findMany.mockResolvedValue([fakeOffer()]);
+    prismaMock.userCosmetic.findMany.mockResolvedValue([{ itemId: 10 }]);
 
     const res = await request(app).get('/api/shop').set('Authorization', token(1));
 
@@ -93,7 +87,7 @@ describe('POST /api/shop/purchase/:offerId', () => {
 
   it('rejects when offer is expired', async () => {
     prismaMock.users.findUnique.mockResolvedValue(fakeUser());
-    (prismaMock as any).shopOffer.findUnique.mockResolvedValue(
+    prismaMock.shopOffer.findUnique.mockResolvedValue(
       fakeOffer({ validUntil: new Date(Date.now() - 1000) }),
     );
 
@@ -105,8 +99,8 @@ describe('POST /api/shop/purchase/:offerId', () => {
     prismaMock.users.findUnique
       .mockResolvedValueOnce(fakeUser({ Money: 500 })) // authMiddleware
       .mockResolvedValueOnce(fakeUser({ Money: 50 })); // service inside tx
-    (prismaMock as any).shopOffer.findUnique.mockResolvedValue(fakeOffer({ price: 100 }));
-    (prismaMock as any).userCosmetic.findUnique.mockResolvedValue(null);
+    prismaMock.shopOffer.findUnique.mockResolvedValue(fakeOffer({ price: 100 }));
+    prismaMock.userCosmetic.findUnique.mockResolvedValue(null);
 
     const res = await request(app).post('/api/shop/purchase/1').set('Authorization', token(1));
     expect(res.status).toBe(400);
@@ -117,7 +111,7 @@ describe('POST /api/shop/purchase/:offerId', () => {
     prismaMock.users.findUnique
       .mockResolvedValueOnce(fakeUser({ isGuest: true }))
       .mockResolvedValueOnce(fakeUser({ isGuest: true }));
-    (prismaMock as any).shopOffer.findUnique.mockResolvedValue(fakeOffer());
+    prismaMock.shopOffer.findUnique.mockResolvedValue(fakeOffer());
 
     const res = await request(app).post('/api/shop/purchase/1').set('Authorization', token(1));
     expect(res.status).toBe(403);
@@ -127,8 +121,8 @@ describe('POST /api/shop/purchase/:offerId', () => {
     prismaMock.users.findUnique
       .mockResolvedValueOnce(fakeUser())
       .mockResolvedValueOnce(fakeUser());
-    (prismaMock as any).shopOffer.findUnique.mockResolvedValue(fakeOffer());
-    (prismaMock as any).userCosmetic.findUnique.mockResolvedValue({ id: 1 });
+    prismaMock.shopOffer.findUnique.mockResolvedValue(fakeOffer());
+    prismaMock.userCosmetic.findUnique.mockResolvedValue({ id: 1 });
 
     const res = await request(app).post('/api/shop/purchase/1').set('Authorization', token(1));
     expect(res.status).toBe(400);
@@ -139,9 +133,9 @@ describe('POST /api/shop/purchase/:offerId', () => {
     prismaMock.users.findUnique
       .mockResolvedValueOnce(fakeUser({ Money: 500 }))
       .mockResolvedValueOnce(fakeUser({ Money: 500 }));
-    (prismaMock as any).shopOffer.findUnique.mockResolvedValue(fakeOffer({ price: 100 }));
-    (prismaMock as any).userCosmetic.findUnique.mockResolvedValue(null);
-    (prismaMock as any).userCosmetic.create.mockResolvedValue({ id: 99 });
+    prismaMock.shopOffer.findUnique.mockResolvedValue(fakeOffer({ price: 100 }));
+    prismaMock.userCosmetic.findUnique.mockResolvedValue(null);
+    prismaMock.userCosmetic.create.mockResolvedValue({ id: 99 });
     prismaMock.users.update.mockResolvedValue({});
 
     const res = await request(app).post('/api/shop/purchase/1').set('Authorization', token(1));
@@ -157,11 +151,11 @@ describe('POST /api/shop/purchase/:offerId', () => {
 describe('POST /api/inventory/equip', () => {
   it('equips an owned item', async () => {
     prismaMock.users.findUnique.mockResolvedValue(fakeUser());
-    (prismaMock as any).userCosmetic.findUnique.mockResolvedValue({
+    prismaMock.userCosmetic.findUnique.mockResolvedValue({
       id: 1, userId: 1, itemId: 10,
       item: { id: 10, type: 'avatar', name: 'Sniper masqué', imageUrl: 'x', rarity: 'uncommon' },
     });
-    (prismaMock as any).equippedCosmetic.upsert.mockResolvedValue({});
+    prismaMock.equippedCosmetic.upsert.mockResolvedValue({});
 
     const res = await request(app)
       .post('/api/inventory/equip')
@@ -170,12 +164,12 @@ describe('POST /api/inventory/equip', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.equipped.type).toBe('avatar');
-    expect((prismaMock as any).equippedCosmetic.upsert).toHaveBeenCalled();
+    expect(prismaMock.equippedCosmetic.upsert).toHaveBeenCalled();
   });
 
   it('rejects equipping an item user does not own', async () => {
     prismaMock.users.findUnique.mockResolvedValue(fakeUser());
-    (prismaMock as any).userCosmetic.findUnique.mockResolvedValue(null);
+    prismaMock.userCosmetic.findUnique.mockResolvedValue(null);
 
     const res = await request(app)
       .post('/api/inventory/equip')

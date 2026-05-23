@@ -79,7 +79,6 @@ describe('POST /api/auth/login', () => {
     prismaMock.users.findFirst.mockResolvedValue(user());
     prismaMock.session.findFirst.mockResolvedValue(null);
     prismaMock.roles.findFirst.mockResolvedValue(null);
-    prismaMock.leaderboard.findFirst.mockResolvedValue(null);
 
     const res = await request(app)
       .post('/api/auth/login')
