@@ -8,6 +8,19 @@ import 'react-native-reanimated';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { LilitaOne_400Regular } from '@expo-google-fonts/lilita-one';
 import { RussoOne_400Regular } from '@expo-google-fonts/russo-one';
+import {
+  BarlowCondensed_800ExtraBold,
+} from '@expo-google-fonts/barlow-condensed';
+import {
+  Rajdhani_400Regular,
+  Rajdhani_500Medium,
+  Rajdhani_600SemiBold,
+  Rajdhani_700Bold,
+} from '@expo-google-fonts/rajdhani';
+import {
+  JetBrainsMono_500Medium,
+  JetBrainsMono_700Bold,
+} from '@expo-google-fonts/jetbrains-mono';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { queryClient } from '@/src/lib/queryClient';
@@ -32,6 +45,13 @@ export default function RootLayout() {
     Stempel: require('../assets/fonts/Stempel.ttf'),
     LilitaOne: LilitaOne_400Regular,
     RussoOne: RussoOne_400Regular,
+    BarlowCondensed_800ExtraBold,
+    Rajdhani_400Regular,
+    Rajdhani_500Medium,
+    Rajdhani_600SemiBold,
+    Rajdhani_700Bold,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_700Bold,
     ...FontAwesome.font,
   });
 
