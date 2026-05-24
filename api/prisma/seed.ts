@@ -1,7 +1,6 @@
 /**
- * KILLSPY seed — demo cosmetics + sample shop offers.
- * Run with:   npx prisma db seed
- * (Add `"prisma": { "seed": "ts-node prisma/seed.ts" }` to package.json if missing.)
+ * KILLSPY seed — demo cosmetics + sample shop offers + UI themes.
+ * Run with:   npm run seed   (or `npx prisma db seed`)
  */
 import { CosmeticType, PrismaClient, Rarity } from '@prisma/client';
 
@@ -15,7 +14,11 @@ interface SeedItem {
   rarity: Rarity;
 }
 
-const ITEMS: SeedItem[] = [
+// ===========================================================================
+// CATALOG
+// ===========================================================================
+
+const COSMETICS: SeedItem[] = [
   // ---- AVATARS ----
   { type: 'avatar', name: 'Espion en costume',  imageUrl: 'https://placehold.co/256x256/343a40/ffffff?text=AGENT',     basePrice: 50,   rarity: 'common' },
   { type: 'avatar', name: 'Sniper masqué',      imageUrl: 'https://placehold.co/256x256/2ecc71/ffffff?text=SNIPER',    basePrice: 120,  rarity: 'uncommon' },
@@ -43,10 +46,31 @@ const ITEMS: SeedItem[] = [
   { type: 'background', name: 'Casino royal',     imageUrl: 'https://placehold.co/1280x720/001f3f/ffd700?text=CASINO',   basePrice: 900, rarity: 'legendary' },
 ];
 
-const main = async () => {
-  console.log('🌱 Seeding cosmetics...');
+/**
+ * UI Themes — the same 5 colour palettes as before, but now sold as cosmetics.
+ * The first one (spyCasual / "Agent Mint") is offered for free at signup.
+ * Keep the `name` field IN SYNC with the client mapping in
+ * `game/src/theme/themes.ts` (THEME_COSMETIC_META.label).
+ */
+const UI_THEMES: SeedItem[] = [
+  { type: 'ui_theme', name: 'Agent Mint',              imageUrl: 'https://placehold.co/512x256/0d1929/3FE7A0?text=AGENT+MINT',         basePrice: 0,    rarity: 'common' },
+  { type: 'ui_theme', name: 'Futur Urbain',            imageUrl: 'https://placehold.co/512x256/343a40/007bff?text=FUTUR+URBAIN',       basePrice: 250,  rarity: 'uncommon' },
+  { type: 'ui_theme', name: 'Infiltration Naturelle',  imageUrl: 'https://placehold.co/512x256/f5f5dc/228b22?text=INFILTRATION',       basePrice: 500,  rarity: 'rare' },
+  { type: 'ui_theme', name: 'Mystère Nocturne',        imageUrl: 'https://placehold.co/512x256/000000/4a5a2d?text=MYSTERE+NOCTURNE',   basePrice: 900,  rarity: 'epic' },
+  { type: 'ui_theme', name: 'Technologie Avancée',     imageUrl: 'https://placehold.co/512x256/000000/00ffff?text=TECH+AVANCEE',       basePrice: 1500, rarity: 'legendary' },
+  { type: 'ui_theme', name: 'Élégance Classique',      imageUrl: 'https://placehold.co/512x256/001f3f/ffd700?text=ELEGANCE',           basePrice: 3000, rarity: 'mythic' },
+];
 
-  for (const item of ITEMS) {
+const ALL_ITEMS: SeedItem[] = [...COSMETICS, ...UI_THEMES];
+
+// ===========================================================================
+// RUN
+// ===========================================================================
+
+const main = async () => {
+  console.log('🌱 Seeding cosmetics + UI themes...');
+
+  for (const item of ALL_ITEMS) {
     await prisma.cosmeticItem.upsert({
       where: { name: item.name },
       update: { type: item.type, imageUrl: item.imageUrl, basePrice: item.basePrice, rarity: item.rarity },
@@ -54,27 +78,54 @@ const main = async () => {
     });
   }
 
-  // Active offers: 8 random items in the shop, valid for 24h.
-  const all = await prisma.cosmeticItem.findMany({ where: { available: true } });
+  // Auto-grant the free default UI theme to every existing user (idempotent).
+  const defaultTheme = await prisma.cosmeticItem.findUnique({ where: { name: 'Agent Mint' } });
+  if (defaultTheme) {
+    const users = await prisma.users.findMany({ where: { isGuest: false }, select: { ID_User: true } });
+    for (const u of users) {
+      await prisma.userCosmetic.upsert({
+        where: { userId_itemId: { userId: u.ID_User, itemId: defaultTheme.id } },
+        update: {},
+        create: { userId: u.ID_User, itemId: defaultTheme.id, pricePaid: 0 },
+      });
+      await prisma.equippedCosmetic.upsert({
+        where: { userId_type: { userId: u.ID_User, type: 'ui_theme' } },
+        update: {},
+        create: { userId: u.ID_User, type: 'ui_theme', itemId: defaultTheme.id },
+      });
+    }
+    console.log(`✅ Default theme "Agent Mint" granted/ensured for ${users.length} users.`);
+  }
+
+  // Shop rotation: 8 random non-theme items + the most premium theme of the day.
+  const all = await prisma.cosmeticItem.findMany({
+    where: { available: true, type: { not: 'ui_theme' } },
+  });
   const shuffled = all.sort(() => Math.random() - 0.5).slice(0, 8);
 
-  const validUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  // Also feature one premium theme rotated daily.
+  const featuredTheme = await prisma.cosmeticItem.findFirst({
+    where: { type: 'ui_theme', basePrice: { gt: 0 } },
+    orderBy: { basePrice: 'desc' },
+  });
 
+  const validUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
   await prisma.shopOffer.deleteMany({});
+
   for (let i = 0; i < shuffled.length; i++) {
     const item = shuffled[i];
     await prisma.shopOffer.create({
-      data: {
-        itemId: item.id,
-        price: item.basePrice,
-        validUntil,
-        position: i,
-        active: true,
-      },
+      data: { itemId: item.id, price: item.basePrice, validUntil, position: i, active: true },
     });
   }
 
-  console.log(`✅ Seeded ${ITEMS.length} cosmetics and ${shuffled.length} shop offers.`);
+  if (featuredTheme) {
+    await prisma.shopOffer.create({
+      data: { itemId: featuredTheme.id, price: featuredTheme.basePrice, validUntil, position: shuffled.length, active: true },
+    });
+  }
+
+  console.log(`✅ Seeded ${ALL_ITEMS.length} items (${COSMETICS.length} cosmetics + ${UI_THEMES.length} themes), ${shuffled.length + (featuredTheme ? 1 : 0)} shop offers.`);
 };
 
 main()

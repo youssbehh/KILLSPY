@@ -16,6 +16,7 @@ const TYPE_LABEL: Record<CosmeticType, string> = {
   card_skin: 'Skins de carte',
   emote: 'Emotes',
   background: 'Fonds',
+  ui_theme: 'Thèmes',
   shoot_anim: 'Anim. tir',
   shield_anim: 'Anim. bouclier',
   name_effect: 'Effets pseudo',

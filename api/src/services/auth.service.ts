@@ -5,6 +5,9 @@ import { Users } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { JWT_SECRET } from '../secrets';
 import { HttpException, ErrCodes, statusCodes } from '../utils/exceptions';
+import { logger } from '../lib/logger';
+
+const DEFAULT_THEME_NAME = 'Agent Mint';
 
 const BCRYPT_ROUNDS = 12;
 const TOKEN_TTL = '7d';
@@ -45,7 +48,29 @@ export const signupUser = async (input: { username: string; email: string; passw
     },
   });
 
+  // Grant the free default UI theme so the user always has a theme equipped.
+  await grantDefaultTheme(user.ID_User);
+
   return toPublicUser(user);
+};
+
+/** Idempotent: gives the user the default UI theme and equips it if nothing is. */
+const grantDefaultTheme = async (userId: number) => {
+  const defaultTheme = await prisma.cosmeticItem.findUnique({ where: { name: DEFAULT_THEME_NAME } });
+  if (!defaultTheme) {
+    logger.warn({ userId }, 'default UI theme not seeded — run `npm run seed`');
+    return;
+  }
+  await prisma.userCosmetic.upsert({
+    where: { userId_itemId: { userId, itemId: defaultTheme.id } },
+    update: {},
+    create: { userId, itemId: defaultTheme.id, pricePaid: 0 },
+  });
+  await prisma.equippedCosmetic.upsert({
+    where: { userId_type: { userId, type: 'ui_theme' } },
+    update: {},
+    create: { userId, type: 'ui_theme', itemId: defaultTheme.id },
+  });
 };
 
 export const loginUser = async (input: { identifier: string; password: string }) => {

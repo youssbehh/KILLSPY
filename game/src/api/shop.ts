@@ -6,6 +6,7 @@ export type CosmeticType =
   | 'card_skin'
   | 'emote'
   | 'background'
+  | 'ui_theme'
   | 'shoot_anim'
   | 'shield_anim'
   | 'name_effect';

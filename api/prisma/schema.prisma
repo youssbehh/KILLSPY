@@ -95,6 +95,7 @@ enum CosmeticType {
   card_skin      // habillage des cartes / interface jeu
   emote          // réaction in-game
   background     // fond achetable (différent du thème UI)
+  ui_theme       // thème de couleurs de l'UI (5 variantes proposées + défaut offert)
   shoot_anim     // animation de tir (futur)
   shield_anim    // animation de bouclier (futur)
   name_effect    // effet visuel sur le pseudo (futur)

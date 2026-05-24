@@ -9,5 +9,8 @@ export const equipBodySchema = z.object({
 });
 
 export const unequipParamSchema = z.object({
-  type: z.enum(['avatar', 'card_skin', 'emote', 'background', 'shoot_anim', 'shield_anim', 'name_effect']),
+  type: z.enum([
+    'avatar', 'card_skin', 'emote', 'background', 'ui_theme',
+    'shoot_anim', 'shield_anim', 'name_effect',
+  ]),
 });

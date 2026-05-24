@@ -3,9 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-nativ
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '../../store/languageStore';
 import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
-import { faCaretDown, faCaretUp, faPalette, faCheck } from '@fortawesome/free-solid-svg-icons';
-import { useThemeStore } from '@/src/stores/themeStore';
-import { themes, THEME_IDS, ThemeId } from '@/src/theme/themes';
+import { faCaretDown, faCaretUp, faCheck, faPalette } from '@fortawesome/free-solid-svg-icons';
 import { useBotStore } from '@/src/stores/botStore';
 import { BotDifficulty } from '@/src/game/botAI';
 
@@ -27,35 +25,14 @@ const DiversParam: React.FC<DiversParamProps> = ({ title, children }) => {
   );
 };
 
-const ThemeSwatch: React.FC<{ themeId: ThemeId; active: boolean; onPress: () => void }> = ({
-  themeId,
-  active,
-  onPress,
-}) => {
-  const theme = themes[themeId];
-  return (
-    <Pressable onPress={onPress} style={[styles.swatchRow, active && styles.swatchActive]}>
-      <View style={styles.swatchPreview}>
-        <View style={[styles.swatchDot, { backgroundColor: theme.colors.background }]} />
-        <View style={[styles.swatchDot, { backgroundColor: theme.colors.primary }]} />
-        <View style={[styles.swatchDot, { backgroundColor: theme.colors.accent }]} />
-      </View>
-      <Text style={styles.swatchLabel}>{theme.fallbackLabel}</Text>
-      {active ? <FontAwesomeWrapper icon={faCheck} /> : null}
-    </Pressable>
-  );
-};
-
 const BOT_DIFFICULTIES: { id: BotDifficulty; label: string; description: string }[] = [
-  { id: 'easy', label: 'Facile', description: 'Bot aléatoire — pour s\'entraîner.' },
+  { id: 'easy', label: 'Facile', description: "Bot aléatoire — pour s'entraîner." },
   { id: 'medium', label: 'Moyen', description: 'Bot qui mémorise vos patterns.' },
   { id: 'hard', label: 'Difficile', description: 'Bot prédictif — il anticipe.' },
 ];
 
 const DiversContainer = () => {
   const { langIndex } = useLanguageStore();
-  const themeId = useThemeStore((s) => s.themeId);
-  const setTheme = useThemeStore((s) => s.setTheme);
   const botDifficulty = useBotStore((s) => s.difficulty);
   const setBotDifficulty = useBotStore((s) => s.setDifficulty);
 
@@ -66,14 +43,9 @@ const DiversContainer = () => {
           <FontAwesomeWrapper icon={faPalette} />
           <Text style={styles.themeHeaderText}>Thème graphique</Text>
         </View>
-        {THEME_IDS.map((id) => (
-          <ThemeSwatch
-            key={id}
-            themeId={id}
-            active={themeId === id}
-            onPress={() => setTheme(id)}
-          />
-        ))}
+        <Text style={styles.hint}>
+          Les thèmes sont des cosmétiques. Achète-les dans la boutique et équipe-les depuis ton inventaire.
+        </Text>
 
         <View style={styles.divider} />
 
@@ -101,22 +73,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, backgroundColor: '#f1f1f1' },
   title: { fontSize: 16 },
   content: { padding: 10, backgroundColor: '#fff' },
-  themeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+  themeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
   themeHeaderText: { fontSize: 14, fontWeight: '600' },
-  swatchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    marginVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    gap: 12,
-  },
-  swatchActive: { borderColor: '#007AFF', backgroundColor: '#f0f7ff' },
-  swatchPreview: { flexDirection: 'row', gap: 4 },
-  swatchDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: '#ccc' },
-  swatchLabel: { flex: 1, fontSize: 14 },
+  hint: { fontSize: 12, color: '#666', fontStyle: 'italic', marginBottom: 8 },
   divider: { height: 1, backgroundColor: '#ddd', marginVertical: 16 },
   diffRow: {
     flexDirection: 'row',
