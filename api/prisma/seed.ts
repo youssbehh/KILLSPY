@@ -2,7 +2,7 @@
  * KILLSPY seed — demo cosmetics + sample shop offers + UI themes.
  * Run with:   npm run seed   (or `npx prisma db seed`)
  */
-import { CosmeticType, PrismaClient, Rarity } from '@prisma/client';
+import { CosmeticType, MissionMetric, PrismaClient, Rarity } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -67,8 +67,37 @@ const ALL_ITEMS: SeedItem[] = [...COSMETICS, ...UI_THEMES];
 // RUN
 // ===========================================================================
 
+// ===========================================================================
+// MISSION TEMPLATES
+// ===========================================================================
+
+interface SeedMission {
+  slug: string;
+  title: string;
+  metric: MissionMetric;
+  target: number;
+  xpReward: number;
+}
+
+const MISSIONS: SeedMission[] = [
+  { slug: 'win_1',          title: 'WIN 1 ROUND',        metric: 'wins',          target: 1,  xpReward: 60  },
+  { slug: 'win_3',          title: 'WIN 3 ROUNDS',       metric: 'wins',          target: 3,  xpReward: 120 },
+  { slug: 'win_5',          title: 'WIN 5 ROUNDS',       metric: 'wins',          target: 5,  xpReward: 200 },
+  { slug: 'play_3',         title: 'PLAY 3 ROUNDS',      metric: 'rounds_played', target: 3,  xpReward: 50  },
+  { slug: 'play_5',         title: 'PLAY 5 ROUNDS',      metric: 'rounds_played', target: 5,  xpReward: 80  },
+  { slug: 'play_10',        title: 'PLAY 10 ROUNDS',     metric: 'rounds_played', target: 10, xpReward: 150 },
+  { slug: 'ranked_win_1',   title: 'WIN 1 RANKED MATCH', metric: 'ranked_wins',   target: 1,  xpReward: 180 },
+  { slug: 'ranked_win_3',   title: 'WIN 3 RANKED MATCHES',metric: 'ranked_wins',  target: 3,  xpReward: 350 },
+  { slug: 'ranked_play_2',  title: 'PLAY 2 RANKED ROUNDS',metric: 'ranked_played',target: 2,  xpReward: 90  },
+  { slug: 'ranked_play_5',  title: 'PLAY 5 RANKED ROUNDS',metric: 'ranked_played',target: 5,  xpReward: 200 },
+];
+
+// ===========================================================================
+// RUN
+// ===========================================================================
+
 const main = async () => {
-  console.log('🌱 Seeding cosmetics + UI themes...');
+  console.log('🌱 Seeding cosmetics + UI themes + mission templates...');
 
   for (const item of ALL_ITEMS) {
     await prisma.cosmeticItem.upsert({
@@ -126,6 +155,16 @@ const main = async () => {
   }
 
   console.log(`✅ Seeded ${ALL_ITEMS.length} items (${COSMETICS.length} cosmetics + ${UI_THEMES.length} themes), ${shuffled.length + (featuredTheme ? 1 : 0)} shop offers.`);
+
+  // Mission templates — idempotent upsert by slug
+  for (const m of MISSIONS) {
+    await prisma.missionTemplate.upsert({
+      where: { slug: m.slug },
+      update: { title: m.title, metric: m.metric, target: m.target, xpReward: m.xpReward },
+      create: m,
+    });
+  }
+  console.log(`✅ Seeded ${MISSIONS.length} mission templates.`);
 };
 
 main()

@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // =====================================================================
@@ -26,13 +27,14 @@ model Users {
   archived     Boolean   @default(false)
   deletionDate DateTime?
 
-  Roles     Roles[]
-  Sessions  Session[]
-  Friends   Friends[]     @relation("user_friendships")
-  FriendOf  Friends[]     @relation("friend_of")
-  Result    GameHistory[]
-  Cosmetics UserCosmetic[]
-  Equipped  EquippedCosmetic[]
+  Roles       Roles[]
+  Sessions    Session[]
+  Friends     Friends[]     @relation("user_friendships")
+  FriendOf    Friends[]     @relation("friend_of")
+  Result      GameHistory[]
+  Cosmetics   UserCosmetic[]
+  Equipped    EquippedCosmetic[]
+  Missions    PlayerMissionAssignment[]
 }
 
 model Session {
@@ -164,4 +166,48 @@ model ShopOffer {
   active     Boolean      @default(true)
 
   @@index([active, validUntil])
+}
+
+// =====================================================================
+// DAILY MISSIONS
+// =====================================================================
+
+// Metric tracked via GameHistory (no extra columns needed).
+enum MissionMetric {
+  wins           // V_D=true, any mode
+  rounds_played  // any game
+  ranked_wins    // V_D=true, pvp_ranked
+  ranked_played  // pvp_ranked
+}
+
+// Static pool of missions. Seed once, never changes in production.
+model MissionTemplate {
+  id        Int            @id @default(autoincrement())
+  slug      String         @unique
+  title     String
+  metric    MissionMetric
+  target    Int
+  xpReward  Int
+  active    Boolean        @default(true)
+
+  assignments PlayerMissionAssignment[]
+
+  @@index([active])
+}
+
+// One row per (player, mission, UTC-day). Created lazily on first GET /missions/daily.
+// Progress is NOT stored here — it's computed live from GameHistory.
+// `rewarded` flips to true when the player claims their XP (POST /missions/daily/:id/claim).
+model PlayerMissionAssignment {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  missionId Int
+  day       String           // "YYYY-MM-DD" UTC
+  rewarded  Boolean          @default(false)
+
+  user    Users           @relation(fields: [userId],    references: [ID_User], onDelete: Cascade)
+  mission MissionTemplate @relation(fields: [missionId], references: [id],      onDelete: Cascade)
+
+  @@unique([userId, missionId, day])
+  @@index([userId, day])
 }

@@ -1,143 +1,186 @@
-import React, { useState } from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
-import { useLanguageStore } from '../../store/languageStore';
+import React from 'react';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { Tabs, usePathname, useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KS } from '@/src/theme/colors';
+import { TYPO, SIZES } from '@/src/theme/typography';
 
-import { motTraduit } from '@/components/translationHelper';
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-import { Avatar } from '@rneui/themed';
+// ── SVG icon paths (from design reference NAV_ICONS) ──────────────────────
+const NAV_ICONS = {
+  home:    'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z',
+  modes:   'M3 4h7v7H3zM14 4h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  shop:    'M4 7h16l-1.5 11a2 2 0 0 1-2 1.8H7.5a2 2 0 0 1-2-1.8zM9 7V5a3 3 0 0 1 6 0v2',
+  profile: 'M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-8 1.7-8 5v2h16v-2c0-3.3-4.7-5-8-5z',
+};
 
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
+// ── Nav items config ───────────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { id: 'home',    label: 'HOME',  route: '/(tabs)/gamechoice', icon: 'home'    as const },
+  { id: 'modes',   label: 'MODES', route: '/(tabs)/friends',    icon: 'modes'   as const },
+  { id: 'shop',    label: 'SHOP',  route: '/(tabs)/shop',       icon: 'shop'    as const, badge: 3 },
+  { id: 'profile', label: 'AGENT', route: '/(tabs)/options',    icon: 'profile' as const },
+];
+
+// Map pathname segments to nav item ids
+function activeItemId(pathname: string): string {
+  if (pathname.includes('gamechoice')) return 'home';
+  if (pathname.includes('friends'))    return 'modes';
+  if (pathname.includes('shop'))       return 'shop';
+  if (pathname.includes('options') || pathname.includes('inventory')) return 'profile';
+  return 'home';
 }
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const { langIndex } = useLanguageStore();
+// ── Custom tab bar ─────────────────────────────────────────────────────────
+function KSBottomNav() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const active = activeItemId(pathname);
+  const bottomPad = Math.max(insets.bottom, 8);
 
   return (
+    <View style={[styles.wrapper, { height: 64 + bottomPad }]}>
+      {/* Blur layer */}
+      <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+      {/* Gradient overlay */}
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.9)']}
+        locations={[0, 0.4, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Items row */}
+      <View style={[styles.row, { paddingBottom: bottomPad }]}>
+        {NAV_ITEMS.map((item) => {
+          const on = active === item.id;
+          return (
+            <Pressable
+              key={item.id}
+              onPress={() => router.replace(item.route as any)}
+              style={styles.item}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: on }}
+            >
+              {/* Active indicator bar */}
+              {on && (
+                <View style={styles.activeBar} />
+              )}
+
+              {/* Icon + badge */}
+              <View style={styles.iconWrap}>
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d={NAV_ICONS[item.icon]}
+                    stroke={on ? KS.primary : KS.inkDim}
+                    strokeWidth={on ? 2.2 : 1.6}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill={on ? KS.primary : 'none'}
+                    fillOpacity={on ? 0.18 : 0}
+                  />
+                </Svg>
+                {item.badge != null && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.badge}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Label */}
+              <Text style={[styles.label, { color: on ? KS.primary : KS.inkDim }]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+  row: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 6,
+  },
+  item: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 4,
+    position: 'relative',
+  },
+  activeBar: {
+    position: 'absolute',
+    top: 0,
+    width: 22,
+    height: 2,
+    backgroundColor: KS.primary,
+    borderRadius: 1,
+    // glow via shadow
+    shadowColor: KS.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  iconWrap: {
+    position: 'relative',
+    width: 22,
+    height: 22,
+  },
+  label: {
+    fontFamily: TYPO.display,
+    fontSize: 10,
+    letterSpacing: 10 * 0.22,
+  },
+  badge: {
+    position: 'absolute',
+    top: -3,
+    right: -8,
+    backgroundColor: KS.live,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    shadowColor: KS.live,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  badgeText: {
+    fontFamily: TYPO.monoBold,
+    fontSize: 9,
+    color: '#000',
+    fontWeight: '700',
+  },
+});
+
+// ── Tab layout ─────────────────────────────────────────────────────────────
+export default function TabLayout() {
+  return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: useClientOnlyValue(false, true),
-      }}>
-      <Tabs.Screen
-        name="friends"
-        options={{
-          title: motTraduit(langIndex, 9),
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
-          headerRight: () => (
-            <Link href="/Profil" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <Avatar
-                    rounded
-                    title='P'
-                    size={30}
-                    source={{ uri: 'https://example.com/your-avatar.jpg' }}
-                    containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="inventory"
-        options={{
-          title: motTraduit(langIndex, 8),
-          tabBarIcon: ({ color }) => <TabBarIcon name="shopping-bag" color={color} />,
-          headerRight: () => (
-            <Link href="/Profil" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <Avatar
-                    rounded
-                    title='P'
-                    size={30}
-                    source={{ uri: 'https://example.com/your-avatar.jpg' }}
-                    containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="gamechoice"
-        options={{
-          title: motTraduit(langIndex, 3),
-          tabBarIcon: ({ color }) => <TabBarIcon name="gamepad" color={color} />,
-          headerRight: () => (
-            <Link href="/Profil" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <Avatar
-                    rounded
-                    title='P'
-                    size={30}
-                    source={{ uri: 'https://example.com/your-avatar.jpg' }}
-                    containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="shop"
-        options={{
-          title: motTraduit(langIndex, 4),
-          tabBarIcon: ({ color }) => <TabBarIcon name="shopping-cart" color={color} />,
-          headerRight: () => (
-            <Link href="/Profil" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <Avatar
-                    rounded
-                    title='P'
-                    size={30}
-                    source={{ uri: 'https://example.com/your-avatar.jpg' }}
-                    containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="options"
-        options={{
-          title: motTraduit(langIndex, 7),
-          tabBarIcon: ({ color }) => <TabBarIcon name="gear" color={color} />,
-          headerRight: () => (
-            <Link href="/Profil" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <Avatar
-                    rounded
-                    title='P'
-                    size={30}
-                    source={{ uri: 'https://example.com/your-avatar.jpg' }}
-                    containerStyle={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
+      tabBar={() => <KSBottomNav />}
+      screenOptions={{ headerShown: false }}
+    >
+      <Tabs.Screen name="gamechoice" />
+      <Tabs.Screen name="friends" />
+      <Tabs.Screen name="shop" />
+      <Tabs.Screen name="options" />
+      <Tabs.Screen name="inventory" options={{ href: null }} />
     </Tabs>
   );
 }
