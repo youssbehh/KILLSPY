@@ -226,8 +226,27 @@ export const ProfileScreen: React.FC = () => {
   // ── Derived stats ──
   const allWins = (statsData?.stats.quick.wins ?? 0) + (statsData?.stats.ranked.wins ?? 0);
   const allTotal = (statsData?.stats.quick.total ?? 0) + (statsData?.stats.ranked.total ?? 0);
+  const allLosses = allTotal - allWins;
   const winPct = allTotal > 0 ? Math.round((allWins / allTotal) * 100) : 0;
+  const wlRatio = allLosses > 0 ? (allWins / allLosses).toFixed(1) : allWins > 0 ? '∞' : '—';
   const rankTier = statsData?.rank.tier ?? 0;
+
+  // Current win streak — count consecutive wins from the END of recentGames (most recent last)
+  const recentGames = statsData?.recentGames ?? [];
+  const streak = (() => {
+    let s = 0;
+    for (let i = recentGames.length - 1; i >= 0; i--) {
+      if (recentGames[i].won) s++; else break;
+    }
+    return s;
+  })();
+
+  // RP gained over recent games
+  const rpDelta = recentGames.reduce((sum: number, g) => sum + g.mmrDelta, 0);
+  const rpDeltaStr = rpDelta >= 0 ? `+${rpDelta}` : `${rpDelta}`;
+
+  // Level derived from MMR (1 level per 250 RP, min 1)
+  const level = Math.max(1, Math.floor(mmr / 250) + 1);
 
   // Skins: show card_skin items from inventory, fallback to all owned
   const skins = (inventoryData?.owned ?? [] as OwnedCosmetic[]).filter((i: OwnedCosmetic) => i.type === 'card_skin');
@@ -313,7 +332,7 @@ export const ProfileScreen: React.FC = () => {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.levelLabel}>LVL 47</Text>
+              <Text style={styles.levelLabel}>LVL {level}</Text>
             </View>
 
             <CornerTicks />
@@ -321,10 +340,10 @@ export const ProfileScreen: React.FC = () => {
 
           {/* ── Stats strip ── */}
           <View style={styles.statsRow}>
-            <StatPod label="K/D"    value="2.4"            accent={KS.primary}       width={podWidth} />
+            <StatPod label="W/L"    value={`${wlRatio}`}   accent={KS.primary}       width={podWidth} />
             <StatPod label="WIN %"  value={`${winPct}`}    accent={KS.live}          width={podWidth} />
             <StatPod label="MATCH"  value={`${allTotal}`}  accent={KS.alert}         width={podWidth} />
-            <StatPod label="STREAK" value="7"              accent={KS.tier.diamond}  width={podWidth} />
+            <StatPod label="STREAK" value={`${streak}`}    accent={KS.tier.diamond}  width={podWidth} />
           </View>
 
           {/* ── Rank sparkline ── */}
@@ -339,8 +358,8 @@ export const ProfileScreen: React.FC = () => {
               <View style={styles.sparkLeft}>
                 <Text style={styles.sparkDays}>30 DAYS</Text>
                 <View style={styles.sparkDelta}>
-                  <Text style={styles.sparkValue}>+312</Text>
-                  <Text style={styles.sparkRp}>RP ↑</Text>
+                  <Text style={styles.sparkValue}>{rpDeltaStr}</Text>
+                  <Text style={styles.sparkRp}>RP {rpDelta >= 0 ? '↑' : '↓'}</Text>
                 </View>
               </View>
               <Sparkline width={sparkWidth} />

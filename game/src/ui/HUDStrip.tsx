@@ -26,7 +26,7 @@ export const HUDStrip: React.FC<HUDStripProps> = ({ showSettings = true, onSetti
   const user = useAuthStore((s) => s.user);
   const { data } = useMyStats();
 
-  const money = data?.user.money ?? 0;
+  const money = user?.money ?? 0;
   const mmr = data?.user.mmr ?? user?.mmr ?? 0;
   const rank = mmrToRank(mmr);
 
