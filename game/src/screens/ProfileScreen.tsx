@@ -23,6 +23,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useMyStats } from '../hooks/useGames';
 import { useInventory } from '../hooks/useInventory';
 import { OwnedCosmetic } from '../api/inventory';
+import { GameHistoryItem } from '../api/games';
 
 const PAD = 16;
 
@@ -242,7 +243,7 @@ export const ProfileScreen: React.FC = () => {
   })();
 
   // RP gained over recent games
-  const rpDelta = recentGames.reduce((sum: number, g) => sum + g.mmrDelta, 0);
+  const rpDelta = recentGames.reduce((sum: number, g: GameHistoryItem) => sum + g.mmrDelta, 0);
   const rpDeltaStr = rpDelta >= 0 ? `+${rpDelta}` : `${rpDelta}`;
 
   // Level derived from MMR (1 level per 250 RP, min 1)
