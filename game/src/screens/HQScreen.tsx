@@ -12,14 +12,14 @@ import { MOTION } from '../theme/motion';
 import { TopoBg, ChamferContainer, GlassCard, SectionLabel, HexAvatar, Currency, PrimaryButton } from '../components/ks';
 import { useAuthStore } from '../stores/authStore';
 import { useMyGuild, useGuildList, useCreateGuild, useJoinGuild, useLeaveGuild } from '../hooks/useGuilds';
-import { GuildDTO } from '../api/guilds';
+import { GuildDTO, GuildMemberDTO, GuildRole } from '../api/guilds';
 
 const PAD = 16;
 const GUILD_COST = 5_000;
 
 // ── Role badge ─────────────────────────────────────────────────────────────
-const ROLE_COLOR = { LEADER: KS.alert, OFFICER: KS.primary, MEMBER: KS.inkDim };
-const ROLE_LABEL = { LEADER: 'LEADER', OFFICER: 'OFFICER', MEMBER: 'MEMBRE' };
+const ROLE_COLOR: Record<GuildRole, string> = { LEADER: KS.alert, OFFICER: KS.primary, MEMBER: KS.inkDim };
+const ROLE_LABEL: Record<GuildRole, string> = { LEADER: 'LEADER', OFFICER: 'OFFICER', MEMBER: 'MEMBRE' };
 
 // ── Guild row card ─────────────────────────────────────────────────────────
 const GuildRow: React.FC<{ guild: GuildDTO; onJoin: () => void; joining: boolean }> = ({ guild, onJoin, joining }) => {
@@ -255,7 +255,7 @@ export const HQScreen: React.FC = () => {
 
               {/* Members list */}
               <SectionLabel label={`Membres · ${myGuild.memberCount}`} />
-              {myGuild.members?.map((m) => (
+              {myGuild.members?.map((m: GuildMemberDTO) => (
                 <ChamferContainer key={m.userId} width={cardWidth} height={52} chamfer={6} variant="tl-br" fill={KS.surface} stroke={KS.hairSoft}>
                   <View style={styles.memberRow}>
                     <HexAvatar size={28} tier="silver" initials={m.username.slice(0, 2).toUpperCase()} />
@@ -302,7 +302,7 @@ export const HQScreen: React.FC = () => {
               <SectionLabel label={`Guildes disponibles · ${listData?.guilds.length ?? 0}`} />
               {loadingList
                 ? <ActivityIndicator color={KS.primary} />
-                : listData?.guilds.map((g) => (
+                : listData?.guilds.map((g: GuildDTO) => (
                     <GuildRow
                       key={g.id}
                       guild={g}

@@ -567,10 +567,10 @@ function FriendsList({ onSelect }: { onSelect: (f: FriendRecord) => void }) {
   const { data: inbox } = useInbox();
 
   const inboxMap = new Map<number, ConversationSummary>(
-    (inbox ?? []).map((s) => [s.friendId, s])
+    (inbox ?? []).map((s: ConversationSummary) => [s.friendId, s])
   );
 
-  const activeFriends = (friends ?? []).filter((f) => !f.Blocked);
+  const activeFriends = (friends ?? []).filter((f: FriendRecord) => !f.Blocked);
 
   if (isLoading) {
     return (
@@ -676,7 +676,7 @@ export default function FriendsScreen() {
 
 function TotalUnreadBadge() {
   const { data: inbox } = useInbox();
-  const total = (inbox ?? []).reduce((acc, s) => acc + s.unreadCount, 0);
+  const total = (inbox ?? []).reduce((acc: number, s: ConversationSummary) => acc + s.unreadCount, 0);
   if (total === 0) return null;
   return (
     <View style={mainStyles.totalBadge}>

@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KS } from '@/src/theme/colors';
 import { TYPO } from '@/src/theme/typography';
 import { useInbox } from '@/src/hooks/useMessages';
+import type { ConversationSummary } from '@/src/api/messages';
 
 // ── SVG icon paths ─────────────────────────────────────────────────────────────
 const NAV_ICONS = {
@@ -47,7 +48,7 @@ function activeItemId(pathname: string): string {
 // ── Friends unread hook (for badge) ──────────────────────────────────────────
 function useFriendsUnread(): number {
   const { data: inbox } = useInbox();
-  return (inbox ?? []).reduce((acc, s) => acc + s.unreadCount, 0);
+  return (inbox ?? []).reduce((acc: number, s: ConversationSummary) => acc + s.unreadCount, 0);
 }
 
 // ── Custom tab bar ─────────────────────────────────────────────────────────────
