@@ -244,8 +244,8 @@ export const HQScreen: React.FC = () => {
                     </View>
                     <View>
                       <Text style={styles.guildName}>{myGuild.name}</Text>
-                      <Text style={[styles.myRole, { color: ROLE_COLOR[myGuild.myRole ?? 'MEMBER'] }]}>
-                        {ROLE_LABEL[myGuild.myRole ?? 'MEMBER']}
+                      <Text style={[styles.myRole, { color: ROLE_COLOR[(myGuild.myRole ?? 'MEMBER') as GuildRole] }]}>
+                        {ROLE_LABEL[(myGuild.myRole ?? 'MEMBER') as GuildRole]}
                       </Text>
                     </View>
                   </View>
