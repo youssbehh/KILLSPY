@@ -17,6 +17,7 @@ export type PublicUser = {
   username: string;
   email: string;
   mmr: number;
+  money: number;
   guest: boolean;
 };
 
@@ -25,6 +26,7 @@ const toPublicUser = (u: Users): PublicUser => ({
   username: u.Username,
   email: u.Email,
   mmr: u.MMR,
+  money: u.Money,
   guest: u.isGuest,
 });
 

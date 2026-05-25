@@ -85,6 +85,7 @@ export const HomeScreen: React.FC = () => {
   const { width, height } = useWindowDimensions();
   const router = useRouter();
   const username = useAuthStore((s) => s.user?.username ?? 'AGENT_KILO');
+  const money = useAuthStore((s) => s.user?.money ?? 0);
   const { difficulty: savedDifficulty, setDifficulty } = useBotStore();
   const cardWidth = width - PAD * 2;
 
@@ -123,8 +124,8 @@ export const HomeScreen: React.FC = () => {
             </View>
           </View>
           <View style={styles.topRight}>
-            <Currency kind="coin" value={4200} />
-            <Currency kind="gem" value={84} />
+            <Currency kind="coin" value={money} />
+            <Currency kind="gem" value={0} />
             <NotificationPill count={3} />
           </View>
         </View>

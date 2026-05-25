@@ -8,7 +8,7 @@ export interface AuthUser {
   username: string;
   email?: string;
   mmr: number;
-  money?: number;
+  money: number;
   guest: boolean;
 }
 

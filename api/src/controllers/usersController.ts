@@ -1,5 +1,23 @@
 import { NextFunction, Request, Response } from 'express';
 import * as usersService from '../services/users.service';
+import { prisma } from '../lib/prisma';
+
+export const getMe = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const u = await prisma.users.findUnique({ where: { ID_User: req.user!.ID_User } });
+    if (!u) { res.status(404).json({ message: 'User not found' }); return; }
+    res.status(200).json({
+      id: u.ID_User,
+      username: u.Username,
+      email: u.Email,
+      mmr: u.MMR,
+      money: u.Money,
+      guest: u.isGuest,
+    });
+  } catch (e) {
+    next(e);
+  }
+};
 
 export const updateUsername = async (req: Request, res: Response, next: NextFunction) => {
   try {

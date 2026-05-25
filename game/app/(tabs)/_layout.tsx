@@ -1,45 +1,63 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Tabs, usePathname, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KS } from '@/src/theme/colors';
-import { TYPO, SIZES } from '@/src/theme/typography';
+import { TYPO } from '@/src/theme/typography';
+import { useInbox } from '@/src/hooks/useMessages';
 
-// ── SVG icon paths (from design reference NAV_ICONS) ──────────────────────
+// ── SVG icon paths ─────────────────────────────────────────────────────────────
 const NAV_ICONS = {
   home:    'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z',
-  modes:   'M3 4h7v7H3zM14 4h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  hq:      'M12 3L4 7v5c0 4.4 3.4 8.5 8 9.5 4.6-1 8-5.1 8-9.5V7z',
   shop:    'M4 7h16l-1.5 11a2 2 0 0 1-2 1.8H7.5a2 2 0 0 1-2-1.8zM9 7V5a3 3 0 0 1 6 0v2',
+  friends: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   profile: 'M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.3 0-8 1.7-8 5v2h16v-2c0-3.3-4.7-5-8-5z',
 };
 
-// ── Nav items config ───────────────────────────────────────────────────────
-const NAV_ITEMS = [
-  { id: 'home',    label: 'HOME',  route: '/(tabs)/gamechoice', icon: 'home'    as const },
-  { id: 'modes',   label: 'MODES', route: '/(tabs)/friends',    icon: 'modes'   as const },
-  { id: 'shop',    label: 'SHOP',  route: '/(tabs)/shop',       icon: 'shop'    as const, badge: 3 },
-  { id: 'profile', label: 'AGENT', route: '/(tabs)/options',    icon: 'profile' as const },
+type IconKey = keyof typeof NAV_ICONS;
+
+// ── Nav items ─────────────────────────────────────────────────────────────────
+const NAV_ITEMS: Array<{
+  id: string;
+  label: string;
+  route: string;
+  icon: IconKey;
+  badge?: 'shop' | 'friends';
+}> = [
+  { id: 'home',    label: 'HOME',     route: '/(tabs)/gamechoice', icon: 'home'    },
+  { id: 'hq',      label: 'QG',       route: '/(tabs)/hq',         icon: 'hq'      },
+  { id: 'shop',    label: 'SHOP',     route: '/(tabs)/shop',       icon: 'shop',    badge: 'shop' },
+  { id: 'friends', label: 'CONTACTS', route: '/(tabs)/friends',    icon: 'friends', badge: 'friends' },
+  { id: 'profile', label: 'AGENT',    route: '/(tabs)/options',    icon: 'profile' },
 ];
 
-// Map pathname segments to nav item ids
 function activeItemId(pathname: string): string {
   if (pathname.includes('gamechoice')) return 'home';
-  if (pathname.includes('friends'))    return 'modes';
+  if (pathname.includes('/hq'))        return 'hq';
   if (pathname.includes('shop'))       return 'shop';
+  if (pathname.includes('friends'))    return 'friends';
   if (pathname.includes('options') || pathname.includes('inventory')) return 'profile';
   return 'home';
 }
 
-// ── Custom tab bar ─────────────────────────────────────────────────────────
+// ── Friends unread hook (for badge) ──────────────────────────────────────────
+function useFriendsUnread(): number {
+  const { data: inbox } = useInbox();
+  return (inbox ?? []).reduce((acc, s) => acc + s.unreadCount, 0);
+}
+
+// ── Custom tab bar ─────────────────────────────────────────────────────────────
 function KSBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const active = activeItemId(pathname);
   const bottomPad = Math.max(insets.bottom, 8);
+  const friendsUnread = useFriendsUnread();
 
   return (
     <View style={[styles.wrapper, { height: 64 + bottomPad }]}>
@@ -47,7 +65,7 @@ function KSBottomNav() {
       <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
       {/* Gradient overlay */}
       <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.9)']}
+        colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.92)']}
         locations={[0, 0.4, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -56,6 +74,13 @@ function KSBottomNav() {
       <View style={[styles.row, { paddingBottom: bottomPad }]}>
         {NAV_ITEMS.map((item) => {
           const on = active === item.id;
+
+          // Compute badge count
+          let badgeCount: number | null = null;
+          if (item.badge === 'friends' && friendsUnread > 0) {
+            badgeCount = friendsUnread;
+          }
+
           return (
             <Pressable
               key={item.id}
@@ -65,9 +90,7 @@ function KSBottomNav() {
               accessibilityState={{ selected: on }}
             >
               {/* Active indicator bar */}
-              {on && (
-                <View style={styles.activeBar} />
-              )}
+              {on && <View style={styles.activeBar} />}
 
               {/* Icon + badge */}
               <View style={styles.iconWrap}>
@@ -82,9 +105,12 @@ function KSBottomNav() {
                     fillOpacity={on ? 0.18 : 0}
                   />
                 </Svg>
-                {item.badge != null && (
+
+                {badgeCount != null && (
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{item.badge}</Text>
+                    <Text style={styles.badgeText}>
+                      {badgeCount > 9 ? '9+' : badgeCount}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -130,7 +156,6 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: KS.primary,
     borderRadius: 1,
-    // glow via shadow
     shadowColor: KS.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
@@ -144,8 +169,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: TYPO.display,
-    fontSize: 10,
-    letterSpacing: 10 * 0.22,
+    fontSize: 9,
+    letterSpacing: 9 * 0.22,
   },
   badge: {
     position: 'absolute',
@@ -153,8 +178,10 @@ const styles = StyleSheet.create({
     right: -8,
     backgroundColor: KS.live,
     borderRadius: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
     paddingVertical: 1,
+    minWidth: 16,
+    alignItems: 'center',
     shadowColor: KS.live,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
@@ -163,13 +190,13 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontFamily: TYPO.monoBold,
-    fontSize: 9,
+    fontSize: 8,
     color: '#000',
     fontWeight: '700',
   },
 });
 
-// ── Tab layout ─────────────────────────────────────────────────────────────
+// ── Tab layout ─────────────────────────────────────────────────────────────────
 export default function TabLayout() {
   return (
     <Tabs
@@ -177,8 +204,9 @@ export default function TabLayout() {
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="gamechoice" />
-      <Tabs.Screen name="friends" />
+      <Tabs.Screen name="hq" />
       <Tabs.Screen name="shop" />
+      <Tabs.Screen name="friends" />
       <Tabs.Screen name="options" />
       <Tabs.Screen name="inventory" options={{ href: null }} />
     </Tabs>

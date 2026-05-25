@@ -5,7 +5,8 @@
       "Bash(npx prisma *)",
       "Bash(tasklist)",
       "Bash(npx expo *)",
-      "Bash(node -e \"const p=require\\('./package.json'\\); ['expo-blur','expo-haptics','@expo-google-fonts/barlow-condensed','@expo-google-fonts/rajdhani','@expo-google-fonts/jetbrains-mono'].forEach\\(k=>console.log\\(k, p.dependencies[k]||'MISSING'\\)\\)\")"
+      "Bash(node -e \"const p=require\\('./package.json'\\); ['expo-blur','expo-haptics','@expo-google-fonts/barlow-condensed','@expo-google-fonts/rajdhani','@expo-google-fonts/jetbrains-mono'].forEach\\(k=>console.log\\(k, p.dependencies[k]||'MISSING'\\)\\)\")",
+      "Bash(for f *)"
     ]
   }
 }

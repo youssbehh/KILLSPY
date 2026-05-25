@@ -1,33 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
-import { Button } from '@rneui/themed';
+import {
+  View, Text, TextInput, Pressable, ActivityIndicator, StyleSheet,
+} from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '../../store/languageStore';
-import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
-import { faCaretDown, faCheck, faEdit, faTimes, faCaretUp } from '@fortawesome/free-solid-svg-icons';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { useAuthStore } from '@/src/stores/authStore';
 import { updateUsername as apiUpdateUsername } from '@/src/api/users';
 import { extractApiError } from '@/src/api/client';
+import { KSAccordion } from './KSAccordion';
+import { KS } from '@/src/theme/colors';
+import { TYPO, SIZES } from '@/src/theme/typography';
 
-interface CompteParamProps {
-  title: string;
-  children: React.ReactNode;
-}
-
-const CompteParam: React.FC<CompteParamProps> = ({ title, children }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => setIsOpen(!isOpen)} style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
-        <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
-      </TouchableOpacity>
-      {isOpen && <View style={styles.content}>{children}</View>}
-    </View>
-  );
-};
+const LANGS = ['Français', 'English'];
 
 const CompteContainer = () => {
   const { langIndex, setLanguage } = useLanguageStore();
@@ -50,83 +36,118 @@ const CompteContainer = () => {
   const isGuest = user?.guest ?? false;
   const username = user?.username ?? '';
 
-  const startEditing = () => {
-    setUserChange(username);
-    setIsEditing(true);
-    setErrorMsg('');
-  };
-
-  const cancelEditing = () => {
-    setIsEditing(false);
-    setUserChange(username);
-    setErrorMsg('');
-  };
-
   return (
-    <View>
+    <KSAccordion title={motTraduit(langIndex, 20)}>
       <LoadingOverlay isLoading={updateUsernameMutation.isPending} />
-      <CompteParam title={motTraduit(langIndex, 20)}>
-        <Text>{motTraduit(langIndex, 46)} :</Text>
+
+      {/* Username row */}
+      <Text style={styles.label}>{motTraduit(langIndex, 46)}</Text>
+      <View style={styles.inputRow}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, !isEditing && styles.inputDisabled]}
           placeholder={username || motTraduit(langIndex, 58)}
-          value={userChange}
+          placeholderTextColor={KS.inkFaint}
+          value={isEditing ? userChange : username}
           onChangeText={setUserChange}
           editable={isEditing}
           autoCapitalize="none"
         />
-        {!isGuest ? (
+        {!isGuest && (
           isEditing ? (
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.applyButton}
+            <View style={styles.btnRow}>
+              <Pressable
+                style={[styles.btn, { backgroundColor: KS.live + '22', borderColor: KS.live }]}
                 onPress={() => updateUsernameMutation.mutate(userChange)}
                 disabled={updateUsernameMutation.isPending}
               >
-                {updateUsernameMutation.isPending ? <ActivityIndicator color="white" /> : <FontAwesomeWrapper icon={faCheck} />}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelButton} onPress={cancelEditing}>
-                <FontAwesomeWrapper icon={faTimes} />
-              </TouchableOpacity>
+                {updateUsernameMutation.isPending
+                  ? <ActivityIndicator color={KS.live} size="small" />
+                  : <Text style={[styles.btnText, { color: KS.live }]}>✓</Text>}
+              </Pressable>
+              <Pressable
+                style={[styles.btn, { backgroundColor: KS.danger + '22', borderColor: KS.danger }]}
+                onPress={() => { setIsEditing(false); setUserChange(username); setErrorMsg(''); }}
+              >
+                <Text style={[styles.btnText, { color: KS.danger }]}>✕</Text>
+              </Pressable>
             </View>
           ) : (
-            <Button onPress={startEditing}><FontAwesomeWrapper icon={faEdit} /></Button>
+            <Pressable
+              style={[styles.btn, { backgroundColor: KS.primary + '22', borderColor: KS.primary }]}
+              onPress={() => { setUserChange(username); setIsEditing(true); setErrorMsg(''); }}
+            >
+              <Text style={[styles.btnText, { color: KS.primary }]}>✎</Text>
+            </Pressable>
           )
-        ) : (
-          <Button>{motTraduit(langIndex, 70)}</Button>
         )}
-        {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+      </View>
+      {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
 
-        <Text style={{ marginTop: 5 }}>{motTraduit(langIndex, 25)} :</Text>
-        <View style={styles.radioContainer}>
-          <TouchableOpacity style={styles.radioOption} onPress={() => setLanguage(0)}>
-            <View style={[styles.radio, langIndex === 0 && styles.radioSelected]} />
-            <Text>{motTraduit(langIndex, 26)}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.radioOption} onPress={() => setLanguage(1)}>
-            <View style={[styles.radio, langIndex === 1 && styles.radioSelected]} />
-            <Text>{motTraduit(langIndex, 27)}</Text>
-          </TouchableOpacity>
-        </View>
-      </CompteParam>
-    </View>
+      {/* Language */}
+      <Text style={[styles.label, { marginTop: 8 }]}>{motTraduit(langIndex, 25)}</Text>
+      <View style={styles.langRow}>
+        {LANGS.map((lng, i) => (
+          <Pressable
+            key={i}
+            onPress={() => setLanguage(i)}
+            style={[styles.langChip, langIndex === i && styles.langChipActive]}
+          >
+            <Text style={[styles.langText, langIndex === i && styles.langTextActive]}>{lng}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </KSAccordion>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 10, borderWidth: 1, borderColor: '#ccc', borderRadius: 5 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, backgroundColor: '#f1f1f1' },
-  title: { fontSize: 16 },
-  content: { padding: 10, backgroundColor: '#fff' },
-  input: { flex: 1, padding: 10, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, fontSize: 16, marginBottom: 10, marginTop: 10 },
-  buttonContainer: { flexDirection: 'row', padding: 5 },
-  applyButton: { padding: 8, backgroundColor: 'green', borderRadius: 5, marginRight: 5 },
-  cancelButton: { padding: 8, backgroundColor: 'red', borderRadius: 5 },
-  radioContainer: { marginTop: 10 },
-  radioOption: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
-  radio: { height: 20, width: 20, borderRadius: 10, borderWidth: 2, borderColor: '#000', marginRight: 10 },
-  radioSelected: { backgroundColor: '#000' },
-  errorText: { color: 'red', marginTop: 6 },
+  label: {
+    color: KS.inkDim,
+    fontFamily: TYPO.mono,
+    fontSize: SIZES.monoSm,
+    letterSpacing: SIZES.monoSm * 0.18,
+    marginBottom: 4,
+  },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  input: {
+    flex: 1,
+    height: 40,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: KS.hairSoft,
+    backgroundColor: KS.surface,
+    color: KS.ink,
+    fontFamily: TYPO.ui,
+    fontSize: SIZES.body,
+  },
+  inputDisabled: { color: KS.inkDim },
+  btnRow: { flexDirection: 'row', gap: 6 },
+  btn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  btnText: { fontFamily: TYPO.mono, fontSize: 14 },
+  error: { color: KS.danger, fontFamily: TYPO.mono, fontSize: SIZES.monoSm, marginTop: 4 },
+  langRow: { flexDirection: 'row', gap: 8 },
+  langChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: KS.hairSoft,
+    backgroundColor: KS.surface,
+  },
+  langChipActive: { borderColor: KS.primary, backgroundColor: KS.primary + '18' },
+  langText: {
+    color: KS.inkDim,
+    fontFamily: TYPO.display,
+    fontSize: SIZES.labelLg,
+    letterSpacing: SIZES.labelLg * 0.08,
+  },
+  langTextActive: { color: KS.primary },
 });
 
 export default CompteContainer;

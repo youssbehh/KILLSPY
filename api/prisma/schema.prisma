@@ -35,6 +35,9 @@ model Users {
   Cosmetics   UserCosmetic[]
   Equipped    EquippedCosmetic[]
   Missions    PlayerMissionAssignment[]
+  GuildMembership GuildMember?
+  SentMessages     DirectMessage[] @relation("dm_sender")
+  ReceivedMessages DirectMessage[] @relation("dm_receiver")
 }
 
 model Session {
@@ -210,4 +213,58 @@ model PlayerMissionAssignment {
 
   @@unique([userId, missionId, day])
   @@index([userId, day])
+}
+
+// =====================================================================
+// GUILDS
+// =====================================================================
+
+enum GuildRole {
+  LEADER
+  OFFICER
+  MEMBER
+}
+
+model Guild {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique          // max 24 chars
+  tag         String   @unique          // 2-5 uppercase letters displayed as [TAG]
+  description String?
+  isOpen      Boolean  @default(true)   // open = anyone can join
+  maxMembers  Int      @default(30)
+  createdAt   DateTime @default(now())
+
+  members GuildMember[]
+
+  @@index([name])
+}
+
+model GuildMember {
+  id       Int       @id @default(autoincrement())
+  guild    Guild     @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guildId  Int
+  user     Users     @relation(fields: [userId], references: [ID_User], onDelete: Cascade)
+  userId   Int       @unique          // one guild per player
+  role     GuildRole @default(MEMBER)
+  joinedAt DateTime  @default(now())
+
+  @@index([guildId])
+}
+
+// =====================================================================
+// DIRECT MESSAGES
+// =====================================================================
+
+model DirectMessage {
+  id         Int       @id @default(autoincrement())
+  sender     Users     @relation("dm_sender",   fields: [senderId],   references: [ID_User], onDelete: Cascade)
+  senderId   Int
+  receiver   Users     @relation("dm_receiver", fields: [receiverId], references: [ID_User], onDelete: Cascade)
+  receiverId Int
+  content    String
+  sentAt     DateTime  @default(now())
+  readAt     DateTime?
+
+  @@index([senderId, receiverId, sentAt])
+  @@index([receiverId, readAt])
 }

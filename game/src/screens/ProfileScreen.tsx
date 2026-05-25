@@ -7,7 +7,7 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { KS } from '../theme/colors';
 import { TYPO, SIZES } from '../theme/typography';
@@ -213,6 +213,7 @@ const skinStyles = StyleSheet.create({
 // ── Main screen ────────────────────────────────────────────────────────────
 export const ProfileScreen: React.FC = () => {
   const { width } = useWindowDimensions();
+  const router = useRouter();
   const username = useAuthStore((s) => s.user?.username ?? 'AGENT_KILO');
   const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
 
@@ -252,9 +253,9 @@ export const ProfileScreen: React.FC = () => {
               <Text style={styles.eyebrowTitle}>DOSSIER</Text>
             </View>
             <View style={styles.iconBtns}>
-              {(['⚙', '↗'] as const).map((glyph) => (
+              {/* Settings */}
+              <Pressable onPress={() => router.push('/settings' as any)}>
                 <ChamferContainer
-                  key={glyph}
                   width={36}
                   height={36}
                   chamfer={6}
@@ -263,10 +264,25 @@ export const ProfileScreen: React.FC = () => {
                   stroke={KS.hairSoft}
                 >
                   <View style={styles.iconBtnInner}>
-                    <Text style={styles.iconBtnGlyph}>{glyph}</Text>
+                    <Text style={styles.iconBtnGlyph}>⚙</Text>
                   </View>
                 </ChamferContainer>
-              ))}
+              </Pressable>
+              {/* Share (stub) */}
+              <Pressable>
+                <ChamferContainer
+                  width={36}
+                  height={36}
+                  chamfer={6}
+                  variant="tr-bl"
+                  fill="rgba(0,0,0,0.4)"
+                  stroke={KS.hairSoft}
+                >
+                  <View style={styles.iconBtnInner}>
+                    <Text style={styles.iconBtnGlyph}>↗</Text>
+                  </View>
+                </ChamferContainer>
+              </Pressable>
             </View>
           </View>
 

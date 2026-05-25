@@ -1,184 +1,99 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, AppRegistry, Pressable } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Slider } from '@rneui/themed';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '../../store/languageStore';
-import { Slider } from '@rneui/themed';
-import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
-import { faCaretDown, faCaretUp, faVolumeHigh, faVolumeLow, faVolumeOff, faVolumeXmark } from '@fortawesome/free-solid-svg-icons';
+import { KSAccordion } from './KSAccordion';
+import { KS } from '@/src/theme/colors';
+import { TYPO, SIZES } from '@/src/theme/typography';
 
-const element = () => (
-    <View>
-      <FontAwesomeWrapper icon={faCaretDown} />
-      <FontAwesomeWrapper icon={faCaretUp} />
-      <FontAwesomeWrapper icon={faVolumeHigh} />
-      <FontAwesomeWrapper icon={faVolumeLow} />
-      <FontAwesomeWrapper icon={faVolumeOff} />
-      <FontAwesomeWrapper icon={faVolumeXmark} />
-    </View>
-);
-
-interface AudioParamProps {
-    title: string;
-    children: React.ReactNode;
+function volumeGlyph(v: number) {
+  if (v === 0) return '🔇';
+  if (v <= 3) return '🔈';
+  if (v <= 7) return '🔉';
+  return '🔊';
 }
-const AudioParam: React.FC<AudioParamProps> = ({ title, children }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const toggleAccordion = () => {
-      setIsOpen(!isOpen);
-  };
-   return (
-      <View style={styles.container}>
-        <TouchableOpacity onPress={toggleAccordion} style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
-        </TouchableOpacity>
-        {isOpen && <View style={styles.content}>{children}</View>}
-      </View>
-    );
-};
 
 const AudioContainer = () => {
-    const { langIndex } = useLanguageStore();
-    const [bgmVolume, setBgmVolume] = useState(10);
-    const [sfxVolume, setSfxVolume] = useState(10);
-    const [lastBgmVolume, setLastBgmVolume] = useState(10);
-    const [lastSfxVolume, setLastSfxVolume] = useState(10);
+  const { langIndex } = useLanguageStore();
+  const [bgm, setBgm] = useState(7);
+  const [sfx, setSfx] = useState(8);
+  const [lastBgm, setLastBgm] = useState(7);
+  const [lastSfx, setLastSfx] = useState(8);
 
-    const getVolumeIcon = (volume: number) => {
-        if (volume === 0) return faVolumeXmark;
-        if (volume <= 3) return faVolumeOff;
-        if (volume <= 7) return faVolumeLow;
-        return faVolumeHigh;
-    };
+  const toggleBgm = () => {
+    if (bgm === 0) { setBgm(lastBgm); } else { setLastBgm(bgm); setBgm(0); }
+  };
+  const toggleSfx = () => {
+    if (sfx === 0) { setSfx(lastSfx); } else { setLastSfx(sfx); setSfx(0); }
+  };
 
-    const setBgmSfxVolume = (choice: string) => {
-        if (choice === 'bgm') {
-            if (bgmVolume === 0) {
-                setBgmVolume(lastBgmVolume);
-            } else {
-                setLastBgmVolume(bgmVolume);
-                setBgmVolume(0);
-            }
-        } else if (choice === 'sfx') {
-            if (sfxVolume === 0) {
-                setSfxVolume(lastSfxVolume);
-            } else {
-                setLastSfxVolume(sfxVolume);
-                setSfxVolume(0);
-            }
-        }
-    };
+  return (
+    <KSAccordion title={motTraduit(langIndex, 19)}>
+      {/* BGM */}
+      <View style={styles.trackRow}>
+        <Pressable onPress={toggleBgm} style={styles.muteBtn}>
+          <Text style={styles.glyphText}>{volumeGlyph(bgm)}</Text>
+        </Pressable>
+        <Text style={styles.trackLabel}>{motTraduit(langIndex, 23)}</Text>
+        <Text style={styles.trackValue}>{bgm}</Text>
+      </View>
+      <Slider
+        value={bgm}
+        onValueChange={(v) => { setBgm(v); if (v !== 0) setLastBgm(v); }}
+        minimumValue={0}
+        maximumValue={10}
+        step={1}
+        allowTouchTrack
+        minimumTrackTintColor={KS.primary}
+        maximumTrackTintColor={KS.surfaceHi}
+        thumbTintColor={KS.primary}
+        style={styles.slider}
+      />
 
-    const handleBgmSliderChange = (value: number) => {
-        setBgmVolume(value);
-        if (value !== 0) setLastBgmVolume(value);
-    };
-
-    const handleSfxSliderChange = (value: number) => {
-        setSfxVolume(value);
-        if (value !== 0) setLastSfxVolume(value);
-    };
-
-    return (
-        <View>
-            <AudioParam title={motTraduit(langIndex, 19)}>
-                <View style={styles.volumeContainer}>
-                    <Pressable onPress={() => setBgmSfxVolume('bgm')}>
-                        <FontAwesomeWrapper icon={getVolumeIcon(bgmVolume)} />
-                    </Pressable>                   
-                    <Text>{motTraduit(langIndex, 23)} : {bgmVolume}</Text>
-                </View>
-                <Slider
-                    value={bgmVolume}
-                    onValueChange={handleBgmSliderChange}
-                    minimumValue={0}
-                    maximumValue={10}
-                    step={1}
-                    allowTouchTrack
-                    minimumTrackTintColor="#007AFF"
-                    maximumTrackTintColor="#DDDDDD"
-                    thumbTintColor="#007AFF"
-                    style={styles.slider}
-                    thumbProps={{
-                        children: (
-                            <View style={styles.thumbContainer}>
-                                <FontAwesomeWrapper 
-                                    icon={getVolumeIcon(bgmVolume)} 
-                                    color="black"
-                                />
-                            </View>
-                        ),
-                    }}
-                />
-                <View style={styles.volumeContainer}>
-                    <Pressable onPress={() => setBgmSfxVolume('sfx')}>
-                        <FontAwesomeWrapper icon={getVolumeIcon(sfxVolume)} />
-                    </Pressable>
-                    <Text>{motTraduit(langIndex, 24)} : {sfxVolume}</Text>
-                </View>
-                <Slider
-                    value={sfxVolume}
-                    onValueChange={handleSfxSliderChange}
-                    minimumValue={0}
-                    maximumValue={10}
-                    step={1}
-                    allowTouchTrack
-                    minimumTrackTintColor="#007AFF"
-                    maximumTrackTintColor="#DDDDDD"
-                    thumbTintColor="#007AFF"
-                    style={styles.slider}
-                    thumbProps={{
-                        children: (
-                            <View style={styles.thumbContainer}>
-                                <FontAwesomeWrapper 
-                                    icon={getVolumeIcon(sfxVolume)} 
-                                    color="black"
-                                />
-                            </View>
-                        ),
-                    }}
-                />
-            </AudioParam>
-        </View>
-    );
+      {/* SFX */}
+      <View style={[styles.trackRow, { marginTop: 8 }]}>
+        <Pressable onPress={toggleSfx} style={styles.muteBtn}>
+          <Text style={styles.glyphText}>{volumeGlyph(sfx)}</Text>
+        </Pressable>
+        <Text style={styles.trackLabel}>{motTraduit(langIndex, 24)}</Text>
+        <Text style={styles.trackValue}>{sfx}</Text>
+      </View>
+      <Slider
+        value={sfx}
+        onValueChange={(v) => { setSfx(v); if (v !== 0) setLastSfx(v); }}
+        minimumValue={0}
+        maximumValue={10}
+        step={1}
+        allowTouchTrack
+        minimumTrackTintColor={KS.primary}
+        maximumTrackTintColor={KS.surfaceHi}
+        thumbTintColor={KS.primary}
+        style={styles.slider}
+      />
+    </KSAccordion>
+  );
 };
 
 const styles = StyleSheet.create({
- container: {
-   marginBottom: 10,
-   borderWidth: 1,
-   borderColor: '#ccc',
-   borderRadius: 5,
- },
- header: {
-    flexDirection: 'row',
-   justifyContent: 'space-between',
-   padding: 10,
-   backgroundColor: '#f1f1f1',
- },
- title: {
-   fontSize: 16,
- },
- content: {
-   padding: 10,
-   backgroundColor: '#fff',
- },
- slider: {
-    width: '100%',
-    height: 40,
+  trackRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  muteBtn: { width: 28, alignItems: 'center' },
+  glyphText: { fontSize: 18 },
+  trackLabel: {
+    flex: 1,
+    color: KS.inkDim,
+    fontFamily: TYPO.mono,
+    fontSize: SIZES.monoSm,
+    letterSpacing: SIZES.monoSm * 0.14,
   },
-  volumeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-},
-thumbContainer: {
-    borderRadius: 10,
-    padding:10,
-},
+  trackValue: {
+    color: KS.primary,
+    fontFamily: TYPO.mono,
+    fontSize: SIZES.monoSm,
+    minWidth: 16,
+    textAlign: 'right',
+  },
+  slider: { width: '100%', height: 36 },
 });
 
 export default AudioContainer;
-
-AppRegistry.registerComponent('KILLSPY', () => element);

@@ -25,6 +25,7 @@ import {
 import { useColorScheme } from '@/components/useColorScheme';
 import { queryClient } from '@/src/lib/queryClient';
 import { useEquippedTheme } from '@/src/hooks/useEquippedTheme';
+import { useSyncMe } from '@/src/hooks/useAuthFlow';
 
 const isWeb = typeof window !== 'undefined';
 
@@ -75,6 +76,7 @@ export default function RootLayout() {
  */
 const ThemeSync: React.FC = () => {
   useEquippedTheme();
+  useSyncMe();
   return null;
 };
 

@@ -1,34 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-native';
+import React from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '../../store/languageStore';
-import { FontAwesomeWrapper } from '@/components/FontAwesomeWrapper';
-import { faCaretDown, faCaretUp, faCheck, faPalette } from '@fortawesome/free-solid-svg-icons';
 import { useBotStore } from '@/src/stores/botStore';
 import { BotDifficulty } from '@/src/game/botAI';
+import { KSAccordion } from './KSAccordion';
+import { KS } from '@/src/theme/colors';
+import { TYPO, SIZES } from '@/src/theme/typography';
 
-interface DiversParamProps {
-  title: string;
-  children: React.ReactNode;
-}
-
-const DiversParam: React.FC<DiversParamProps> = ({ title, children }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={() => setIsOpen(!isOpen)} style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
-        <FontAwesomeWrapper icon={isOpen ? faCaretUp : faCaretDown} />
-      </TouchableOpacity>
-      {isOpen && <View style={styles.content}>{children}</View>}
-    </View>
-  );
-};
-
-const BOT_DIFFICULTIES: { id: BotDifficulty; label: string; description: string }[] = [
-  { id: 'easy', label: 'Facile', description: "Bot aléatoire — pour s'entraîner." },
-  { id: 'medium', label: 'Moyen', description: 'Bot qui mémorise vos patterns.' },
-  { id: 'hard', label: 'Difficile', description: 'Bot prédictif — il anticipe.' },
+const BOT_DIFFICULTIES: { id: BotDifficulty; label: string; desc: string; accent: string }[] = [
+  { id: 'easy',   label: 'EASY',   desc: "Bot aléatoire — pour s'entraîner.", accent: KS.live },
+  { id: 'medium', label: 'MEDIUM', desc: 'Bot qui mémorise vos patterns.',      accent: KS.alert },
+  { id: 'hard',   label: 'HARD',   desc: 'Bot prédictif — il anticipe.',         accent: KS.danger },
 ];
 
 const DiversContainer = () => {
@@ -37,59 +20,77 @@ const DiversContainer = () => {
   const setBotDifficulty = useBotStore((s) => s.setDifficulty);
 
   return (
-    <View>
-      <DiversParam title={motTraduit(langIndex, 22)}>
-        <View style={styles.themeHeader}>
-          <FontAwesomeWrapper icon={faPalette} />
-          <Text style={styles.themeHeaderText}>Thème graphique</Text>
-        </View>
-        <Text style={styles.hint}>
-          Les thèmes sont des cosmétiques. Achète-les dans la boutique et équipe-les depuis ton inventaire.
-        </Text>
+    <KSAccordion title={motTraduit(langIndex, 22)}>
+      {/* Theme info */}
+      <Text style={styles.sectionLabel}>🎨 THÈME GRAPHIQUE</Text>
+      <Text style={styles.hint}>
+        Les thèmes sont des cosmétiques achetables en boutique et équipables depuis l'inventaire.
+      </Text>
 
-        <View style={styles.divider} />
+      <View style={styles.divider} />
 
-        <Text style={styles.themeHeaderText}>Difficulté du bot</Text>
-        {BOT_DIFFICULTIES.map((d) => (
+      {/* Bot difficulty */}
+      <Text style={styles.sectionLabel}>🤖 DIFFICULTÉ DU BOT</Text>
+      {BOT_DIFFICULTIES.map((d) => {
+        const active = botDifficulty === d.id;
+        return (
           <Pressable
             key={d.id}
             onPress={() => setBotDifficulty(d.id)}
-            style={[styles.diffRow, botDifficulty === d.id && styles.diffActive]}
+            style={[styles.diffRow, active && { borderColor: d.accent, backgroundColor: d.accent + '12' }]}
           >
             <View style={styles.diffTexts}>
-              <Text style={styles.diffLabel}>{d.label}</Text>
-              <Text style={styles.diffDesc}>{d.description}</Text>
+              <Text style={[styles.diffLabel, active && { color: d.accent }]}>{d.label}</Text>
+              <Text style={styles.diffDesc}>{d.desc}</Text>
             </View>
-            {botDifficulty === d.id ? <FontAwesomeWrapper icon={faCheck} /> : null}
+            {active && <Text style={[styles.check, { color: d.accent }]}>✓</Text>}
           </Pressable>
-        ))}
-      </DiversParam>
-    </View>
+        );
+      })}
+    </KSAccordion>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 10, borderWidth: 1, borderColor: '#ccc', borderRadius: 5 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, backgroundColor: '#f1f1f1' },
-  title: { fontSize: 16 },
-  content: { padding: 10, backgroundColor: '#fff' },
-  themeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
-  themeHeaderText: { fontSize: 14, fontWeight: '600' },
-  hint: { fontSize: 12, color: '#666', fontStyle: 'italic', marginBottom: 8 },
-  divider: { height: 1, backgroundColor: '#ddd', marginVertical: 16 },
+  sectionLabel: {
+    color: KS.inkDim,
+    fontFamily: TYPO.mono,
+    fontSize: SIZES.monoSm,
+    letterSpacing: SIZES.monoSm * 0.22,
+    marginBottom: 6,
+  },
+  hint: {
+    color: KS.inkFaint,
+    fontFamily: TYPO.ui,
+    fontSize: SIZES.bodySm,
+    fontStyle: 'italic',
+    lineHeight: SIZES.bodySm * 1.5,
+  },
+  divider: { height: 1, backgroundColor: KS.divider, marginVertical: 10 },
   diffRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    marginVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginVertical: 3,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: KS.hairSoft,
+    backgroundColor: KS.surface,
   },
-  diffActive: { borderColor: '#007AFF', backgroundColor: '#f0f7ff' },
   diffTexts: { flex: 1 },
-  diffLabel: { fontSize: 14, fontWeight: '600' },
-  diffDesc: { fontSize: 12, color: '#666' },
+  diffLabel: {
+    color: KS.ink,
+    fontFamily: TYPO.display,
+    fontSize: SIZES.labelLg,
+    letterSpacing: SIZES.labelLg * 0.08,
+  },
+  diffDesc: {
+    color: KS.inkDim,
+    fontFamily: TYPO.ui,
+    fontSize: SIZES.bodySm,
+    marginTop: 2,
+  },
+  check: { fontFamily: TYPO.mono, fontSize: 16 },
 });
 
 export default DiversContainer;
