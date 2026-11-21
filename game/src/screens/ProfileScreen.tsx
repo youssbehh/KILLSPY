@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React from 'react';
 import {
   View,
@@ -213,6 +214,7 @@ const skinStyles = StyleSheet.create({
 
 // ── Main screen ────────────────────────────────────────────────────────────
 export const ProfileScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const router = useRouter();
   const username = useAuthStore((s) => s.user?.username ?? 'AGENT_KILO');
@@ -263,7 +265,7 @@ export const ProfileScreen: React.FC = () => {
         <TopoBg />
 
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD }]}
+          contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD, paddingTop: insets.top + 12 }]}
           showsVerticalScrollIndicator={false}
         >
           {/* ── Eyebrow ── */}
@@ -274,7 +276,7 @@ export const ProfileScreen: React.FC = () => {
             </View>
             <View style={styles.iconBtns}>
               {/* Settings */}
-              <Pressable onPress={() => router.push('/settings' as any)}>
+              <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" hitSlop={8}>
                 <ChamferContainer
                   width={36}
                   height={36}
@@ -288,8 +290,8 @@ export const ProfileScreen: React.FC = () => {
                   </View>
                 </ChamferContainer>
               </Pressable>
-              {/* Share (stub) */}
-              <Pressable>
+              {/* Inventory */}
+              <Pressable onPress={() => router.push('/(tabs)/inventory')} accessibilityRole="button" accessibilityLabel="Inventory" hitSlop={8}>
                 <ChamferContainer
                   width={36}
                   height={36}
@@ -299,7 +301,7 @@ export const ProfileScreen: React.FC = () => {
                   stroke={KS.hairSoft}
                 >
                   <View style={styles.iconBtnInner}>
-                    <Text style={styles.iconBtnGlyph}>↗</Text>
+                    <Text style={styles.iconBtnGlyph}>▦</Text>
                   </View>
                 </ChamferContainer>
               </Pressable>
@@ -399,7 +401,7 @@ export const ProfileScreen: React.FC = () => {
 // ── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: KS.bg },
-  scroll: { paddingTop: 60 },
+  scroll: {},
 
   eyebrow: {
     flexDirection: 'row',

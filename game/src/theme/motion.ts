@@ -12,6 +12,13 @@ export const MOTION = {
   blinkNorm: 1200,
   ammoShake: 60,
 
+  // Turn resolution (CombatFx). Everything below is timed against `combat`.
+  combat:         1000, // full shot / shield / reload sequence
+  reveal:         1500, // pause between two turns, must outlast `combat`
+  lifeLossDelay:  360,  // a heart breaks when the tracer lands (combat × 0.36)
+  reloadPipDelay: 480,  // the ammo pip snaps in as the reload ring closes
+  cardFlip:       220,
+
   easingEnter: [0.22, 1, 0.36, 1] as const,
   easingExit:  [0.4,  0, 1,    1] as const,
 } as const;

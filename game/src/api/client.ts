@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios';
-import { getToken, useAuthStore } from '../stores/authStore';
+import { getToken } from '../stores/authStore';
 
 const baseURL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -13,10 +13,19 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+/**
+ * Called when the API rejects the stored session. Registered by lib/session.ts —
+ * injected rather than imported, since the session module depends on this client.
+ */
+let onUnauthorized: (() => Promise<void>) | null = null;
+export const setUnauthorizedHandler = (handler: () => Promise<void>) => {
+  onUnauthorized = handler;
+};
+
 apiClient.interceptors.request.use(async (config) => {
   const token = await getToken();
   if (token) {
-    config.headers.Authorization = token;
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -24,8 +33,11 @@ apiClient.interceptors.request.use(async (config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<{ message?: string; errorCode?: number }>) => {
-    if (error.response?.status === 401) {
-      await useAuthStore.getState().clearSession();
+    // An expired/invalid session ends here. A 401 on the auth endpoints themselves
+    // (wrong password) is a normal form error and must not touch the session.
+    const isAuthCall = error.config?.url?.startsWith('/auth/') ?? false;
+    if (error.response?.status === 401 && !isAuthCall) {
+      await onUnauthorized?.();
     }
     return Promise.reject(error);
   },

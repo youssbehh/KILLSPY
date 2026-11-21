@@ -1,4 +1,6 @@
 DATABASE_URL="postgresql://postgres.[SUPABASE-PROJECT-ID]:[SUPABASE-PASSWORD]@aws-0-eu-west-3.pooler.supabase.com:[SUPABASE-PORT]/postgres?pgbouncer=true"
+# Connexion directe (sans pgbouncer) utilisée par `prisma migrate`
+DIRECT_URL="postgresql://postgres.[SUPABASE-PROJECT-ID]:[SUPABASE-PASSWORD]@aws-0-eu-west-3.pooler.supabase.com:5432/postgres"
 PORT=4000
 # 32+ caractères recommandés. Générer avec :
 #   node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"

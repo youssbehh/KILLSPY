@@ -1,23 +1,25 @@
-version: '3.8'
-
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: killspy_game
-    container_name: ksgame-container
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
   api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./api
     image: killspy_api
     container_name: ksapi-container
-    ports:
-      - "4000:4000"
+    env_file: ./api/.env
     environment:
       - NODE_ENV=production
+      - PORT=4000
+    ports:
+      - "4000:4000"
+
+  app:
+    build:
+      context: ./game
+      args:
+        # URL the browser uses to reach the API.
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:4000/api}
+    image: killspy_game
+    container_name: ksgame-container
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"

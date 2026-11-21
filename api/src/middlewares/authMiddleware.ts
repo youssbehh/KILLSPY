@@ -9,9 +9,10 @@ import { prisma } from '../lib/prisma'
 // 0 = ADMIN
 // -1 = BANN
 
-const authMiddleware = (role?: string) => {
+const authMiddleware = (_role?: string) => {
     return async (req: Request, res: Response, next: NextFunction) => {
-        const token = req.headers.authorization
+        const header = req.headers.authorization
+        const token = header?.startsWith('Bearer ') ? header.slice(7) : header
         if (!token) {
             return next(new HttpException("Token requis.", ErrCodes.TOKEN_INVALID, statusCodes.UNAUTHORIZED, null))
         }
@@ -19,20 +20,20 @@ const authMiddleware = (role?: string) => {
         try {
             const payload = jwt.verify(token, JWT_SECRET) as { id: number }
             const user = await prisma.users.findUnique({ where: { ID_User: payload.id } })
-            if (!user) {
+            if (!user || user.archived) {
                 return next(new HttpException("Non autorisé!", ErrCodes.UNAUTHORIZED_ACCESS, statusCodes.UNAUTHORIZED, null))
             }
 
             req.user = user
             return next()
-        } catch (e:any) {
+        } catch (e: unknown) {
             if (e instanceof jwt.TokenExpiredError) {
                 return next(new HttpException("Session expirée.", ErrCodes.SESSION_EXPIRED, statusCodes.UNAUTHORIZED, null))
             }
             if (e instanceof jwt.JsonWebTokenError) {
                 return next(new HttpException("Token invalide.", ErrCodes.TOKEN_INVALID, statusCodes.UNAUTHORIZED, null))
             }
-            return next(new HttpException("Erreur dans la vérification d'authentification.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, e ?? null))
+            return next(new HttpException("Erreur dans la vérification d'authentification.", ErrCodes.INTERNAL_SERVER_ERROR, statusCodes.INTERNAL_SERVER_ERROR, null))
         }
     }
 }

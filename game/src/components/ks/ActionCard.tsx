@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Path, Rect, Polygon, Defs, LinearGradient, Stop } from 'react-native-svg';
 import Animated, {
@@ -62,6 +62,16 @@ export const ActionCard: React.FC<Props> = ({
 }) => {
   const scale = useSharedValue(selected ? 1.02 : 1);
   const glowOp = useSharedValue(selected ? 0.5 : 0);
+  const flip = useSharedValue(1);
+  const wasFaceUp = useRef(faceUp);
+
+  // Turning a card over: it collapses on its vertical axis and opens on the new face.
+  useEffect(() => {
+    if (wasFaceUp.current === faceUp) return;
+    wasFaceUp.current = faceUp;
+    flip.value = 0.04;
+    flip.value = withTiming(1, { duration: MOTION.cardFlip, easing: Easing.out(Easing.cubic) });
+  }, [faceUp]);
 
   useEffect(() => {
     if (selected) {
@@ -81,7 +91,7 @@ export const ActionCard: React.FC<Props> = ({
   }, [selected]);
 
   const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.value }, { scaleX: flip.value }],
     opacity: disabled ? 0.45 : 1,
   }));
 

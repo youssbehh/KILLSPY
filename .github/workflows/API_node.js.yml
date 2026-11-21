@@ -1,8 +1,3 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them,
-# build the source code, and run tests across different versions of Node.js.
-# For more information, see:
-# https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
 name: Api CI/CD Pipeline
 
 on:
@@ -14,64 +9,49 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [22.x]
+    defaults:
+      run:
+        working-directory: api
 
     steps:
-    - name: ------------ RECUPERATION DU CODE DU REPO ------------
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: ------------ SET UP NODE JS SUR LES VERSION 18.x, 20.x, 22.x ------------
-      uses: actions/setup-node@v4
+    - uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 22.x
         cache: 'npm'
         cache-dependency-path: api/package-lock.json
 
-    - name: ------------ VERIFICATION ARBORESCENCE DU REPO ------------
-      run: ls -R
-
-    - name: ------------ INSTALLATION DES DEPENDANCES (API) ------------
+    - name: Installation des dépendances
       run: npm ci
-      working-directory: api
 
-    - name: ------------ CONSTRUCTION DU PROJET (SI NECESSAIRE) ------------
-      run: npm run build --if-present
-      working-directory: api
+    - name: Génération du client Prisma
+      run: npx prisma generate
 
-    - name: ------------ DEMARRAGE DU SERVEUR EXPO ------------
-      run: npm start &
-      working-directory: api
+    - name: Compilation TypeScript
+      run: npm run build
 
-    - name: ------------ EXECUTION DES TESTS JEST (API) ------------
-      run: npx jest --detectOpenHandles
-      working-directory: api
-
-    - name: ------------ ARRÊTER LE SERVEUR EXPO ------------
-      run: kill $(cat server.pid) || true
-      working-directory: api
+    - name: Tests Jest
+      run: npm test
 
   docker:
     needs: build
+    # Les secrets Docker Hub ne sont pas disponibles sur les pull requests.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
-    - name: ------------ RECUPERATION DU CODE DU REPO ------------
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: ------------ CONNEXION À DOCKER HUB ------------
-      uses: docker/login-action@v3
+    - uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: ------------ PULL DE L'IMAGE EXISTANTE (SI DISPONIBLE) ------------
+    - name: Pull de l'image existante (cache)
       run: docker pull ${{ secrets.DOCKER_USERNAME }}/killspy-api:latest || true
 
-    - name: ------------ CONSTRUCTION DE L'IMAGE DOCKER AVEC CACHE ------------
+    - name: Construction de l'image
       run: |
         docker build --cache-from=${{ secrets.DOCKER_USERNAME }}/killspy-api:latest \
                      --tag ${{ secrets.DOCKER_USERNAME }}/killspy-api:latest \
@@ -79,7 +59,7 @@ jobs:
                      .
       working-directory: api
 
-    - name: ------------ PUSH DE L'IMAGE DOCKER (LATEST & SHA) ------------
+    - name: Push de l'image (latest & sha)
       run: |
         docker push ${{ secrets.DOCKER_USERNAME }}/killspy-api:latest
         docker push ${{ secrets.DOCKER_USERNAME }}/killspy-api:${{ github.sha }}

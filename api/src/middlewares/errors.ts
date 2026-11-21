@@ -42,6 +42,17 @@ export const errorMiddleware = (
     return;
   }
 
+  // ---- 2b. Plain errors carrying an explicit 4xx status ------------------
+  const status = (error as { status?: unknown } | null)?.status;
+  if (error instanceof Error && typeof status === 'number' && status >= 400 && status < 500) {
+    res.status(status).json({
+      message: error.message,
+      errorCode: ErrCodes.BAD_REQUEST,
+      errors: null,
+    });
+    return;
+  }
+
   // ---- 3. Prisma errors -------------------------------------------------
   if (
     error instanceof Prisma.PrismaClientInitializationError ||

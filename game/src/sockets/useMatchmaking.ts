@@ -1,79 +1,92 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { getSocket, disconnectSocket, GameSocket } from './client';
+import { getSocket, peekSocket, disconnectSocket } from './client';
+import { GameAction } from '../game/gameEngine';
+import { PvpMode, ServerToClientEvents } from './events';
 
 /**
  * Hook that wires the multiplayer socket events to the game store.
  * Returns helpers to start/cancel a search and submit actions.
+ *
+ * Mount it once per match screen: listeners are registered with their own
+ * references, so unmounting only removes what this instance added.
  */
 export const useMatchmaking = () => {
-  const socketRef = useRef<GameSocket | null>(null);
-  const {
-    setSearching,
-    setMatchFound,
-    setTurnStart,
-    setStateUpdate,
-    setOutcome,
-    setError,
-    reset,
-  } = useGameStore();
-
   useEffect(() => {
     let cancelled = false;
+    const store = () => useGameStore.getState();
+
+    const handlers: ServerToClientEvents = {
+      'matchmaking:status': ({ status, queueSize }) => {
+        if (status === 'searching') store().setSearching(store().mode, queueSize);
+      },
+      'match:found': ({ roomId, opponent, countdownMs, mode }) => {
+        store().setMatchFound(roomId, opponent, countdownMs, mode);
+      },
+      'turn:start': ({ round, deadlineAt }) => {
+        // deadlineAt is a server clock value; re-anchor it on the local clock so a
+        // skewed device clock cannot shorten or lengthen the visible countdown.
+        store().setTurnStart(round, Date.now() + Math.max(0, deadlineAt - Date.now()));
+      },
+      'state:update': ({ state }) => store().setStateUpdate(state),
+      'game:over': ({ outcome, finalState, rewards, mode }) => {
+        store().setOutcome(outcome, finalState, rewards, mode);
+      },
+      'error:message': (msg) => store().setError(msg),
+    };
+
+    const onDisconnect = () => {
+      const { matchStatus } = store();
+      if (matchStatus !== 'idle' && matchStatus !== 'finished') {
+        store().setError('Connexion au serveur perdue.');
+      }
+    };
+
+    const events = Object.keys(handlers) as (keyof ServerToClientEvents)[];
 
     getSocket()
       .then((s) => {
         if (cancelled) return;
-        socketRef.current = s;
-
-        s.on('matchmaking:status', ({ status }) => {
-          if (status === 'searching') setSearching();
-        });
-
-        s.on('match:found', ({ roomId, opponent, countdownMs }) => {
-          setMatchFound(roomId, opponent, countdownMs);
-        });
-
-        s.on('turn:start', ({ round, deadlineAt }) => {
-          setTurnStart(round, deadlineAt);
-        });
-
-        s.on('state:update', ({ state }) => {
-          setStateUpdate(state);
-        });
-
-        s.on('game:over', ({ outcome, finalState }) => {
-          setOutcome(outcome, finalState);
-        });
-
-        s.on('error:message', (msg) => {
-          setError(msg);
-        });
+        events.forEach((e) => s.on(e, handlers[e] as never));
+        s.on('disconnect', onDisconnect);
       })
-      .catch((e) => setError(e?.message ?? 'Connexion socket impossible.'));
+      .catch((e) => store().setError(e?.message ?? 'Connexion au serveur impossible.'));
 
     return () => {
       cancelled = true;
-      const s = socketRef.current;
-      if (s) {
-        s.off('matchmaking:status');
-        s.off('match:found');
-        s.off('turn:start');
-        s.off('state:update');
-        s.off('game:over');
-        s.off('error:message');
-      }
+      const s = peekSocket();
+      if (!s) return;
+      events.forEach((e) => s.off(e, handlers[e] as never));
+      s.off('disconnect', onDisconnect);
     };
   }, []);
 
-  const joinQueue = () => socketRef.current?.emit('matchmaking:join');
-  const leaveQueue = () => socketRef.current?.emit('matchmaking:leave');
-  const sendAction = (action: 'shield' | 'shoot' | 'reload') =>
-    socketRef.current?.emit('game:action', action);
-  const leaveGame = () => {
-    socketRef.current?.emit('game:leave');
-    reset();
-  };
+  const joinQueue = useCallback(async (mode: PvpMode = 'pvp_quick') => {
+    const { setSearching, setError } = useGameStore.getState();
+    setSearching(mode);
+    try {
+      const s = await getSocket();
+      s.emit('matchmaking:join', mode);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connexion au serveur impossible.');
+    }
+  }, []);
+
+  const leaveQueue = useCallback(() => {
+    peekSocket()?.emit('matchmaking:leave');
+  }, []);
+
+  const sendAction = useCallback((action: GameAction) => {
+    peekSocket()?.emit('game:action', action);
+  }, []);
+
+  /** Leaves the queue and/or forfeits the match in progress, then clears local state. */
+  const leaveGame = useCallback(() => {
+    const s = peekSocket();
+    s?.emit('matchmaking:leave');
+    s?.emit('game:leave');
+    useGameStore.getState().reset();
+  }, []);
 
   return { joinQueue, leaveQueue, sendAction, leaveGame };
 };

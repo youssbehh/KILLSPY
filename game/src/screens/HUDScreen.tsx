@@ -5,7 +5,8 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,7 +25,10 @@ import { Lives } from '../components/ks/Lives';
 import { Ammo } from '../components/ks/Ammo';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
-import { GameAction, TURN_DURATION_MS, isActionLegal } from '../game/gameEngine';
+import { GameAction, MAX_AMMO, TURN_DURATION_MS, isActionLegal } from '../game/gameEngine';
+import { DangerButton } from '../components/ks/DangerButton';
+import { CombatFx } from '../components/ks/CombatFx';
+import { rankTierIndex } from '../game/rankDisplay';
 
 // Map design card names to game engine action names
 const CARD_ACTIONS: CardAction[] = ['fire', 'reload', 'shield'];
@@ -33,16 +37,32 @@ function toGameAction(card: CardAction): GameAction {
   return card;
 }
 
+interface Props {
+  /** Called when the player locks an action for the current turn. */
+  onAction: (action: GameAction) => void;
+  onQuit: () => void;
+}
+
 const TURN_SECS = TURN_DURATION_MS / 1000;
 
-export const HUDScreen: React.FC = () => {
-  const { width } = useWindowDimensions();
-  const router = useRouter();
-  const username = useAuthStore((s) => s.user?.username ?? 'AGENT_KILO');
+export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
+  const insets = useSafeAreaInsets();
+  const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
+  const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
 
-  const { state, round, selectedAction, setSelectedAction, opponent } = useGameStore();
+  const state = useGameStore((s) => s.state);
+  const round = useGameStore((s) => s.round);
+  const selectedAction = useGameStore((s) => s.selectedAction);
+  const opponent = useGameStore((s) => s.opponent);
+  const deadlineAt = useGameStore((s) => s.deadlineAt);
+  const matchStatus = useGameStore((s) => s.matchStatus);
+  const errorMessage = useGameStore((s) => s.errorMessage);
+
+  // 'finished' is shown as a last reveal: the screen stays up while the final turn plays out.
+  const resolving = matchStatus === 'resolving' || matchStatus === 'finished';
   const [countdown, setCountdown] = useState(TURN_SECS);
-  const [resolving, setResolving] = useState(false);
+  const [startedAt] = useState(() => Date.now());
+  const [elapsedSecs, setElapsedSecs] = useState(0);
 
   const blinkOp = useSharedValue(1);
   const recDot = useSharedValue(1);
@@ -74,48 +94,52 @@ export const HUDScreen: React.FC = () => {
     }
   }, [countdown <= 2]);
 
-  // Turn countdown tick
+  // Turn countdown: derived from the server deadline, never from a local loop.
   useEffect(() => {
-    if (resolving) return;
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          setResolving(true);
-          setTimeout(() => {
-            setResolving(false);
-            setCountdown(TURN_SECS);
-          }, 800);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const tick = () => {
+      setElapsedSecs(Math.floor((Date.now() - startedAt) / 1000));
+      if (deadlineAt === null) return setCountdown(0);
+      setCountdown(Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000)));
+    };
+    tick();
+    const interval = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [resolving]);
+  }, [deadlineAt, startedAt]);
 
   const blinkStyle = useAnimatedStyle(() => ({ opacity: blinkOp.value }));
   const recStyle = useAnimatedStyle(() => ({ opacity: recDot.value }));
 
+  const locked = selectedAction !== null || resolving;
+
   const handleCardPress = useCallback(
     (card: CardAction) => {
+      if (locked) return;
       const gameAction = toGameAction(card);
-      if (card === 'fire' && !isActionLegal(state.player, 'shoot')) return;
-      setSelectedAction(selectedAction === gameAction ? null : gameAction);
+      if (!isActionLegal(state.player, gameAction)) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        return;
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      onAction(gameAction);
     },
-    [selectedAction, state.player],
+    [locked, state.player, onAction],
   );
 
-  const oppName = opponent?.username?.toUpperCase() ?? 'SHADOW_09';
-  const totalTime = `${String(Math.floor(round * TURN_SECS / 60)).padStart(2,'0')}:${String((round * TURN_SECS) % 60).padStart(2,'0')}`;
+  // During the reveal, show what each side actually played this turn.
+  const revealedOpponent = resolving ? state.lastOpponentAction : null;
+  const revealedSelf = resolving ? state.lastPlayerAction : selectedAction;
+
+  const oppName = opponent?.username?.toUpperCase() ?? 'UNKNOWN';
+  const totalTime = `${String(Math.floor(elapsedSecs / 60)).padStart(2, '0')}:${String(elapsedSecs % 60).padStart(2, '0')}`;
 
   return (
     <View style={styles.container}>
       <TopoBg />
 
       {/* Eyebrow */}
-      <View style={styles.eyebrow}>
+      <View style={[styles.eyebrow, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.roundLabel}>
-          // LIVE OPS · ROUND {String(round + 1).padStart(2, '0')}
+          // LIVE OPS · ROUND {String(Math.max(1, round)).padStart(2, '0')}
         </Text>
         <View style={styles.recRow}>
           <Animated.View style={[styles.recDot, recStyle]} />
@@ -128,40 +152,46 @@ export const HUDScreen: React.FC = () => {
         {/* Header strip */}
         <View style={styles.playerStrip}>
           <View style={styles.playerLeft}>
-            <HexAvatar size={36} tier="diamond" initials={oppName.slice(0,2)} />
+            <HexAvatar size={36} tier="silver" initials={oppName.slice(0,2)} />
             <View>
               <Text style={styles.oppName}>{oppName}</Text>
               <View style={styles.tagRow}>
-                <RankBadge tier={3} size={16} />
                 <Text style={[styles.tagLabel, { color: KS.enemy }]}>OPPONENT</Text>
               </View>
             </View>
           </View>
           <View style={styles.statusChip}>
-            <Text style={[styles.statusText, { color: KS.inkDim }]}>⌛ THINKING</Text>
+            <Text style={[styles.statusText, { color: resolving ? KS.alert : KS.inkDim }]}>
+              {resolving ? '◉ REVEALED' : '⌛ THINKING'}
+            </Text>
           </View>
         </View>
 
         {/* Face-down cards */}
         <View style={styles.cardsRow}>
           {CARD_ACTIONS.map((action) => (
-            <ActionCard key={action} action={action} faceUp={false} />
+            <ActionCard
+              key={action}
+              action={action}
+              faceUp={revealedOpponent === toGameAction(action)}
+              selected={revealedOpponent === toGameAction(action)}
+            />
           ))}
         </View>
 
         {/* Opponent info row */}
         <View style={styles.infoRow}>
-          <Ammo current={state.opponent.ammo} color={KS.enemy} />
+          <Ammo current={state.opponent.ammo} max={MAX_AMMO} color={KS.enemy} />
           <Lives alive={state.opponent.lives} />
         </View>
       </View>
 
       {/* ── Center countdown ── */}
       <View style={styles.center}>
-        <Text style={styles.resolvingIn}>RESOLVING IN</Text>
+        <Text style={styles.resolvingIn}>{resolving ? 'RESOLVING' : 'RESOLVING IN'}</Text>
         <Countdown value={countdown} max={TURN_SECS} />
         <Animated.Text style={[styles.lockLabel, blinkStyle]}>
-          {countdown <= 2 ? '⚠ LOCK YOUR ACTION' : 'LOCK YOUR ACTION'}
+          {errorMessage ?? (selectedAction ? 'ACTION LOCKED' : countdown <= 2 ? '⚠ LOCK YOUR ACTION' : 'LOCK YOUR ACTION')}
         </Animated.Text>
       </View>
 
@@ -175,15 +205,15 @@ export const HUDScreen: React.FC = () => {
             </Text>
           </View>
           <Lives alive={state.player.lives} />
-          <Ammo current={state.player.ammo} color={KS.primary} />
+          <Ammo current={state.player.ammo} max={MAX_AMMO} color={KS.primary} />
         </View>
 
         {/* Face-up cards */}
         <View style={styles.cardsRow}>
           {CARD_ACTIONS.map((action) => {
             const gameAction = toGameAction(action);
-            const isSelected = selectedAction === gameAction;
-            const isDisabled = action === 'fire' && !isActionLegal(state.player, 'shoot');
+            const isSelected = revealedSelf === gameAction;
+            const isDisabled = !isActionLegal(state.player, gameAction) || (locked && !isSelected);
             return (
               <ActionCard
                 key={action}
@@ -203,11 +233,18 @@ export const HUDScreen: React.FC = () => {
             <HexAvatar size={36} tier="gold" initials={username.slice(0,2)} live />
             <View>
               <Text style={styles.selfName}>{username.toUpperCase()}</Text>
-              <Text style={[styles.tagLabel, { color: KS.primary }]}>YOU</Text>
+              <View style={styles.tagRow}>
+                <RankBadge tier={rankTierIndex(mmr)} size={16} />
+                <Text style={[styles.tagLabel, { color: KS.primary }]}>YOU</Text>
+              </View>
             </View>
           </View>
+          <DangerButton label="FORFEIT" onPress={onQuit} />
         </View>
       </View>
+
+      {/* Shot / shield / reload effects of the turn being revealed */}
+      <CombatFx state={state} />
     </View>
   );
 };
@@ -215,7 +252,6 @@ export const HUDScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: KS.bg },
   eyebrow: {
-    paddingTop: 60,
     paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',

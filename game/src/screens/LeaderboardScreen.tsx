@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
+  ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
 import { KS } from '../theme/colors';
@@ -13,70 +14,88 @@ import { TopoBg } from '../components/ks/TopoBg';
 import { HexAvatar } from '../components/ks/HexAvatar';
 import { RankBadge } from '../components/ks/RankBadge';
 import { ChamferContainer } from '../components/ks/ChamferContainer';
-import { SectionLabel } from '../components/ks/SectionLabel';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useAuthStore } from '../stores/authStore';
+import { LeaderboardEntry } from '../api/leaderboard';
+import { rankTierIndex } from '../game/rankDisplay';
 
-const PODIUM = [
-  { rank: 1, name: 'GHOST_X',    score: '12,840', tier: 4 as const, rp: '+142' },
-  { rank: 2, name: 'SHADOW_09',  score: '11,220', tier: 3 as const, rp: '+98'  },
-  { rank: 3, name: 'VIPER_7',    score: '10,984', tier: 2 as const, rp: '+67'  },
-];
+const TOP_LIMIT = 50;
 
-const LIST_ENTRIES = Array.from({ length: 20 }, (_, i) => ({
-  rank: i + 4,
-  name: `AGENT_${(100 + i).toString(36).toUpperCase()}`,
-  tier: Math.max(0, 2 - Math.floor(i / 7)) as 0 | 1 | 2,
-  score: (10000 - i * 380).toLocaleString('en-US'),
-  delta: i % 3 === 0 ? +12 : i % 5 === 0 ? -3 : 0,
-}));
+const toRow = (e: LeaderboardEntry) => ({
+  rank: e.position,
+  name: e.username.toUpperCase(),
+  tier: rankTierIndex(e.mmr),
+  score: e.mmr.toLocaleString('en-US'),
+  delta: 0,
+});
 
-const MY_RANK = { rank: 47, name: 'AGENT_KILO', tier: 2 as const, score: '7,340', delta: +5 };
 
 const PAD = 16;
 
 export const LeaderboardScreen: React.FC = () => {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const me = useAuthStore((s) => s.user);
+  const { data, isLoading, isError, refetch } = useLeaderboard(TOP_LIMIT);
+
+  const entries: LeaderboardEntry[] = data ?? [];
+  const podium = entries.slice(0, 3).map((e) => ({ ...toRow(e), rp: e.rank.label }));
+  const rest = entries.slice(3).map(toRow);
+  const mine = entries.find((e) => e.userId === me?.id);
+  const myRow = me
+    ? mine
+      ? toRow(mine)
+      : { rank: 0, name: me.username.toUpperCase(), tier: rankTierIndex(me.mmr), score: me.mmr.toLocaleString('en-US'), delta: 0 }
+    : null;
 
   return (
     <View style={styles.container}>
       <TopoBg />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: 60 }]}>
-        <Text style={styles.eyebrow}>// INTEL · WEEK 12</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" hitSlop={12}>
+          <Text style={styles.eyebrow}>‹ BACK · // INTEL · TOP {TOP_LIMIT}</Text>
+        </Pressable>
         <Text style={styles.title}>LEADERBOARD</Text>
-      </View>
-
-      {/* Tab strip */}
-      <View style={styles.tabs}>
-        {['GLOBAL','FRIENDS','REGIONAL'].map((t, i) => (
-          <Pressable key={t}>
-            <View style={[styles.tab, i === 0 && styles.tabActive]}>
-              <Text style={[styles.tabText, i === 0 && styles.tabTextActive]}>
-                {t}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
       </View>
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD }]}
         showsVerticalScrollIndicator={false}
       >
+        {isLoading && <ActivityIndicator color={KS.primary} style={{ marginTop: 60 }} />}
+
+        {isError && (
+          <Pressable onPress={() => refetch()} accessibilityRole="button" style={styles.stateBox}>
+            <Text style={[styles.stateText, { color: KS.danger }]}>INTEL UNAVAILABLE</Text>
+            <Text style={styles.stateHint}>TAP TO RETRY</Text>
+          </Pressable>
+        )}
+
+        {!isLoading && !isError && entries.length === 0 && (
+          <View style={styles.stateBox}>
+            <Text style={styles.stateText}>NO RANKED AGENT YET</Text>
+            <Text style={styles.stateHint}>PLAY RANKED TO CLAIM THE TOP SPOT</Text>
+          </View>
+        )}
+
         {/* Podium */}
-        <View style={styles.podium}>
-          {/* 2nd */}
-          <PodiumColumn entry={PODIUM[1]} width={(width - PAD * 2) * 0.3} pedHeight={0.78} />
-          {/* 1st (center, wider) */}
-          <PodiumColumn entry={PODIUM[0]} width={(width - PAD * 2) * 0.36} pedHeight={1} isFirst />
-          {/* 3rd */}
-          <PodiumColumn entry={PODIUM[2]} width={(width - PAD * 2) * 0.3} pedHeight={0.64} />
-        </View>
+        {podium.length > 0 && (
+          <View style={styles.podium}>
+            {podium[1] && <PodiumColumn entry={podium[1]} width={(width - PAD * 2) * 0.3} pedHeight={0.78} />}
+            <PodiumColumn entry={podium[0]} width={(width - PAD * 2) * 0.36} pedHeight={1} isFirst />
+            {podium[2] && <PodiumColumn entry={podium[2]} width={(width - PAD * 2) * 0.3} pedHeight={0.64} />}
+          </View>
+        )}
 
         {/* List */}
         <View style={styles.list}>
-          {LIST_ENTRIES.map((entry) => (
-            <LeaderRow key={entry.rank} entry={entry} self={false} />
+          {rest.map((entry) => (
+            <LeaderRow key={entry.rank} entry={entry} self={entry.rank === myRow?.rank} />
           ))}
         </View>
 
@@ -84,10 +103,14 @@ export const LeaderboardScreen: React.FC = () => {
       </ScrollView>
 
       {/* Pinned own rank */}
-      <View style={[styles.ownRank, { left: PAD, right: PAD }]}>
-        <Text style={styles.ownEyebrow}>// YOUR POSITION</Text>
-        <LeaderRow entry={MY_RANK} self />
-      </View>
+      {myRow && !me?.guest && (
+        <View style={[styles.ownRank, { left: PAD, right: PAD, bottom: insets.bottom + 12 }]}>
+          <Text style={styles.ownEyebrow}>
+            // YOUR POSITION{myRow.rank === 0 ? ` · OUTSIDE TOP ${TOP_LIMIT}` : ''}
+          </Text>
+          <LeaderRow entry={myRow} self />
+        </View>
+      )}
     </View>
   );
 };
@@ -156,7 +179,7 @@ const LeaderRow: React.FC<{ entry: ListEntry; self: boolean }> = ({ entry, self 
   return (
     <View style={[rowStyles.row, self && { backgroundColor: 'rgba(0,123,255,0.08)', borderColor: KS.primary }]}>
       <Text style={[rowStyles.rank, { color: KS.inkDim }]}>
-        #{entry.rank}
+        {entry.rank > 0 ? `#${entry.rank}` : '—'}
       </Text>
       <HexAvatar size={28} tier={tierName} initials={entry.name.slice(0,2)} />
       <View style={rowStyles.nameCol}>
@@ -172,6 +195,9 @@ const LeaderRow: React.FC<{ entry: ListEntry; self: boolean }> = ({ entry, self 
 };
 
 const styles = StyleSheet.create({
+  stateBox: { alignItems: 'center', paddingVertical: 60, gap: 6 },
+  stateText: { color: KS.ink, fontFamily: TYPO.display, fontSize: SIZES.titleSm },
+  stateHint: { color: KS.inkDim, fontFamily: TYPO.mono, fontSize: SIZES.monoXs },
   container: { flex: 1, backgroundColor: KS.bg },
   header: { paddingHorizontal: PAD, gap: 4 },
   eyebrow: {

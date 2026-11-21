@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
+  ActivityIndicator,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
@@ -16,13 +17,22 @@ import { ChamferContainer } from '../components/ks/ChamferContainer';
 import { GlassCard } from '../components/ks/GlassCard';
 import { SectionLabel } from '../components/ks/SectionLabel';
 import { Currency } from '../components/ks/Currency';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { useShop, usePurchase } from '../hooks/useShop';
+import { useAuthStore } from '../stores/authStore';
+import { extractApiError } from '../api/client';
+import { CosmeticType, ShopOffer } from '../api/shop';
+import { RarityId } from '../game/rarities';
 
 const PAD = 16;
-const ITEM_KINDS = ['FEATURED','SKINS','WEAPONS','BUNDLES'] as const;
+const ITEM_KINDS = ['ALL', 'AVATARS', 'SKINS', 'THEMES', 'FX'] as const;
 type ItemKind = typeof ITEM_KINDS[number];
 
 interface ShopItem {
   id: string;
+  offerId: number;
+  tab: Exclude<ItemKind, 'ALL'>;
   kind: 'agent' | 'weapon' | 'emote' | 'bundle' | 'crate';
   name: string;
   rarity: RarityName;
@@ -34,25 +44,51 @@ interface ShopItem {
   soldOut?: boolean;
 }
 
-const FEATURED_ITEM: ShopItem = {
-  id: 'f1',
-  kind: 'agent',
-  name: 'PHANTOM WRAITH',
-  rarity: 'legendary',
-  currency: 'gem',
-  price: 800,
-  oldPrice: 1200,
-  salePct: 33,
+const TYPE_META: Record<CosmeticType, { kind: ShopItem['kind']; tab: Exclude<ItemKind, 'ALL'> }> = {
+  avatar:      { kind: 'agent',  tab: 'AVATARS' },
+  card_skin:   { kind: 'crate',  tab: 'SKINS' },
+  background:  { kind: 'bundle', tab: 'THEMES' },
+  ui_theme:    { kind: 'bundle', tab: 'THEMES' },
+  emote:       { kind: 'emote',  tab: 'FX' },
+  shoot_anim:  { kind: 'weapon', tab: 'FX' },
+  shield_anim: { kind: 'weapon', tab: 'FX' },
+  name_effect: { kind: 'emote',  tab: 'FX' },
 };
 
-const SHOP_ITEMS: ShopItem[] = [
-  { id: 's1', kind: 'weapon',  name: 'VIPER MK-II',     rarity: 'epic',      currency: 'coin', price: 900 },
-  { id: 's2', kind: 'crate',   name: 'INTEL CRATE',     rarity: 'rare',      currency: 'coin', price: 400 },
-  { id: 's3', kind: 'emote',   name: 'CLASSIFIED',      rarity: 'uncommon' as any, currency: 'coin', price: 250, owned: true },
-  { id: 's4', kind: 'bundle',  name: 'SHADOW PACK',     rarity: 'legendary', currency: 'gem',  price: 600, salePct: 20 },
-  { id: 's5', kind: 'agent',   name: 'DELTA UNIT',      rarity: 'rare',      currency: 'coin', price: 700 },
-  { id: 's6', kind: 'weapon',  name: 'GHOST SILENCER',  rarity: 'epic',      currency: 'gem',  price: 350, soldOut: true },
-];
+// The design system has 4 rarity colours; the API has 7 tiers.
+const RARITY_COLOR: Record<RarityId, RarityName> = {
+  common: 'common',
+  uncommon: 'common',
+  rare: 'rare',
+  epic: 'epic',
+  legendary: 'legendary',
+  mythic: 'legendary',
+  secret: 'legendary',
+};
+
+const RARITY_WEIGHT: Record<RarityId, number> = {
+  common: 0, uncommon: 1, rare: 2, epic: 3, legendary: 4, mythic: 5, secret: 6,
+};
+
+const toShopItem = (o: ShopOffer): ShopItem & { rarityId: RarityId; validUntil: number } => {
+  const meta = TYPE_META[o.type] ?? { kind: 'crate' as const, tab: 'FX' as const };
+  const discounted = o.price < o.basePrice;
+  return {
+    id: String(o.offerId),
+    offerId: o.offerId,
+    tab: meta.tab,
+    kind: meta.kind,
+    name: o.name.toUpperCase(),
+    rarity: RARITY_COLOR[o.rarity] ?? 'common',
+    rarityId: o.rarity,
+    currency: 'coin',
+    price: o.price,
+    oldPrice: discounted ? o.basePrice : undefined,
+    salePct: discounted ? Math.round((1 - o.price / o.basePrice) * 100) : undefined,
+    owned: o.alreadyOwned,
+    validUntil: new Date(o.validUntil).getTime(),
+  };
+};
 
 function formatCountdown(ms: number): string {
   const totalSecs = Math.max(0, Math.floor(ms / 1000));
@@ -64,20 +100,52 @@ function formatCountdown(ms: number): string {
 
 export const ShopScreen: React.FC = () => {
   const { width } = useWindowDimensions();
-  const [tab, setTab] = useState<ItemKind>('FEATURED');
-  const [rotateMs, setRotateMs] = useState(() => {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setUTCHours(24, 0, 0, 0);
-    return tomorrow.getTime() - now.getTime();
-  });
+  const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<ItemKind>('ALL');
+  const [now, setNow] = useState(() => Date.now());
+  const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const money = useAuthStore((s) => s.user?.money ?? 0);
+  const isGuest = useAuthStore((s) => s.user?.guest ?? false);
+  const { data: offers, isLoading, isError, refetch } = useShop();
+  const purchase = usePurchase();
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setRotateMs((prev) => Math.max(0, prev - 1000));
-    }, 1000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const items = useMemo(() => ((offers ?? []) as ShopOffer[]).map(toShopItem), [offers]);
+  // Featured = the rarest offer not owned yet.
+  const featured = useMemo(
+    () =>
+      [...items]
+        .filter((i) => !i.owned)
+        .sort((a, b) => RARITY_WEIGHT[b.rarityId] - RARITY_WEIGHT[a.rarityId])[0] ?? null,
+    [items],
+  );
+  const visible = items.filter((i) => tab === 'ALL' || i.tab === tab);
+  const rotateMs = items.length > 0 ? Math.min(...items.map((i) => i.validUntil)) - now : 0;
+
+  const handleBuy = (item: ShopItem) => {
+    if (purchase.isPending || item.owned) return;
+    if (isGuest) return setFeedback({ text: 'CREATE AN ACCOUNT TO BUY', ok: false });
+    if (money < item.price) return setFeedback({ text: 'NOT ENOUGH COINS', ok: false });
+    // Two-step purchase: first tap arms the button, second tap confirms.
+    if (confirmId !== item.offerId) {
+      setFeedback(null);
+      return setConfirmId(item.offerId);
+    }
+    purchase.mutate(item.offerId, {
+      onSuccess: (result) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        setFeedback({ text: `${result.itemName.toUpperCase()} ACQUIRED`, ok: true });
+      },
+      onError: (e) => setFeedback({ text: extractApiError(e).message.toUpperCase(), ok: false }),
+      onSettled: () => setConfirmId(null),
+    });
+  };
 
   const cardWidth = width - PAD * 2;
   const itemWidth = (cardWidth - 8) / 2;
@@ -90,14 +158,13 @@ export const ShopScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={[styles.header, { paddingTop: 60 }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <View>
             <Text style={styles.eyebrow}>// MARCHÉ NOIR</Text>
             <Text style={styles.title}>BLACK MARKET</Text>
           </View>
           <View style={styles.currencies}>
-            <Currency kind="coin" value={4200} />
-            <Currency kind="gem" value={84} />
+            <Currency kind="coin" value={money} />
           </View>
         </View>
 
@@ -120,7 +187,7 @@ export const ShopScreen: React.FC = () => {
           <View style={styles.bannerInner}>
             <Text style={styles.bannerLabel}>DAILY DROP · ROTATES IN</Text>
             <Text style={[styles.bannerTimer, { color: KS.live }]}>
-              {formatCountdown(rotateMs)}
+              {items.length > 0 ? formatCountdown(rotateMs) : '--:--:--'}
             </Text>
           </View>
         </ChamferContainer>
@@ -128,7 +195,7 @@ export const ShopScreen: React.FC = () => {
         {/* Tab strip */}
         <View style={styles.tabs}>
           {ITEM_KINDS.map((k) => (
-            <Pressable key={k} onPress={() => setTab(k)}>
+            <Pressable key={k} onPress={() => setTab(k)} accessibilityRole="tab" accessibilityState={{ selected: tab === k }} hitSlop={8}>
               <View style={[styles.tab, tab === k && styles.tabActive]}>
                 <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>{k}</Text>
               </View>
@@ -136,21 +203,57 @@ export const ShopScreen: React.FC = () => {
           ))}
         </View>
 
+        {feedback && (
+          <Text style={[styles.feedback, { color: feedback.ok ? KS.live : KS.danger }]}>
+            › {feedback.text}
+          </Text>
+        )}
+
+        {isLoading && <ActivityIndicator color={KS.primary} style={{ marginTop: 40 }} />}
+
+        {isError && (
+          <Pressable onPress={() => refetch()} accessibilityRole="button" style={styles.stateBox}>
+            <Text style={[styles.stateText, { color: KS.danger }]}>MARKET UNREACHABLE</Text>
+            <Text style={styles.stateHint}>TAP TO RETRY</Text>
+          </Pressable>
+        )}
+
+        {!isLoading && !isError && items.length === 0 && (
+          <View style={styles.stateBox}>
+            <Text style={styles.stateText}>NO DROP TODAY</Text>
+            <Text style={styles.stateHint}>COME BACK AFTER THE NEXT ROTATION</Text>
+          </View>
+        )}
+
         {/* Featured hero card */}
-        <FeaturedCard item={FEATURED_ITEM} width={cardWidth} />
+        {tab === 'ALL' && featured && (
+          <FeaturedCard
+            item={featured}
+            width={cardWidth}
+            armed={confirmId === featured.offerId}
+            pending={purchase.isPending && confirmId === featured.offerId}
+            onBuy={() => handleBuy(featured)}
+          />
+        )}
 
         {/* Section header */}
-        <View style={{ marginTop: 16, marginBottom: 10 }}>
-          <View style={styles.sectionHeader}>
-            <SectionLabel label={`Today's Lineup · ${SHOP_ITEMS.length} items`} />
-            <Text style={[styles.viewAll, { color: KS.primary }]}>VIEW ALL ›</Text>
+        {visible.length > 0 && (
+          <View style={{ marginTop: 16, marginBottom: 10 }}>
+            <SectionLabel label={`Today's Lineup · ${visible.length} items`} />
           </View>
-        </View>
+        )}
 
         {/* 2-column grid */}
         <View style={styles.grid}>
-          {SHOP_ITEMS.map((item) => (
-            <ShopCard key={item.id} item={item} width={itemWidth} />
+          {visible.map((item) => (
+            <ShopCard
+              key={item.id}
+              item={item}
+              width={itemWidth}
+              armed={confirmId === item.offerId}
+              pending={purchase.isPending && confirmId === item.offerId}
+              onBuy={() => handleBuy(item)}
+            />
           ))}
         </View>
 
@@ -164,7 +267,7 @@ export const ShopScreen: React.FC = () => {
 
 // ── Sub-components ──
 
-const FeaturedCard: React.FC<{ item: ShopItem; width: number }> = ({ item, width }) => {
+const FeaturedCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pending: boolean; onBuy: () => void }> = ({ item, width, armed, pending, onBuy }) => {
   const rarityColor = KS.rarity[item.rarity] ?? KS.rarity.common;
 
   return (
@@ -190,7 +293,7 @@ const FeaturedCard: React.FC<{ item: ShopItem; width: number }> = ({ item, width
             {item.rarity.toUpperCase()}
           </Text>
           <Text style={featured.name}>{item.name}</Text>
-          <Text style={featured.desc}>LIMITED TIME OFFER · OPERATOR SKIN</Text>
+          <Text style={featured.desc}>LIMITED TIME OFFER · {item.tab}</Text>
 
           <View style={featured.priceRow}>
             {item.oldPrice && (
@@ -198,12 +301,17 @@ const FeaturedCard: React.FC<{ item: ShopItem; width: number }> = ({ item, width
                 {item.currency === 'gem' ? '✦' : '◈'} {item.oldPrice}
               </Text>
             )}
-            <View style={featured.buyBtn}>
-              <Text style={featured.buyGlyph}>
-                {item.currency === 'gem' ? '✦' : '◈'}
-              </Text>
-              <Text style={featured.buyPrice}>{item.price}</Text>
-            </View>
+            <Pressable
+              style={featured.buyBtn}
+              onPress={onBuy}
+              disabled={pending}
+              accessibilityRole="button"
+              accessibilityLabel={`Buy ${item.name} for ${item.price} coins`}
+              hitSlop={10}
+            >
+              <Text style={featured.buyGlyph}>◈</Text>
+              <Text style={featured.buyPrice}>{pending ? '…' : armed ? 'CONFIRM' : item.price}</Text>
+            </Pressable>
           </View>
 
           {item.salePct && (
@@ -217,7 +325,7 @@ const FeaturedCard: React.FC<{ item: ShopItem; width: number }> = ({ item, width
   );
 };
 
-const ShopCard: React.FC<{ item: ShopItem; width: number }> = ({ item, width }) => {
+const ShopCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pending: boolean; onBuy: () => void }> = ({ item, width, armed, pending, onBuy }) => {
   const rarityColor = KS.rarity[item.rarity] ?? KS.rarity.common;
 
   return (
@@ -249,8 +357,15 @@ const ShopCard: React.FC<{ item: ShopItem; width: number }> = ({ item, width }) 
             {item.currency === 'gem' ? '✦' : '◈'}
           </Text>
           <Text style={card.price}>{item.price}</Text>
-          <Pressable style={card.buyBtn}>
-            <Text style={card.buyText}>BUY</Text>
+          <Pressable
+            style={card.buyBtn}
+            onPress={onBuy}
+            disabled={pending || item.owned}
+            accessibilityRole="button"
+            accessibilityLabel={`Buy ${item.name} for ${item.price} coins`}
+            hitSlop={12}
+          >
+            <Text style={card.buyText}>{pending ? '…' : armed ? 'OK ?' : 'BUY'}</Text>
           </Pressable>
         </View>
       </View>
@@ -319,6 +434,10 @@ const ItemIcon: React.FC<{ kind: ShopItem['kind']; color: string; size: number }
 };
 
 const styles = StyleSheet.create({
+  feedback: { fontFamily: TYPO.mono, fontSize: SIZES.monoSm, marginTop: 10 },
+  stateBox: { alignItems: 'center', paddingVertical: 40, gap: 6 },
+  stateText: { color: KS.ink, fontFamily: TYPO.display, fontSize: SIZES.titleSm },
+  stateHint: { color: KS.inkDim, fontFamily: TYPO.mono, fontSize: SIZES.monoXs },
   container: { flex: 1, backgroundColor: KS.bg },
   scroll: { paddingTop: 0 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 4 },

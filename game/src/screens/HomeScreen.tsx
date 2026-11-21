@@ -19,6 +19,13 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { KS } from '../theme/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useInbox } from '../hooks/useMessages';
+import { LeaderboardEntry } from '../api/leaderboard';
+import { ConversationSummary } from '../api/messages';
+import { mmrToRank, nextRank } from '../game/ranking';
+import { rankTierIndex, rankTierName } from '../game/rankDisplay';
 import { TYPO, SIZES } from '../theme/typography';
 import { MOTION } from '../theme/motion';
 import {
@@ -84,8 +91,18 @@ const DIFFICULTIES: DifficultyMeta[] = [
 export const HomeScreen: React.FC = () => {
   const { width, height } = useWindowDimensions();
   const router = useRouter();
-  const username = useAuthStore((s) => s.user?.username ?? 'AGENT_KILO');
+  const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
   const money = useAuthStore((s) => s.user?.money ?? 0);
+  const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
+  const isGuest = useAuthStore((s) => s.user?.guest ?? false);
+  const insets = useSafeAreaInsets();
+
+  const rank = mmrToRank(mmr);
+  const next = nextRank(mmr);
+  const { data: top3Data } = useLeaderboard(3);
+  const top3: LeaderboardEntry[] = top3Data ?? [];
+  const { data: inbox } = useInbox();
+  const unread = ((inbox ?? []) as ConversationSummary[]).reduce((acc, c) => acc + c.unreadCount, 0);
   const { difficulty: savedDifficulty, setDifficulty } = useBotStore();
   const cardWidth = width - PAD * 2;
 
@@ -96,7 +113,7 @@ export const HomeScreen: React.FC = () => {
   const { mutate: claimMission } = useClaimMission();
 
   const handleQuickPlay = () => router.push('/play/partieRapide');
-  const handleRanked = () => router.push('/play/partieRapide');
+  const handleRanked = () => router.push({ pathname: '/play/partieRapide', params: { mode: 'ranked' } });
 
   const handleBotConfirm = () => {
     setDifficulty(selectedDiff);
@@ -108,25 +125,26 @@ export const HomeScreen: React.FC = () => {
     <View style={styles.container}>
       <TopoBg />
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD }]}
+        contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD, paddingTop: insets.top + 12 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Top bar ── */}
         <View style={styles.topBar}>
           <View style={styles.topLeft}>
-            <HexAvatar size={48} tier="gold" initials={username.slice(0, 2)} live />
+            <HexAvatar size={48} tier={rankTierName(mmr)} initials={username.slice(0, 2)} live />
             <View style={{ gap: 2 }}>
               <Text style={styles.agentName}>{username.toUpperCase()}</Text>
               <View style={styles.rankRow}>
-                <RankBadge tier={2} size={18} />
-                <Text style={styles.rankLabel}>AGENT · 1,847</Text>
+                <RankBadge tier={rankTierIndex(mmr)} size={18} />
+                <Text style={styles.rankLabel}>
+                  {isGuest ? 'GUEST' : `${rank.label.toUpperCase()} · ${mmr.toLocaleString('en-US')} RP`}
+                </Text>
               </View>
             </View>
           </View>
           <View style={styles.topRight}>
             <Currency kind="coin" value={money} />
-            <Currency kind="gem" value={0} />
-            <NotificationPill count={3} />
+            {unread > 0 && <NotificationPill count={unread} />}
           </View>
         </View>
 
@@ -141,7 +159,7 @@ export const HomeScreen: React.FC = () => {
           <View style={styles.quickPlayInner}>
             <View style={styles.liveRow}>
               <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE · 24,387 AGENTS DEPLOYED</Text>
+              <Text style={styles.liveText}>LIVE · MATCHMAKING ONLINE</Text>
             </View>
             <Text style={styles.quickPlayTitle}>QUICK PLAY</Text>
             <Text style={styles.quickPlaySub}>1V1 · CASUAL · 2–5 MIN</Text>
@@ -156,7 +174,7 @@ export const HomeScreen: React.FC = () => {
         </GlassCard>
 
         {/* ── Ranked Ops card ── */}
-        <Pressable onPress={handleRanked} style={{ marginTop: 8 }}>
+        <Pressable onPress={handleRanked} disabled={isGuest} accessibilityRole="button" accessibilityLabel="Ranked ops" style={{ marginTop: 8, opacity: isGuest ? 0.5 : 1 }}>
           <ChamferContainer
             width={cardWidth}
             height={92}
@@ -174,11 +192,15 @@ export const HomeScreen: React.FC = () => {
             <View style={styles.modeInner}>
               <View style={styles.modeLeft}>
                 <View style={styles.modeTitleRow}>
-                  <RankBadge tier={3} size={28} />
+                  <RankBadge tier={rankTierIndex(mmr)} size={28} />
                   <Text style={styles.modeTitle}>RANKED OPS</Text>
                 </View>
-                <Text style={[styles.modeSub, { color: KS.alert }]}>SEASON 02 · ENDS IN 18D 04H</Text>
-                <Text style={[styles.modeDetail, { color: KS.tier.diamond }]}>+28 RP TO NEXT TIER</Text>
+                <Text style={[styles.modeSub, { color: KS.alert }]}>
+                  {isGuest ? 'ACCOUNT REQUIRED' : `CURRENT RANK · ${rank.label.toUpperCase()}`}
+                </Text>
+                <Text style={[styles.modeDetail, { color: KS.tier.diamond }]}>
+                  {next ? `${next.minMmr - mmr} RP TO ${next.label.toUpperCase()}` : 'TOP TIER REACHED'}
+                </Text>
               </View>
               <Text style={[styles.chevron, { color: KS.alert }]}>›</Text>
             </View>
@@ -186,7 +208,7 @@ export const HomeScreen: React.FC = () => {
         </Pressable>
 
         {/* ── VS BOT card ── */}
-        <Pressable onPress={() => setShowBotModal(true)} style={{ marginTop: 8 }}>
+        <Pressable onPress={() => setShowBotModal(true)} accessibilityRole="button" accessibilityLabel="Play versus bot" style={{ marginTop: 8 }}>
           <ChamferContainer
             width={cardWidth}
             height={92}
@@ -227,19 +249,20 @@ export const HomeScreen: React.FC = () => {
         <MissionStrip missions={missions} loading={missionsLoading} onClaim={claimMission} />
 
         {/* ── Leaderboard teaser ── */}
-        <Pressable onPress={() => router.push('/sousfriends/leaderboard')} style={{ marginTop: 16, marginBottom: 100 }}>
+        <Pressable onPress={() => router.push('/leaderboard')} style={{ marginTop: 16, marginBottom: 100 }}>
           <GlassCard width={cardWidth} height={100} chamfer={10} variant="tr-bl">
             <View style={styles.leaderInner}>
               <View style={styles.leaderHeader}>
-                <Text style={styles.leaderTitle}>WEEKLY LEADERBOARD</Text>
+                <Text style={styles.leaderTitle}>LEADERBOARD</Text>
                 <Text style={[styles.leaderView, { color: KS.primary }]}>VIEW ›</Text>
               </View>
               <View style={styles.leaderPodium}>
-                {TOP3.map((entry) => (
-                  <View key={entry.rank} style={styles.leaderEntry}>
-                    <Text style={[styles.leaderRank, { color: entry.color }]}>#{entry.rank}</Text>
-                    <Text style={styles.leaderName}>{entry.name}</Text>
-                    <Text style={[styles.leaderScore, { color: KS.live }]}>{entry.score}</Text>
+                {top3.length === 0 && <Text style={styles.leaderName}>NO RANKED AGENT YET</Text>}
+                {top3.map((entry, i) => (
+                  <View key={entry.userId} style={styles.leaderEntry}>
+                    <Text style={[styles.leaderRank, { color: PODIUM_COLORS[i] }]}>#{entry.position}</Text>
+                    <Text style={styles.leaderName} numberOfLines={1}>{entry.username.toUpperCase()}</Text>
+                    <Text style={[styles.leaderScore, { color: KS.live }]}>{entry.mmr.toLocaleString('en-US')}</Text>
                   </View>
                 ))}
               </View>
@@ -518,17 +541,13 @@ const MissionChip: React.FC<{ mission: DailyMission | null; onClaim: (id: number
   );
 };
 
-const TOP3 = [
-  { rank: 1, name: 'GHOST_X',   score: '12,840', color: KS.tier.gold   },
-  { rank: 2, name: 'SHADOW_09', score: '11,220', color: KS.tier.silver },
-  { rank: 3, name: 'VIPER_7',   score: '10,984', color: KS.tier.bronze },
-];
+const PODIUM_COLORS = [KS.tier.gold, KS.tier.silver, KS.tier.bronze];
 
 // ── Styles ─────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: KS.bg },
-  scroll: { paddingTop: 60 },
+  scroll: {},
 
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   topLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },

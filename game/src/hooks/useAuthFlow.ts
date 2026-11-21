@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import * as authApi from '../api/auth';
 import * as usersApi from '../api/users';
 import { useAuthStore } from '../stores/authStore';
+import { endSession } from '../lib/session';
 
 export const useLoginMutation = () => {
   const setSession = useAuthStore((s) => s.setSession);
@@ -41,12 +42,13 @@ export const useSyncMe = () => {
   });
 };
 
-export const useLogoutMutation = () => {
-  const { user, clearSession } = useAuthStore.getState();
-  return useMutation({
+export const useLogoutMutation = () =>
+  useMutation({
     mutationFn: async () => {
+      // Read the user when the mutation runs, not when the hook rendered.
+      const user = useAuthStore.getState().user;
       if (user) await authApi.logout(user.id);
     },
-    onSettled: () => clearSession(),
+    // Even if the server call fails, the local session must end.
+    onSettled: () => endSession(),
   });
-};

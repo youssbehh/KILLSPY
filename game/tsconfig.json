@@ -4,8 +4,7 @@
     "strict": true,
     "target": "es2016",
     "rootDir": ".",
-    "outDir": "./build",
-    "noEmit": false,
+    "noEmit": true,
     "paths": {
       "@/*": [
         "./*"

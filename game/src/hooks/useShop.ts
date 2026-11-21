@@ -19,15 +19,10 @@ export const usePurchase = () => {
   return useMutation({
     mutationFn: shopApi.purchaseOffer,
     onSuccess: (result) => {
-      // Reflect new balance in the auth store (if we extend AuthUser later).
-      // For now we just invalidate caches.
+      updateUser({ money: result.moneyAfter });
       qc.invalidateQueries({ queryKey: SHOP_KEY });
       qc.invalidateQueries({ queryKey: ['inventory'] });
-      qc.invalidateQueries({ queryKey: ['games', 'me', 'stats'] });
-      // Hint for AuthUser.money once we add it:
-      // updateUser({ money: result.moneyAfter });
-      void updateUser;
-      void result;
+      qc.invalidateQueries({ queryKey: ['users', 'me'] });
     },
   });
 };

@@ -1,267 +1,367 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, TextInput, Pressable, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { motTraduit } from '@/components/translationHelper';
-import { Text, View } from '@/components/Themed';
-import { appVersion } from '../config';
-import { useLanguageStore } from '../store/languageStore';
-import Checkbox from 'expo-checkbox';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AlertModal from '@/components/AlertModal';
-import LoadingOverlay from '../components/LoadingOverlay';
-import ErrorModal from '@/components/ErrorModal';
+import LoadingOverlay from '@/components/LoadingOverlay';
+import { appVersion } from '../config';
 import { useLoginMutation, useGuestMutation, useSignupMutation } from '@/src/hooks/useAuthFlow';
 import { ping } from '@/src/api/auth';
 import { extractApiError } from '@/src/api/client';
+import { useT } from '@/src/i18n';
+import { KS } from '@/src/theme/colors';
+import { TYPO, SIZES } from '@/src/theme/typography';
+import { TopoBg } from '@/src/components/ks/TopoBg';
+import { Logo } from '@/src/components/ks/Logo';
+import { PrimaryButton } from '@/src/components/ks/PrimaryButton';
+import { SecondaryButton } from '@/src/components/ks/SecondaryButton';
 
 const REMEMBERED_KEY = 'rememberedIdentifier';
+const RGPD_DELAY_SECS = 5;
 
+type Notice = { text: string; ok: boolean } | null;
+
+// Navigation after a successful login is handled by the auth guard in app/_layout.tsx.
 export default function LoginFormScreen() {
-  const { langIndex } = useLanguageStore();
-  const router = useRouter();
+  const t = useT();
+  const insets = useSafeAreaInsets();
   const loginMutation = useLoginMutation();
   const guestMutation = useGuestMutation();
   const signupMutation = useSignupMutation();
 
+  const [isLoginForm, setIsLoginForm] = useState(true);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [isLoginForm, setIsLoginForm] = useState(true);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [passwordCrea, setPasswordCrea] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [errorModalVisible, setErrorModalVisible] = useState(false);
-  const [errorTitle, setErrorTitle] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [countdown, setCountdown] = useState(5);
-  const [isCountdownActive, setIsCountdownActive] = useState(false);
-  const [serverStatus, setServerStatus] = useState('');
-  const [serverColor, setServerColor] = useState('');
+  const [rgpdVisible, setRgpdVisible] = useState(false);
+  const [rgpdCountdown, setRgpdCountdown] = useState(RGPD_DELAY_SECS);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [serverUp, setServerUp] = useState<boolean | null>(null);
 
   const isLoading = loginMutation.isPending || guestMutation.isPending || signupMutation.isPending;
 
-  const showErrorModal = (title: string, message: string) => {
-    setErrorTitle(title);
-    setErrorMessage(message);
-    setErrorModalVisible(true);
-  };
-
   useEffect(() => {
-    ping().then((up) => {
-      setServerStatus(up ? 'Serveur opérationnel' : 'Serveur hors ligne');
-      setServerColor(up ? 'green' : 'red');
-    });
-  }, []);
-
-  useEffect(() => {
+    let alive = true;
+    ping().then((up) => alive && setServerUp(up));
     AsyncStorage.getItem(REMEMBERED_KEY).then((saved) => {
-      if (saved) {
+      if (alive && saved) {
         setIdentifier(saved);
         setRememberMe(true);
       }
     });
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  const changeForm = () => setIsLoginForm((prev) => !prev);
-
-  const rgpdModal = () => {
-    setModalVisible(true);
-    setCountdown(5);
-    setIsCountdownActive(true);
-  };
-  const rgpdModalAccept = () => {
-    setModalVisible(false);
-    setAcceptTerms(true);
-  };
-  const rgpdModalRefuse = () => {
-    setModalVisible(false);
-    setAcceptTerms(false);
-  };
-
+  // The consent button unlocks after a short reading delay.
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (isCountdownActive && countdown > 0) {
-      timer = setInterval(() => setCountdown((p) => p - 1), 1000);
-    } else if (countdown === 0) {
-      setIsCountdownActive(false);
-    }
-    return () => clearInterval(timer);
-  }, [isCountdownActive, countdown]);
+    if (!rgpdVisible || rgpdCountdown <= 0) return;
+    const timer = setTimeout(() => setRgpdCountdown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [rgpdVisible, rgpdCountdown]);
+
+  const fail = (text: string) => setNotice({ text, ok: false });
+
+  const switchForm = () => {
+    setNotice(null);
+    setIsLoginForm((prev) => !prev);
+  };
+
+  const openRgpd = () => {
+    setRgpdCountdown(RGPD_DELAY_SECS);
+    setRgpdVisible(true);
+  };
 
   const handleSignup = async () => {
-    if (!acceptTerms) return showErrorModal('Erreur', 'Veuillez accepter les conditions.');
-    if (passwordCrea !== confirmPassword) return showErrorModal('Erreur', 'Les mots de passe ne correspondent pas.');
-    if (!username || !email) return showErrorModal('Erreur', 'Les champs sont vides.');
+    if (!username || !email) return fail(t('errFieldsEmpty'));
+    if (passwordCrea !== confirmPassword) return fail(t('errPasswordMismatch'));
+    if (!acceptTerms) return fail(t('errAcceptTerms'));
 
     try {
       await signupMutation.mutateAsync({ username, email, passwordCrea });
+      setIdentifier(username);
       setUsername('');
       setEmail('');
       setPasswordCrea('');
       setConfirmPassword('');
       setAcceptTerms(false);
-      Alert.alert('Inscription réussie', 'Bienvenue agent, veuillez vous connecter.');
-      changeForm();
+      setIsLoginForm(true);
+      setNotice({ text: t('signupSuccess'), ok: true });
     } catch (e) {
-      showErrorModal('Erreur', extractApiError(e).message);
+      fail(extractApiError(e).message);
     }
   };
 
   const handleLogin = async () => {
-    if (!identifier) return showErrorModal('Erreur', 'Identifiant invalide');
+    if (!identifier || !password) return fail(t('errFieldsEmpty'));
     try {
-      await loginMutation.mutateAsync({ identifier, password });
-      if (rememberMe) await AsyncStorage.setItem(REMEMBERED_KEY, identifier);
+      await loginMutation.mutateAsync({ identifier: identifier.trim(), password });
+      if (rememberMe) await AsyncStorage.setItem(REMEMBERED_KEY, identifier.trim());
       else await AsyncStorage.removeItem(REMEMBERED_KEY);
-      router.replace('/(tabs)/gamechoice');
     } catch (e) {
-      showErrorModal('Erreur', extractApiError(e).message);
+      fail(extractApiError(e).message);
     }
   };
 
   const handleGuest = async () => {
     try {
       await guestMutation.mutateAsync();
-      router.replace('/(tabs)/gamechoice');
     } catch (e) {
-      showErrorModal('Erreur', extractApiError(e).message);
+      fail(extractApiError(e).message);
     }
   };
 
   return (
     <View style={styles.container}>
+      <TopoBg />
       <LoadingOverlay isLoading={isLoading} />
 
-      <ErrorModal
-        visible={errorModalVisible}
-        title={errorTitle}
-        message={errorMessage}
-        onClose={() => setErrorModalVisible(false)}
-      />
-
-      <Text style={styles.title}>KILLSPY</Text>
-      {isLoginForm ? (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder={motTraduit(langIndex, 52)}
-            value={identifier}
-            onChangeText={setIdentifier}
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder={motTraduit(langIndex, 53)}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <View style={styles.checkboxContainer}>
-            <Checkbox
-              value={rememberMe}
-              onValueChange={setRememberMe}
-              color={rememberMe ? '#007AFF' : undefined}
-            />
-            <Text style={styles.checkboxLabel}>{motTraduit(langIndex, 57)}</Text>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.logo}>
+            <Logo size={56} animated />
+            <Text style={styles.eyebrow}>// {isLoginForm ? t('loginButton') : t('createAccount')}</Text>
           </View>
-        </>
-      ) : (
-        <>
-          <TextInput
-            style={styles.input}
-            placeholder={motTraduit(langIndex, 58)}
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder={motTraduit(langIndex, 59)}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-          />
-          <Text style={styles.passwordInfo}>
-            Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial [@$!%*?&].
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder={motTraduit(langIndex, 53)}
-            value={passwordCrea}
-            onChangeText={setPasswordCrea}
-            secureTextEntry
-          />
-          <TextInput
-            style={styles.input}
-            placeholder={motTraduit(langIndex, 60)}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry
-          />
-          <View style={styles.checkboxContainer}>
-            <Checkbox
-              value={acceptTerms}
-              onValueChange={rgpdModal}
-              color={acceptTerms ? '#007AFF' : undefined}
-            />
-            <Text style={styles.checkboxLabel} onPress={rgpdModal}>
-              {motTraduit(langIndex, 61)}
+
+          {isLoginForm ? (
+            <>
+              <Field
+                label={t('emailOrUsername')}
+                value={identifier}
+                onChangeText={setIdentifier}
+                autoCapitalize="none"
+                autoComplete="username"
+              />
+              <Field
+                label={t('password')}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoComplete="current-password"
+                onSubmitEditing={handleLogin}
+              />
+              <Check label={t('rememberMe')} checked={rememberMe} onToggle={() => setRememberMe((v) => !v)} />
+            </>
+          ) : (
+            <>
+              <Field
+                label={t('username')}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                autoComplete="username-new"
+              />
+              <Field
+                label={t('email')}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+              />
+              <Field
+                label={t('password')}
+                value={passwordCrea}
+                onChangeText={setPasswordCrea}
+                secureTextEntry
+                autoComplete="new-password"
+              />
+              <Text style={styles.hint}>{t('passwordRules')}</Text>
+              <Field
+                label={t('passwordConfirm')}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                autoComplete="new-password"
+              />
+              <Check
+                label={t('acceptTerms')}
+                checked={acceptTerms}
+                onToggle={() => (acceptTerms ? setAcceptTerms(false) : openRgpd())}
+              />
+            </>
+          )}
+
+          {notice && (
+            <Text
+              style={[styles.notice, { color: notice.ok ? KS.live : KS.danger }]}
+              accessibilityLiveRegion="polite"
+            >
+              › {notice.text}
             </Text>
+          )}
+
+          <PrimaryButton
+            label={(isLoginForm ? t('loginButton') : t('signup')).toUpperCase()}
+            onPress={isLoginForm ? handleLogin : handleSignup}
+            disabled={isLoading}
+            size="large"
+            style={styles.cta}
+          />
+          <SecondaryButton
+            label={t('playAsGuest').toUpperCase()}
+            onPress={handleGuest}
+            disabled={isLoading}
+          />
+
+          <Pressable onPress={switchForm} accessibilityRole="button" hitSlop={12} style={styles.switch}>
+            <Text style={styles.switchText}>
+              {isLoginForm ? t('createAccount') : t('alreadyHaveAccount')}
+            </Text>
+          </Pressable>
+
+          <View style={styles.footer}>
+            {serverUp !== null && (
+              <View style={styles.serverRow}>
+                <View style={[styles.serverDot, { backgroundColor: serverUp ? KS.live : KS.danger }]} />
+                <Text style={styles.footerText}>{serverUp ? t('serverOnline') : t('serverOffline')}</Text>
+              </View>
+            )}
+            <Text style={styles.footerText}>MIMIR STUDIO · V{appVersion}</Text>
           </View>
-        </>
-      )}
-      <Pressable style={styles.button} onPress={isLoginForm ? handleLogin : handleSignup}>
-        <Text style={styles.buttonText}>
-          {isLoginForm ? motTraduit(langIndex, 56) : motTraduit(langIndex, 63)}
-        </Text>
-      </Pressable>
-
-      <Pressable style={styles.buttonGuest} onPress={handleGuest}>
-        <Text style={styles.buttonText}>{motTraduit(langIndex, 50)}</Text>
-      </Pressable>
-
-      <Pressable style={styles.textButton}>
-        <Text style={styles.textButtonText}>{motTraduit(langIndex, 54)}</Text>
-      </Pressable>
-
-      <Pressable style={styles.textButton} onPress={changeForm}>
-        <Text style={styles.textButtonText}>
-          {isLoginForm ? motTraduit(langIndex, 55) : motTraduit(langIndex, 62)}
-        </Text>
-      </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <AlertModal
-        visible={modalVisible}
-        text1={'Nous nous engageons à protéger vos données personnelles. Voici les informations que nous collectons et conservons :'}
-        text2={"Nom d'utilisateur / Adresse e-mail / Historique de jeu / Données de connexion / Préférences utilisateur"}
-        text3={"Pour personnaliser votre expérience sur notre plateforme. Nous ne partageons pas vos données personnelles avec des tiers sans votre consentement, sauf si la loi l'exige."}
-        error1Button={isCountdownActive ? `Attendez ${countdown} secondes...` : motTraduit(langIndex, 71)}
-        onPressError1={isCountdownActive ? () => {} : rgpdModalAccept}
-        disabledError1={isCountdownActive}
-        button1={motTraduit(langIndex, 72)}
-        onPress1={rgpdModalRefuse}
+        visible={rgpdVisible}
+        text1={t('rgpdIntro')}
+        text2={t('rgpdData')}
+        text3={t('rgpdUsage')}
+        error1Button={rgpdCountdown > 0 ? `${rgpdCountdown}…` : t('iAccept')}
+        onPressError1={() => {
+          if (rgpdCountdown > 0) return;
+          setRgpdVisible(false);
+          setAcceptTerms(true);
+        }}
+        disabledError1={rgpdCountdown > 0}
+        button1={t('iRefuse')}
+        onPress1={() => {
+          setRgpdVisible(false);
+          setAcceptTerms(false);
+        }}
       />
-
-      <Text style={{ color: serverColor }}>{serverStatus}</Text>
-      <Text style={styles.footer}>MIMIR Studio 2024 / V. {appVersion}</Text>
     </View>
   );
 }
 
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+const Field: React.FC<TextInputProps & { label: string }> = ({ label, ...input }) => (
+  <View style={styles.field}>
+    <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
+    <TextInput
+      {...input}
+      accessibilityLabel={label}
+      placeholderTextColor={KS.inkFaint}
+      selectionColor={KS.primary}
+      style={styles.input}
+    />
+  </View>
+);
+
+const Check: React.FC<{ label: string; checked: boolean; onToggle: () => void }> = ({
+  label,
+  checked,
+  onToggle,
+}) => (
+  <Pressable
+    onPress={onToggle}
+    accessibilityRole="checkbox"
+    accessibilityState={{ checked }}
+    hitSlop={8}
+    style={styles.check}
+  >
+    <View style={[styles.checkBox, checked && styles.checkBoxOn]}>
+      {checked && <Text style={styles.checkMark}>✓</Text>}
+    </View>
+    <Text style={styles.checkLabel}>{label}</Text>
+  </Pressable>
+);
+
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
-  title: { fontSize: 32, fontWeight: 'bold', marginBottom: 40 },
-  input: { width: '100%', height: 50, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 15, marginBottom: 15, backgroundColor: 'white' },
-  button: { width: '100%', height: 50, backgroundColor: '#007AFF', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  buttonGuest: { width: '100%', height: 50, backgroundColor: '#ced4da', borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  textButton: { padding: 10 },
-  textButtonText: { color: '#007AFF', fontSize: 14 },
-  checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  checkboxLabel: { marginLeft: 8, fontSize: 14 },
-  footer: { marginTop: 20, fontSize: 16, color: '#888', marginBottom: 5 },
-  passwordInfo: { fontSize: 12, color: 'gray', marginTop: 5 },
+  flex: { flex: 1 },
+  container: { flex: 1, backgroundColor: KS.bg },
+  scroll: { flexGrow: 1, paddingHorizontal: 24, maxWidth: 480, width: '100%', alignSelf: 'center' },
+  logo: { alignItems: 'center', marginBottom: 32, gap: 10 },
+  eyebrow: {
+    color: KS.primary,
+    fontFamily: TYPO.mono,
+    fontSize: SIZES.monoMd,
+    letterSpacing: SIZES.monoMd * 0.18,
+    textTransform: 'uppercase',
+  },
+  field: { marginBottom: 14, gap: 6 },
+  fieldLabel: {
+    color: KS.inkDim,
+    fontFamily: TYPO.mono,
+    fontSize: SIZES.monoSm,
+    letterSpacing: SIZES.monoSm * 0.18,
+  },
+  input: {
+    height: 48,
+    paddingHorizontal: 14,
+    backgroundColor: KS.surface,
+    borderWidth: 1,
+    borderColor: KS.hairSoft,
+    borderRadius: 4,
+    color: KS.ink,
+    fontFamily: TYPO.ui,
+    fontSize: SIZES.bodyLg,
+  },
+  hint: {
+    color: KS.inkDim,
+    fontFamily: TYPO.ui,
+    fontSize: SIZES.bodySm,
+    marginTop: -6,
+    marginBottom: 14,
+  },
+  check: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
+  checkBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 3,
+    borderWidth: 1,
+    borderColor: KS.hair,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkBoxOn: { backgroundColor: KS.primary, borderColor: KS.primary },
+  checkMark: { color: KS.ink, fontFamily: TYPO.uiBold, fontSize: SIZES.body },
+  checkLabel: { color: KS.inkMute, fontFamily: TYPO.ui, fontSize: SIZES.body, flexShrink: 1 },
+  notice: { fontFamily: TYPO.mono, fontSize: SIZES.monoMd, marginTop: 4, marginBottom: 4 },
+  cta: { marginTop: 12, marginBottom: 10, alignSelf: 'stretch' },
+  switch: { alignSelf: 'center', paddingVertical: 16, minHeight: 48, justifyContent: 'center' },
+  switchText: { color: KS.primary, fontFamily: TYPO.uiBold, fontSize: SIZES.body },
+  footer: { marginTop: 'auto', paddingTop: 16, alignItems: 'center', gap: 6 },
+  serverRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  serverDot: { width: 7, height: 7, borderRadius: 4 },
+  footerText: {
+    color: KS.inkDim,
+    fontFamily: TYPO.mono,
+    fontSize: SIZES.monoSm,
+    letterSpacing: SIZES.monoSm * 0.18,
+  },
 });

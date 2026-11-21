@@ -5,7 +5,7 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -31,6 +31,14 @@ import { PlayerTag } from '../components/ks/PlayerTag';
 import { GlassCard } from '../components/ks/GlassCard';
 import { DangerButton } from '../components/ks/DangerButton';
 import { useAuthStore } from '../stores/authStore';
+import { useGameStore } from '../stores/gameStore';
+import { useMyStats } from '../hooks/useGames';
+import { rankTierIndex } from '../game/rankDisplay';
+
+interface Props {
+  /** Leaves the queue (or the pending match) and goes back. */
+  onAbort: () => void;
+}
 
 const RADAR_SIZE = 300;
 const RADAR_R = 140;
@@ -43,10 +51,22 @@ const BLIPS = [
   { angle: 310, r: 75,  opacity: 0.6 },
 ];
 
-export const MatchmakingScreen: React.FC = () => {
+export const MatchmakingScreen: React.FC<Props> = ({ onAbort }) => {
   const { width } = useWindowDimensions();
-  const router = useRouter();
-  const username = useAuthStore((s) => s.user?.username ?? 'AGENT_KILO');
+  const insets = useSafeAreaInsets();
+  const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
+  const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
+  const matchStatus = useGameStore((s) => s.matchStatus);
+  const mode = useGameStore((s) => s.mode);
+  const opponent = useGameStore((s) => s.opponent);
+  const queueSize = useGameStore((s) => s.queueSize);
+  const errorMessage = useGameStore((s) => s.errorMessage);
+  const { data: myStats } = useMyStats();
+
+  const found = matchStatus === 'countdown';
+  const modeStats = mode === 'pvp_ranked' ? myStats?.stats.ranked : myStats?.stats.quick;
+  const winRate = modeStats && modeStats.total > 0 ? Math.round(modeStats.winRate * 100) : undefined;
+  const totalMatches = (myStats?.stats.quick.total ?? 0) + (myStats?.stats.ranked.total ?? 0);
 
   const [elapsed, setElapsed] = useState(0);
   const sweepRotation = useSharedValue(0);
@@ -108,13 +128,17 @@ export const MatchmakingScreen: React.FC = () => {
       <TopoBg />
 
       {/* Eyebrow */}
-      <View style={[styles.eyebrow, { paddingTop: 64 }]}>
+      <View style={[styles.eyebrow, { paddingTop: insets.top + 16 }]}>
         <View style={styles.eyebrowRow}>
           <Animated.Text style={[styles.eyebrowLive, blinkStyle]}>●</Animated.Text>
-          <Text style={styles.eyebrowLive}> MATCHMAKING · ESTABLISHED {elapsedStr}</Text>
+          <Text style={styles.eyebrowLive}>
+            {' '}{mode === 'pvp_ranked' ? 'RANKED' : 'QUICK PLAY'} · {elapsedStr}
+          </Text>
         </View>
-        <Text style={styles.title}>SEARCHING FOR TARGET</Text>
-        <Text style={styles.subtitle}>SECTOR 7 · ENCRYPTED CHANNEL OPEN</Text>
+        <Text style={styles.title}>{found ? 'TARGET ACQUIRED' : 'SEARCHING FOR TARGET'}</Text>
+        <Text style={[styles.subtitle, errorMessage ? { color: KS.danger } : null]}>
+          {errorMessage ?? (found ? `VS ${opponent?.username.toUpperCase() ?? 'UNKNOWN'} · GET READY` : 'ENCRYPTED CHANNEL OPEN')}
+        </Text>
       </View>
 
       {/* Radar */}
@@ -217,10 +241,10 @@ export const MatchmakingScreen: React.FC = () => {
       <View style={{ marginTop: 484 - 168 - RADAR_SIZE, paddingHorizontal: 16, position: 'absolute', top: 484, left: 0, right: 0 }}>
         <GlassCard width={width - 32} height={88} chamfer={10} variant="tr-bl">
           <View style={styles.playerCardInner}>
-            <PlayerTag username={username.toUpperCase()} tier={2} live size="big" winRate={62} kd={2.4} />
+            <PlayerTag username={username.toUpperCase()} tier={rankTierIndex(mmr)} live size="big" winRate={winRate} />
             <View style={styles.matchStats}>
               <Text style={styles.matchStatLabel}>MATCHES</Text>
-              <Text style={styles.matchStatValue}>284</Text>
+              <Text style={styles.matchStatValue}>{totalMatches}</Text>
             </View>
           </View>
         </GlassCard>
@@ -228,13 +252,13 @@ export const MatchmakingScreen: React.FC = () => {
 
       {/* Hint band */}
       <Text style={styles.hint}>
-        › AGENTS IN POOL: 1,284 · AVG WAIT: 00:14
+        › {found ? 'MATCH STARTING' : `AGENTS IN QUEUE: ${Math.max(1, queueSize)}`}
       </Text>
 
       {/* Abort button */}
       <DangerButton
         label="ABORT MISSION"
-        onPress={() => router.back()}
+        onPress={onAbort}
         style={styles.abort}
       />
     </View>

@@ -22,7 +22,7 @@ export const attachSockets = (httpServer: HttpServer) => {
   io.on('connection', (socket) => {
     logger.info({ user: socket.data.user?.username, socketId: socket.id }, 'socket connected');
 
-    socket.on('matchmaking:join', () => joinQueue(io, socket));
+    socket.on('matchmaking:join', (mode) => joinQueue(io, socket, mode));
     socket.on('matchmaking:leave', () => leaveQueue(io, socket));
     socket.on('game:action', (action) => handleAction(io, socket, action));
     socket.on('game:leave', () => handleLeaveOrDisconnect(io, socket));

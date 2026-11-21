@@ -106,8 +106,16 @@ export const purchaseOffer = async (userId: number, offerId: number): Promise<Pu
       });
     }
 
+    // Conditional decrement: the balance check and the debit are one statement,
+    // so two concurrent purchases can never both pass on the same coins.
+    const debited = await tx.users.updateMany({
+      where: { ID_User: userId, Money: { gte: offer.price } },
+      data: { Money: { decrement: offer.price } },
+    });
+    if (debited.count !== 1) {
+      throw new HttpException('Solde insuffisant.', ErrCodes.BAD_REQUEST, statusCodes.BAD_REQUEST, null);
+    }
     const moneyAfter = user.Money - offer.price;
-    await tx.users.update({ where: { ID_User: userId }, data: { Money: moneyAfter } });
 
     const purchase = await tx.userCosmetic.create({
       data: { userId, itemId: offer.itemId, pricePaid: offer.price },

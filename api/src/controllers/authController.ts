@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { HttpException, ErrCodes, statusCodes } from '../utils/exceptions';
 import * as authService from '../services/auth.service';
 
 export const signup = async (req: Request, res: Response, next: NextFunction) => {
@@ -30,7 +31,10 @@ export const guest = async (_req: Request, res: Response, next: NextFunction) =>
 
 export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const userId = parseInt(req.params.id, 10);
+    const userId = Number(req.params.id);
+    if (userId !== req.user!.ID_User) {
+      throw new HttpException('Non autorisé.', ErrCodes.UNAUTHORIZED_ACCESS, statusCodes.FORBIDDEN, null);
+    }
     const result = await authService.logoutUser(userId);
     res.status(200).json(result);
   } catch (e) {

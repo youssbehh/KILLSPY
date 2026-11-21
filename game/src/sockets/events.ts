@@ -5,6 +5,8 @@
 
 import { GameAction, GameState } from '../game/gameEngine';
 
+export type PvpMode = 'pvp_quick' | 'pvp_ranked';
+
 export interface PublicPlayer {
   id: number;
   username: string;
@@ -12,6 +14,7 @@ export interface PublicPlayer {
 
 export interface MatchFoundPayload {
   roomId: string;
+  mode: PvpMode;
   opponent: PublicPlayer;
   countdownMs: number;
   turnMs: number;
@@ -26,9 +29,17 @@ export interface StateUpdatePayload {
   state: GameState;
 }
 
+export interface MatchRewards {
+  mmrDelta: number;
+  moneyDelta: number;
+}
+
 export interface GameOverPayload {
   outcome: 'won' | 'lost' | 'draw' | 'opponent_forfeit';
   finalState: GameState;
+  mode: PvpMode;
+  /** What the server credited for this match (0 for guests and cancelled matches). */
+  rewards: MatchRewards;
 }
 
 export interface MatchmakingStatusPayload {
@@ -37,7 +48,7 @@ export interface MatchmakingStatusPayload {
 }
 
 export interface ClientToServerEvents {
-  'matchmaking:join': () => void;
+  'matchmaking:join': (mode?: PvpMode) => void;
   'matchmaking:leave': () => void;
   'game:action': (action: GameAction) => void;
   'game:leave': () => void;

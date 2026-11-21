@@ -65,7 +65,8 @@ export const recordGame = async (input: RecordGameInput): Promise<RecordGameResu
   const [, history] = await prisma.$transaction([
     prisma.users.update({
       where: { ID_User: user.ID_User },
-      data: { MMR: mmrAfter, Money: moneyAfter },
+      // Money is incremented atomically so concurrent rewards/purchases never overwrite each other.
+      data: { MMR: mmrAfter, Money: { increment: moneyDelta } },
     }),
     prisma.gameHistory.create({
       data: {

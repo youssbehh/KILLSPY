@@ -1,138 +1,152 @@
-import React from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Alert } from 'react-native';
-import { Text, View } from '@/components/Themed';
-import { motTraduit } from '@/components/translationHelper';
-import { useLanguageStore } from '../../store/languageStore';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useInventory, useEquip, useUnequip } from '@/src/hooks/useInventory';
-import { RarityBadge } from '@/src/ui/RarityBadge';
+import { RarityBadge } from '@/src/components/ks/RarityBadge';
+import { TopoBg } from '@/src/components/ks/TopoBg';
+import { SectionLabel } from '@/src/components/ks/SectionLabel';
 import { CosmeticType } from '@/src/api/shop';
 import { OwnedCosmetic } from '@/src/api/inventory';
 import { RARITIES } from '@/src/game/rarities';
 import { extractApiError } from '@/src/api/client';
+import { useT, I18nKey } from '@/src/i18n';
+import { KS } from '@/src/theme/colors';
+import { TYPO, SIZES } from '@/src/theme/typography';
 
-const TYPE_LABEL: Record<CosmeticType, string> = {
-  avatar: 'Avatars',
-  card_skin: 'Skins de carte',
-  emote: 'Emotes',
-  background: 'Fonds',
-  ui_theme: 'Thèmes',
-  shoot_anim: 'Anim. tir',
-  shield_anim: 'Anim. bouclier',
-  name_effect: 'Effets pseudo',
+const TYPE_LABEL: Record<CosmeticType, I18nKey> = {
+  avatar: 'cosAvatar',
+  card_skin: 'cosCardSkin',
+  emote: 'cosEmote',
+  background: 'cosBackground',
+  ui_theme: 'cosTheme',
+  shoot_anim: 'cosShootAnim',
+  shield_anim: 'cosShieldAnim',
+  name_effect: 'cosNameEffect',
 };
 
 export default function InventoryScreen() {
-  const { langIndex } = useLanguageStore();
+  const t = useT();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const isGuest = useAuthStore((s) => s.user?.guest ?? false);
-  const { data, isLoading } = useInventory();
+  const { data, isLoading, isError, refetch } = useInventory();
   const equipMutation = useEquip();
   const unequipMutation = useUnequip();
+  const [error, setError] = useState<string | null>(null);
 
-  if (isGuest) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.title}>{motTraduit(langIndex, 8)}</Text>
-        <Text style={styles.guest}>{motTraduit(langIndex, 70)}</Text>
-      </View>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
-
-  if (!data?.owned.length) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.title}>{motTraduit(langIndex, 8)}</Text>
-        <Text style={styles.empty}>Aucun cosmétique. Direction la boutique !</Text>
-      </View>
-    );
-  }
-
-  const groups: Record<string, OwnedCosmetic[]> = {};
-  for (const item of data.owned) {
-    (groups[item.type] ||= []).push(item);
-  }
-
-  const sections = Object.keys(groups).map((type) => ({
-    type: type as CosmeticType,
-    items: groups[type],
-  }));
+  const owned: OwnedCosmetic[] = data?.owned ?? [];
+  const types = Object.keys(TYPE_LABEL) as CosmeticType[];
+  const sections = types
+    .map((type) => ({ type, items: owned.filter((i) => i.type === type) }))
+    .filter((s) => s.items.length > 0);
 
   const handleToggle = (item: OwnedCosmetic) => {
-    if (item.equipped) {
-      unequipMutation.mutate(item.type, {
-        onError: (e) => Alert.alert('Erreur', extractApiError(e).message),
-      });
-    } else {
-      equipMutation.mutate(item.itemId, {
-        onError: (e) => Alert.alert('Erreur', extractApiError(e).message),
-      });
-    }
+    setError(null);
+    const onError = (e: unknown) => setError(extractApiError(e).message);
+    if (item.equipped) unequipMutation.mutate(item.type, { onError });
+    else equipMutation.mutate(item.itemId, { onError });
   };
 
-  const renderCosmetic = (item: OwnedCosmetic) => {
-    const r = RARITIES[item.rarity];
-    return (
-      <Pressable
-        key={item.userCosmeticId}
-        onPress={() => handleToggle(item)}
-        style={[
-          styles.cosmetic,
-          { borderColor: r.color },
-          item.equipped && styles.equipped,
-        ]}
-      >
-        <Image source={{ uri: item.imageUrl }} style={styles.image} />
-        <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-        <RarityBadge rarity={item.rarity} small />
-        {item.equipped ? <Text style={styles.equippedBadge}>Équipé</Text> : null}
-      </Pressable>
-    );
-  };
+  const busy = equipMutation.isPending || unequipMutation.isPending;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{motTraduit(langIndex, 8)}</Text>
-      <FlatList
-        data={sections}
-        keyExtractor={(s) => s.type}
-        renderItem={({ item: section }) => (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{TYPE_LABEL[section.type]}</Text>
-            <View style={styles.grid}>{section.items.map(renderCosmetic)}</View>
-          </View>
+      <TopoBg />
+      <ScrollView
+        contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" hitSlop={12}>
+          <Text style={styles.eyebrow}>‹ // ARMORY</Text>
+        </Pressable>
+        <Text style={styles.title}>{t('inventory').toUpperCase()}</Text>
+
+        {error && <Text style={styles.error}>› {error}</Text>}
+
+        {isGuest ? (
+          <Text style={styles.state}>{t('guestUpgradePrompt')}</Text>
+        ) : isLoading ? (
+          <ActivityIndicator color={KS.primary} style={{ marginTop: 60 }} />
+        ) : isError ? (
+          <Pressable onPress={() => refetch()} accessibilityRole="button">
+            <Text style={[styles.state, { color: KS.danger }]}>{t('loadError')}</Text>
+          </Pressable>
+        ) : sections.length === 0 ? (
+          <Text style={styles.state}>{t('inventoryEmpty')}</Text>
+        ) : (
+          sections.map((section) => (
+            <View key={section.type} style={styles.section}>
+              <SectionLabel label={t(TYPE_LABEL[section.type])} />
+              <View style={styles.grid}>
+                {section.items.map((item) => {
+                  const rarity = RARITIES[item.rarity];
+                  return (
+                    <Pressable
+                      key={item.userCosmeticId}
+                      onPress={() => handleToggle(item)}
+                      disabled={busy}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.name}
+                      accessibilityState={{ selected: item.equipped }}
+                      style={[styles.item, { borderColor: rarity.color }, item.equipped && styles.itemEquipped]}
+                    >
+                      <Image source={{ uri: item.imageUrl }} style={styles.image} />
+                      <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                      <RarityBadge rarity={item.rarity} small />
+                      <Text style={[styles.equipped, { opacity: item.equipped ? 1 : 0 }]}>
+                        ✓ {t('equipped').toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))
         )}
-      />
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold' },
-  guest: { marginTop: 12, textAlign: 'center', paddingHorizontal: 30 },
-  empty: { marginTop: 20, textAlign: 'center', fontStyle: 'italic' },
-  section: { marginVertical: 10 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  cosmetic: {
-    width: '31%',
-    borderWidth: 2,
-    borderRadius: 10,
-    padding: 6,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.02)',
+  container: { flex: 1, backgroundColor: KS.bg },
+  eyebrow: {
+    color: KS.primary,
+    fontFamily: TYPO.mono,
+    fontSize: SIZES.monoSm,
+    letterSpacing: SIZES.monoSm * 0.18,
   },
-  equipped: { backgroundColor: 'rgba(0,255,128,0.1)' },
-  image: { width: 60, height: 60, borderRadius: 6, backgroundColor: '#222', marginBottom: 4 },
-  name: { fontSize: 11, fontWeight: '600', marginBottom: 4, textAlign: 'center' },
-  equippedBadge: { fontSize: 9, color: '#39ff14', fontWeight: '700', marginTop: 2 },
+  title: {
+    color: KS.ink,
+    fontFamily: TYPO.display,
+    fontSize: SIZES.titleLg,
+    letterSpacing: SIZES.titleLg * 0.04,
+    marginBottom: 8,
+  },
+  error: { color: KS.danger, fontFamily: TYPO.mono, fontSize: SIZES.monoMd, marginBottom: 8 },
+  state: {
+    color: KS.inkMute,
+    fontFamily: TYPO.ui,
+    fontSize: SIZES.bodyLg,
+    textAlign: 'center',
+    marginTop: 60,
+    paddingHorizontal: 24,
+  },
+  section: { marginTop: 16, gap: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  item: {
+    width: '31%',
+    borderWidth: 1,
+    borderRadius: 4,
+    padding: 8,
+    gap: 4,
+    alignItems: 'center',
+    backgroundColor: KS.surface,
+  },
+  itemEquipped: { backgroundColor: KS.surfaceHi, borderWidth: 2 },
+  image: { width: 60, height: 60, borderRadius: 4, backgroundColor: KS.bg },
+  name: { color: KS.ink, fontFamily: TYPO.uiBold, fontSize: SIZES.bodySm, textAlign: 'center' },
+  equipped: { color: KS.live, fontFamily: TYPO.mono, fontSize: SIZES.monoXs },
 });

@@ -1,13 +1,10 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { LilitaOne_400Regular } from '@expo-google-fonts/lilita-one';
-import { RussoOne_400Regular } from '@expo-google-fonts/russo-one';
 import {
   BarlowCondensed_800ExtraBold,
 } from '@expo-google-fonts/barlow-condensed';
@@ -22,7 +19,8 @@ import {
   JetBrainsMono_700Bold,
 } from '@expo-google-fonts/jetbrains-mono';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { useAuthStore } from '@/src/stores/authStore';
+import { KS } from '@/src/theme/colors';
 import { queryClient } from '@/src/lib/queryClient';
 import { useEquippedTheme } from '@/src/hooks/useEquippedTheme';
 import { useSyncMe } from '@/src/hooks/useAuthFlow';
@@ -42,10 +40,6 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    Stempel: require('../assets/fonts/Stempel.ttf'),
-    LilitaOne: LilitaOne_400Regular,
-    RussoOne: RussoOne_400Regular,
     BarlowCondensed_800ExtraBold,
     Rajdhani_400Regular,
     Rajdhani_500Medium,
@@ -53,7 +47,6 @@ export default function RootLayout() {
     Rajdhani_700Bold,
     JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
-    ...FontAwesome.font,
   });
 
   useEffect(() => {
@@ -80,17 +73,50 @@ const ThemeSync: React.FC = () => {
   return null;
 };
 
+/** KILLSPY is a dark-only app: one navigation theme built from the design tokens. */
+const NAV_THEME = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: KS.bg,
+    card: KS.bg,
+    text: KS.ink,
+    primary: KS.primary,
+    border: KS.hairSoft,
+  },
+};
+
+/**
+ * Auth guard. Once the persisted session is rehydrated:
+ * - no session → everything except the login screen redirects to it;
+ * - session    → the login screen redirects to the home tab.
+ */
+const AuthGate: React.FC = () => {
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const onLogin = (segments as string[]).length === 0;
+    if (!isAuthenticated && !onLogin) router.replace('/');
+    else if (isAuthenticated && onLogin) router.replace('/(tabs)/gamechoice');
+  }, [hydrated, isAuthenticated, segments, router]);
+
+  return null;
+};
+
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeSync />
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
+      <ThemeProvider value={NAV_THEME}>
+        <AuthGate />
+        <Stack screenOptions={{ contentStyle: { backgroundColor: KS.bg } }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="Profil" options={{ presentation: 'modal' }} />
         </Stack>
       </ThemeProvider>
     </QueryClientProvider>

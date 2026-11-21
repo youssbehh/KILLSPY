@@ -17,4 +17,5 @@ export { Lives } from './Lives';
 export { Ammo } from './Ammo';
 export { Countdown } from './Countdown';
 export { ActionCard } from './ActionCard';
+export { CombatFx } from './CombatFx';
 export type { CardAction } from './ActionCard';
