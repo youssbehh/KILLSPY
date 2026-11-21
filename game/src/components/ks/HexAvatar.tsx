@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import Svg, {
   Polygon,
@@ -45,13 +45,16 @@ export const HexAvatar: React.FC<Props> = ({
   const innerR = cutR - 2;
   const tierColor = KS.tier[tier];
   const liveDotSize = 12;
+  // On web every SVG shares one id space: without a unique id, all avatars on a
+  // screen would reuse the first avatar's gradient (and so its tier colour).
+  const uid = useId().replace(/:/g, '');
 
   return (
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
         <Defs>
           {/* Tier ring gradient */}
-          <LinearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+          <LinearGradient id={`ring-${uid}`} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={tierColor} />
             <Stop offset="0.35" stopColor="#ffffff" />
             <Stop offset="0.7" stopColor={tierColor} />
@@ -59,13 +62,13 @@ export const HexAvatar: React.FC<Props> = ({
           </LinearGradient>
 
           {/* Avatar background gradient */}
-          <LinearGradient id="avatarBg" x1="0" y1="0" x2="1" y2="1">
+          <LinearGradient id={`avatarBg-${uid}`} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={KS.surfaceHi} />
             <Stop offset="1" stopColor={KS.surface} />
           </LinearGradient>
 
           {/* Hex clip for inner content */}
-          <ClipPath id="hexClip">
+          <ClipPath id={`hexClip-${uid}`}>
             <Polygon points={hexPoints(cx, cy, innerR)} />
           </ClipPath>
         </Defs>
@@ -73,7 +76,7 @@ export const HexAvatar: React.FC<Props> = ({
         {/* Ring */}
         <Polygon
           points={hexPoints(cx, cy, ringR)}
-          fill="url(#ring)"
+          fill={`url(#ring-${uid})`}
         />
 
         {/* Dark bg cutout */}
@@ -85,7 +88,7 @@ export const HexAvatar: React.FC<Props> = ({
         {/* Inner avatar background */}
         <Polygon
           points={hexPoints(cx, cy, innerR)}
-          fill="url(#avatarBg)"
+          fill={`url(#avatarBg-${uid})`}
         />
 
         {/* Avatar image if provided */}
@@ -96,7 +99,7 @@ export const HexAvatar: React.FC<Props> = ({
             y={cy - innerR}
             width={innerR * 2}
             height={innerR * 2}
-            clipPath="url(#hexClip)"
+            clipPath={`url(#hexClip-${uid})`}
             preserveAspectRatio="xMidYMid slice"
           />
         )}

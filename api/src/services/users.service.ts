@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { HttpException, ErrCodes, statusCodes } from '../utils/exceptions';
+import { repairGuilds } from './guilds.service';
 
 export const updateUsername = async (userId: number, isGuest: boolean, newUsername: string) => {
   if (isGuest) {
@@ -34,8 +35,14 @@ export const requestUserDeletion = async (requesterId: number, targetId: number)
     );
   }
 
-  await prisma.users.update({
-    where: { ID_User: targetId },
-    data: { archived: true, deletionDate: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.users.update({
+      where: { ID_User: targetId },
+      data: { archived: true, deletionDate: new Date(), tokenVersion: { increment: 1 } },
+    }),
+    // The account is unreachable from now on: it leaves its guild and friends right away.
+    prisma.guildMember.deleteMany({ where: { userId: targetId } }),
+    prisma.guildInvite.deleteMany({ where: { userId: targetId } }),
+  ]);
+  await repairGuilds();
 };

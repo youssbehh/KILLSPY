@@ -25,6 +25,11 @@ import { useMyStats } from '../hooks/useGames';
 import { useInventory } from '../hooks/useInventory';
 import { OwnedCosmetic } from '../api/inventory';
 import { GameHistoryItem } from '../api/games';
+import { MatchHistory } from '../components/ks/MatchHistory';
+import { ProgressBar } from '../components/ks/ProgressBar';
+import { mmrToRank } from '../game/ranking';
+import { levelFromXp, levelProgress } from '../game/progression';
+import { rankTierIndex, rankTierName } from '../game/rankDisplay';
 
 const PAD = 16;
 
@@ -106,28 +111,33 @@ const statStyles = StyleSheet.create({
 });
 
 // ── Rank sparkline ─────────────────────────────────────────────────────────
-const Sparkline: React.FC<{ width: number }> = ({ width }) => (
-  <Svg width={width} height={36} viewBox="0 0 200 36" preserveAspectRatio="none">
-    <Defs>
-      <LinearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0" stopColor={KS.live} stopOpacity="0.4" />
-        <Stop offset="1" stopColor={KS.live} stopOpacity="0" />
-      </LinearGradient>
-    </Defs>
-    {/* Area fill */}
-    <Path
-      d="M0 28 L20 24 L40 26 L60 18 L80 22 L100 14 L120 16 L140 8 L160 12 L180 6 L200 4 L200 36 L0 36 Z"
-      fill="url(#spark-fill)"
-    />
-    {/* Line */}
-    <Path
-      d="M0 28 L20 24 L40 26 L60 18 L80 22 L100 14 L120 16 L140 8 L160 12 L180 6 L200 4"
-      fill="none"
-      stroke={KS.live}
-      strokeWidth={1.5}
-    />
-  </Svg>
-);
+/** Rating over the recent games. With fewer than two points it is a flat line. */
+const Sparkline: React.FC<{ width: number; values: number[] }> = ({ width, values }) => {
+  const points = values.length >= 2 ? values : [0, 0];
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const span = max - min || 1;
+  const coords = points.map((v, i) => {
+    const x = (i / (points.length - 1)) * 200;
+    const y = 32 - ((v - min) / span) * 28;
+    return `${x.toFixed(1)} ${y.toFixed(1)}`;
+  });
+  const line = `M${coords.join(' L')}`;
+  const rising = points[points.length - 1] >= points[0];
+  const color = rising ? KS.live : KS.danger;
+  return (
+    <Svg width={width} height={36} viewBox="0 0 200 36" preserveAspectRatio="none">
+      <Defs>
+        <LinearGradient id={rising ? "spark-up" : "spark-down"} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={color} stopOpacity="0.4" />
+          <Stop offset="1" stopColor={color} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Path d={`${line} L200 36 L0 36 Z`} fill={`url(#${rising ? "spark-up" : "spark-down"})`} />
+      <Path d={line} fill="none" stroke={color} strokeWidth={1.5} />
+    </Svg>
+  );
+};
 
 // ── Skin card ──────────────────────────────────────────────────────────────
 const SkinCard: React.FC<{ skin: OwnedCosmetic; width: number }> = ({ skin, width }) => {
@@ -217,8 +227,10 @@ export const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const router = useRouter();
-  const username = useAuthStore((s) => s.user?.username ?? 'AGENT_KILO');
+  const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
   const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
+  const xp = useAuthStore((s) => s.user?.xp ?? 0);
+  const isGuest = useAuthStore((s) => s.user?.guest ?? false);
 
   const { data: statsData } = useMyStats();
   const { data: inventoryData } = useInventory();
@@ -232,24 +244,26 @@ export const ProfileScreen: React.FC = () => {
   const allLosses = allTotal - allWins;
   const winPct = allTotal > 0 ? Math.round((allWins / allTotal) * 100) : 0;
   const wlRatio = allLosses > 0 ? (allWins / allLosses).toFixed(1) : allWins > 0 ? '∞' : '—';
-  const rankTier = statsData?.rank.tier ?? 0;
+  const rankTier = rankTierIndex(mmr);
 
-  // Current win streak — count consecutive wins from the END of recentGames (most recent last)
-  const recentGames = statsData?.recentGames ?? [];
-  const streak = (() => {
-    let s = 0;
-    for (let i = recentGames.length - 1; i >= 0; i--) {
-      if (recentGames[i].won) s++; else break;
-    }
-    return s;
-  })();
+  // Current win streak: recentGames is newest first, so count wins from the start.
+  const recentGames: GameHistoryItem[] = statsData?.recentGames ?? [];
+  const firstNonWin = recentGames.findIndex((g) => !g.won);
+  const streak = firstNonWin === -1 ? recentGames.length : firstNonWin;
 
   // RP gained over recent games
   const rpDelta = recentGames.reduce((sum: number, g: GameHistoryItem) => sum + g.mmrDelta, 0);
   const rpDeltaStr = rpDelta >= 0 ? `+${rpDelta}` : `${rpDelta}`;
 
-  // Level derived from MMR (1 level per 250 RP, min 1)
-  const level = Math.max(1, Math.floor(mmr / 250) + 1);
+  const level = levelFromXp(xp);
+
+  // RP curve over the recent games, oldest → newest, ending at the current rating.
+  const rpCurve = (() => {
+    const deltas = [...recentGames].reverse().map((g) => g.mmrDelta);
+    const total = deltas.reduce((a, b) => a + b, 0);
+    let value = mmr - total;
+    return [value, ...deltas.map((d) => (value += d))];
+  })();
 
   // Skins: show card_skin items from inventory, fallback to all owned
   const skins = (inventoryData?.owned ?? [] as OwnedCosmetic[]).filter((i: OwnedCosmetic) => i.type === 'card_skin');
@@ -321,7 +335,7 @@ export const ProfileScreen: React.FC = () => {
 
             {/* Large hex avatar */}
             <View style={styles.avatarCenter}>
-              <HexAvatar size={108} tier="gold" initials={username.slice(0, 2).toUpperCase()} live />
+              <HexAvatar size={108} tier={rankTierName(mmr)} initials={username.slice(0, 2).toUpperCase()} live />
             </View>
 
             {/* Bottom row: name + rank · level */}
@@ -331,11 +345,15 @@ export const ProfileScreen: React.FC = () => {
                 <View style={styles.rankRow}>
                   <RankBadge tier={rankTier} size={16} />
                   <Text style={[styles.rankLabel, { color: KS.tier.gold }]}>
-                    AGENT · {mmr.toLocaleString()} RP
+                    {mmrToRank(mmr).label.toUpperCase()} · {mmr.toLocaleString()} RP
                   </Text>
                 </View>
               </View>
-              <Text style={styles.levelLabel}>LVL {level}</Text>
+              <View style={styles.levelBlock}>
+                <Text style={styles.levelLabel}>LVL {level}</Text>
+                <ProgressBar value={levelProgress(xp)} segments={10} color={KS.primary} height={4} />
+                <Text style={styles.xpLabel}>{xp.toLocaleString()} XP</Text>
+              </View>
             </View>
 
             <CornerTicks />
@@ -359,18 +377,18 @@ export const ProfileScreen: React.FC = () => {
           >
             <View style={styles.sparkInner}>
               <View style={styles.sparkLeft}>
-                <Text style={styles.sparkDays}>30 DAYS</Text>
+                <Text style={styles.sparkDays}>LAST {recentGames.length} GAMES</Text>
                 <View style={styles.sparkDelta}>
                   <Text style={styles.sparkValue}>{rpDeltaStr}</Text>
                   <Text style={styles.sparkRp}>RP {rpDelta >= 0 ? '↑' : '↓'}</Text>
                 </View>
               </View>
-              <Sparkline width={sparkWidth} />
+              <Sparkline width={sparkWidth} values={rpCurve} />
             </View>
           </GlassCard>
 
           {/* ── Skins grid ── */}
-          <View style={{ marginTop: 16, marginBottom: 108 }}>
+          <View style={{ marginTop: 16 }}>
             <SectionLabel
               label={`Loadout · Skins · ${ownedCount}/12`}
               color={KS.alert}
@@ -392,6 +410,10 @@ export const ProfileScreen: React.FC = () => {
               </View>
             )}
           </View>
+
+          {/* ── Match history ── */}
+          {!isGuest && <MatchHistory />}
+          <View style={{ height: 108 }} />
         </ScrollView>
       </View>
     </>
@@ -467,6 +489,8 @@ const styles = StyleSheet.create({
     fontSize: SIZES.monoSm,
     letterSpacing: SIZES.monoSm * 0.18,
   },
+  levelBlock: { alignItems: 'flex-end', gap: 3, width: 84 },
+  xpLabel: { color: KS.inkDim, fontFamily: TYPO.mono, fontSize: SIZES.monoXs },
   levelLabel: {
     color: KS.inkDim,
     fontFamily: TYPO.mono,

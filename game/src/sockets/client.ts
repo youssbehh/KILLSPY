@@ -9,15 +9,11 @@ let socket: GameSocket | null = null;
 const baseURL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/api\/?$/, '') ?? '';
 
 /**
- * Get or create the singleton socket connection.
- * Connects lazily with the current JWT.
+ * The singleton socket, created on first use but NOT connected.
+ * Attach listeners on it before calling getSocket(): the server may push events
+ * (a match to resume) as soon as the connection opens.
  */
-export const getSocket = async (): Promise<GameSocket> => {
-  if (socket?.connected) return socket;
-
-  const token = await getToken();
-  if (!token) throw new Error('Pas de token disponible pour le socket.');
-
+export const ensureSocket = (): GameSocket => {
   if (!socket) {
     socket = io(baseURL, {
       // Re-read the token on every (re)connection attempt so a refreshed session is used.
@@ -26,11 +22,22 @@ export const getSocket = async (): Promise<GameSocket> => {
       },
       autoConnect: false,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       transports: ['websocket'],
     });
   }
+  return socket;
+};
+
+/** Resolves with the socket once it is connected (connecting it if needed). */
+export const getSocket = async (): Promise<GameSocket> => {
+  if (socket?.connected) return socket;
+
+  const token = await getToken();
+  if (!token) throw new Error('Pas de token disponible pour le socket.');
+  ensureSocket();
 
   return new Promise<GameSocket>((resolve, reject) => {
     if (!socket) return reject(new Error('Socket non initialisé.'));

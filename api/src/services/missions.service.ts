@@ -1,5 +1,6 @@
 import { MissionMetric } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { levelFromXp } from '../game/progression';
 
 const MISSIONS_PER_DAY = 4;
 
@@ -20,13 +21,14 @@ async function computeProgress(
   end: Date,
 ): Promise<number> {
   switch (metric) {
+    // Training games (pve) are declared by the client: they never count towards a mission.
     case 'wins':
       return prisma.gameHistory.count({
-        where: { ID_User: userId, V_D: true, DateGame: { gte: start, lte: end } },
+        where: { ID_User: userId, V_D: true, Mode: { not: 'pve' }, DateGame: { gte: start, lte: end } },
       });
     case 'rounds_played':
       return prisma.gameHistory.count({
-        where: { ID_User: userId, DateGame: { gte: start, lte: end } },
+        where: { ID_User: userId, Mode: { not: 'pve' }, DateGame: { gte: start, lte: end } },
       });
     case 'ranked_wins':
       return prisma.gameHistory.count({
@@ -114,7 +116,7 @@ export async function getDailyMissions(userId: number): Promise<DailyMissionDTO[
 export async function claimMission(
   userId: number,
   assignmentId: number,
-): Promise<{ xpEarned: number }> {
+): Promise<{ xpEarned: number; xp: number; level: number }> {
   const assignment = await prisma.playerMissionAssignment.findFirst({
     where: { id: assignmentId, userId, day: todayUTC() },
     include: { mission: true },
@@ -130,11 +132,19 @@ export async function claimMission(
     throw Object.assign(new Error('Mission not completed'), { status: 422 });
   }
 
-  const claimed = await prisma.playerMissionAssignment.updateMany({
-    where: { id: assignmentId, userId, rewarded: false },
-    data: { rewarded: true },
+  // Flag and reward together: either the mission is claimed and paid, or neither.
+  const user = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.playerMissionAssignment.updateMany({
+      where: { id: assignmentId, userId, rewarded: false },
+      data: { rewarded: true },
+    });
+    if (claimed.count !== 1) throw Object.assign(new Error('Already claimed'), { status: 409 });
+    return tx.users.update({
+      where: { ID_User: userId },
+      data: { XP: { increment: assignment.mission.xpReward } },
+      select: { XP: true },
+    });
   });
-  if (claimed.count !== 1) throw Object.assign(new Error('Already claimed'), { status: 409 });
 
-  return { xpEarned: assignment.mission.xpReward };
+  return { xpEarned: assignment.mission.xpReward, xp: user.XP, level: levelFromXp(user.XP) };
 }

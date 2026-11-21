@@ -22,8 +22,43 @@ export const createPrismaMock = () => ({
   },
   friends: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+    delete: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  guild: {
+    findMany: jest.fn(async () => []),
+    deleteMany: jest.fn(async () => ({ count: 0 })),
+  },
+  guildMember: {
+    update: jest.fn(),
+    deleteMany: jest.fn(async () => ({ count: 0 })),
+  },
+  guildInvite: {
+    deleteMany: jest.fn(async () => ({ count: 0 })),
+  },
+  block: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    upsert: jest.fn(),
+    deleteMany: jest.fn(),
+  },
+  report: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    updateMany: jest.fn(),
+  },
+  accountToken: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+    deleteMany: jest.fn(),
   },
   gameHistory: {
     findMany: jest.fn(),

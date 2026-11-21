@@ -1,4 +1,6 @@
 import { prisma } from '../lib/prisma';
+import { emitToUser } from '../sockets/hub';
+import { areFriends, isBlockedEitherWay } from './social.service';
 
 export interface MessageDTO {
   id: number;
@@ -17,106 +19,116 @@ export interface ConversationSummary {
   unreadCount: number;
 }
 
-/** All friends who have exchanged at least one message, with last message preview */
+export const DM_PAGE_SIZE = 30;
+
+const err = (msg: string, status: number) => Object.assign(new Error(msg), { status });
+
+/** Every conversation of the user with its last message and unread count (3 queries in total). */
 export async function getInbox(userId: number): Promise<ConversationSummary[]> {
-  // Find all unique conversation partners
-  const sent = await prisma.directMessage.findMany({
-    where: { senderId: userId },
-    select: { receiverId: true },
-    distinct: ['receiverId'],
-  });
-  const received = await prisma.directMessage.findMany({
-    where: { receiverId: userId },
-    select: { senderId: true },
-    distinct: ['senderId'],
+  // Newest message first: the first one seen for a partner is that conversation's last message.
+  const recent = await prisma.directMessage.findMany({
+    where: { OR: [{ senderId: userId }, { receiverId: userId }] },
+    orderBy: { id: 'desc' },
+    take: 500,
+    select: { senderId: true, receiverId: true, content: true, sentAt: true },
   });
 
-  const partnerIds = [
-    ...new Set([
-      ...sent.map((m) => m.receiverId),
-      ...received.map((m) => m.senderId),
-    ]),
-  ];
-
-  const result: ConversationSummary[] = [];
-  for (const partnerId of partnerIds) {
-    const last = await prisma.directMessage.findFirst({
-      where: {
-        OR: [
-          { senderId: userId, receiverId: partnerId },
-          { senderId: partnerId, receiverId: userId },
-        ],
-      },
-      orderBy: { sentAt: 'desc' },
-      include: { sender: { select: { Username: true } }, receiver: { select: { Username: true, ID_User: true } } },
-    });
-    const unread = await prisma.directMessage.count({
-      where: { senderId: partnerId, receiverId: userId, readAt: null },
-    });
-    const partnerUser = await prisma.users.findUnique({ where: { ID_User: partnerId }, select: { Username: true } });
-    result.push({
-      friendId: partnerId,
-      friendUsername: partnerUser?.Username ?? `User#${partnerId}`,
-      lastMessage: last?.content?.slice(0, 60) ?? null,
-      lastAt: last?.sentAt.toISOString() ?? null,
-      unreadCount: unread,
-    });
+  const lastByPartner = new Map<number, { content: string; sentAt: Date }>();
+  for (const m of recent) {
+    const partnerId = m.senderId === userId ? m.receiverId : m.senderId;
+    if (!lastByPartner.has(partnerId)) lastByPartner.set(partnerId, { content: m.content, sentAt: m.sentAt });
   }
+  const partnerIds = [...lastByPartner.keys()];
+  if (partnerIds.length === 0) return [];
 
-  return result.sort((a, b) => (b.lastAt ?? '').localeCompare(a.lastAt ?? ''));
+  const [unread, partners] = await Promise.all([
+    prisma.directMessage.groupBy({
+      by: ['senderId'],
+      where: { receiverId: userId, readAt: null, senderId: { in: partnerIds } },
+      _count: { _all: true },
+    }),
+    prisma.users.findMany({
+      where: { ID_User: { in: partnerIds } },
+      select: { ID_User: true, Username: true },
+    }),
+  ]);
+  const unreadBy = new Map(unread.map((u) => [u.senderId, u._count._all]));
+  const nameBy = new Map(partners.map((p) => [p.ID_User, p.Username]));
+
+  return partnerIds.map((partnerId) => {
+    const last = lastByPartner.get(partnerId)!;
+    return {
+      friendId: partnerId,
+      friendUsername: nameBy.get(partnerId) ?? `User#${partnerId}`,
+      lastMessage: last.content.slice(0, 60),
+      lastAt: last.sentAt.toISOString(),
+      unreadCount: unreadBy.get(partnerId) ?? 0,
+    };
+  });
 }
 
-/** Messages between two users (last 100) */
-export async function getConversation(userId: number, partnerId: number): Promise<MessageDTO[]> {
-  const messages = await prisma.directMessage.findMany({
+/**
+ * One page of a conversation, oldest → newest.
+ * `before` is the id of the oldest message already loaded (omit for the latest page).
+ */
+export async function getConversation(
+  userId: number,
+  partnerId: number,
+  before?: number,
+  limit = DM_PAGE_SIZE,
+): Promise<{ messages: MessageDTO[]; hasMore: boolean }> {
+  const page = await prisma.directMessage.findMany({
     where: {
       OR: [
         { senderId: userId, receiverId: partnerId },
         { senderId: partnerId, receiverId: userId },
       ],
+      ...(before ? { id: { lt: before } } : {}),
     },
-    orderBy: { sentAt: 'asc' },
-    take: 100,
+    orderBy: { id: 'desc' },
+    take: limit + 1,
     include: { sender: { select: { Username: true } } },
   });
 
-  // Mark received messages as read
-  await prisma.directMessage.updateMany({
-    where: { senderId: partnerId, receiverId: userId, readAt: null },
-    data: { readAt: new Date() },
-  });
+  const hasMore = page.length > limit;
+  const messages = page.slice(0, limit).reverse();
 
-  return messages.map((m) => ({
-    id: m.id,
-    senderId: m.senderId,
-    senderUsername: m.sender.Username,
-    content: m.content,
-    sentAt: m.sentAt.toISOString(),
-    readAt: m.readAt?.toISOString() ?? null,
-  }));
+  // Opening the latest page marks what was received as read.
+  if (!before) {
+    await prisma.directMessage.updateMany({
+      where: { senderId: partnerId, receiverId: userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+  }
+
+  return {
+    hasMore,
+    messages: messages.map((m) => ({
+      id: m.id,
+      senderId: m.senderId,
+      senderUsername: m.sender.Username,
+      content: m.content,
+      sentAt: m.sentAt.toISOString(),
+      readAt: m.readAt?.toISOString() ?? null,
+    })),
+  };
 }
 
 export async function sendMessage(senderId: number, receiverId: number, content: string): Promise<MessageDTO> {
-  if (!content.trim()) throw Object.assign(new Error('Message vide.'), { status: 400 });
-  if (content.length > 500) throw Object.assign(new Error('Message trop long (500 chars max).'), { status: 400 });
+  const text = content.trim();
+  if (!text) throw err('Message vide.', 400);
+  if (text.length > 500) throw err('Message trop long (500 caractères max).', 400);
 
-  // Check they are friends
-  const friendship = await prisma.friends.findFirst({
-    where: {
-      OR: [
-        { ID_User: senderId, ID_Friend: receiverId, Blocked: false },
-        { ID_User: receiverId, ID_Friend: senderId, Blocked: false },
-      ],
-    },
-  });
-  if (!friendship) throw Object.assign(new Error('Vous ne pouvez envoyer un message qu\'à vos amis.'), { status: 403 });
+  if ((await isBlockedEitherWay(senderId, receiverId)) || !(await areFriends(senderId, receiverId))) {
+    throw err("Vous ne pouvez envoyer un message qu'à vos amis.", 403);
+  }
 
   const msg = await prisma.directMessage.create({
-    data: { senderId, receiverId, content: content.trim() },
+    data: { senderId, receiverId, content: text },
     include: { sender: { select: { Username: true } } },
   });
 
-  return {
+  const dto: MessageDTO = {
     id: msg.id,
     senderId: msg.senderId,
     senderUsername: msg.sender.Username,
@@ -124,4 +136,6 @@ export async function sendMessage(senderId: number, receiverId: number, content:
     sentAt: msg.sentAt.toISOString(),
     readAt: null,
   };
+  emitToUser(receiverId, 'dm:new', { fromId: senderId, message: dto });
+  return dto;
 }

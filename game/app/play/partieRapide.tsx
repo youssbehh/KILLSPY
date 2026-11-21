@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useGameStore } from '@/src/stores/gameStore';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useMatchmaking } from '@/src/sockets/useMatchmaking';
-import { PvpMode } from '@/src/sockets/events';
+import { QueueMode } from '@/src/sockets/events';
+import { levelFromXp } from '@/src/game/progression';
 import { GameAction, isActionLegal } from '@/src/game/gameEngine';
 import { MatchmakingScreen } from '@/src/screens/MatchmakingScreen';
 import { HUDScreen } from '@/src/screens/HUDScreen';
@@ -17,7 +18,7 @@ export default function PartieRapideScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{ mode?: string }>();
-  const mode: PvpMode = params.mode === 'ranked' ? 'pvp_ranked' : 'pvp_quick';
+  const mode: QueueMode = params.mode === 'ranked' ? 'pvp_ranked' : 'pvp_quick';
 
   const { joinQueue, sendAction, leaveGame } = useMatchmaking();
 
@@ -27,9 +28,10 @@ export default function PartieRapideScreen() {
   const finalState = useGameStore((s) => s.state);
   const matchMode = useGameStore((s) => s.mode);
 
-  // Enter the queue when the screen opens; leave queue / forfeit when it closes.
+  // Enter the queue when the screen opens — unless a match is already under way
+  // (accepted challenge, resumed match). Leave queue / forfeit when it closes.
   useEffect(() => {
-    joinQueue(mode);
+    if (useGameStore.getState().matchStatus === 'idle') joinQueue(mode);
     return () => leaveGame();
   }, [mode, joinQueue, leaveGame]);
 
@@ -37,10 +39,13 @@ export default function PartieRapideScreen() {
   useEffect(() => {
     if (matchStatus !== 'finished' || !rewards) return;
     const { user, updateUser } = useAuthStore.getState();
-    if (user && (rewards.moneyDelta !== 0 || rewards.mmrDelta !== 0)) {
+    if (user && (rewards.moneyDelta !== 0 || rewards.mmrDelta !== 0 || rewards.xpDelta !== 0)) {
+      const xp = user.xp + rewards.xpDelta;
       updateUser({
         money: user.money + rewards.moneyDelta,
         mmr: Math.max(0, user.mmr + rewards.mmrDelta),
+        xp,
+        level: levelFromXp(xp),
       });
     }
     queryClient.invalidateQueries({ queryKey: ['games'] });
@@ -54,8 +59,10 @@ export default function PartieRapideScreen() {
     router.replace(HOME);
   }, [leaveGame, router]);
 
+  // A friendly duel has no queue: playing again goes through a new challenge.
+  const canRequeue = matchMode !== 'pvp_friendly';
   const handleRematch = useCallback(() => {
-    joinQueue(matchMode);
+    if (matchMode !== 'pvp_friendly') joinQueue(matchMode);
   }, [joinQueue, matchMode]);
 
   const handleAction = useCallback(
@@ -100,7 +107,7 @@ export default function PartieRapideScreen() {
           rewards={rewards}
           rounds={finalState.round}
           livesLeft={finalState.player.lives}
-          onRematch={handleRematch}
+          onRematch={canRequeue ? handleRematch : undefined}
           onHome={handleQuit}
         />
       )}

@@ -13,7 +13,7 @@ import type { GameMode, GameOutcome } from './ranking';
 export const SIGNUP_BONUS = 100;
 
 export const computeMoneyReward = (outcome: GameOutcome, mode: GameMode): number => {
-  if (mode === 'pve') return 0;
+  if (mode === 'pve' || mode === 'pvp_friendly') return 0;
 
   if (mode === 'pvp_quick') {
     if (outcome === 'won') return 20;

@@ -19,6 +19,10 @@ const fakeUser = (id = 1, overrides: Partial<any> = {}) => ({
   isGuest: false,
   archived: false,
   deletionDate: null,
+  XP: 0,
+  emailVerified: false,
+  banned: false,
+  tokenVersion: 0,
   CreatedAt: new Date(),
   ...overrides,
 });
@@ -40,6 +44,11 @@ describe('PUT /api/users/deleteUser/:id', () => {
   it('archive le propre compte de l\'utilisateur', async () => {
     prismaMock.users.findUnique.mockResolvedValue(fakeUser(1));
     prismaMock.users.update.mockResolvedValue(fakeUser(1, { archived: true }));
+    // Leaving the guild is part of the same transaction; no guild needs repairing here.
+    prismaMock.guildMember.deleteMany.mockResolvedValue({ count: 0 });
+    prismaMock.guildInvite.deleteMany.mockResolvedValue({ count: 0 });
+    prismaMock.guild.deleteMany.mockResolvedValue({ count: 0 });
+    prismaMock.guild.findMany.mockResolvedValue([]);
 
     const res = await request(app)
       .put('/api/users/deleteUser/1')

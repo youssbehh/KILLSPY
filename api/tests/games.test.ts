@@ -20,6 +20,10 @@ const fakeUser = (overrides: any = {}) => ({
   isGuest: false,
   archived: false,
   deletionDate: null,
+  XP: 0,
+  emailVerified: false,
+  banned: false,
+  tokenVersion: 0,
   CreatedAt: new Date(),
   ...overrides,
 });
@@ -41,17 +45,20 @@ describe('POST /api/games/result', () => {
     expect(res.status).toBe(400);
   });
 
-  it('PvE is NOT persisted (null result, no gameHistory.create)', async () => {
-    prismaMock.users.findUnique.mockResolvedValue(fakeUser({ MMR: 100 }));
+  it('PvE is recorded as history only: no MMR, coins or XP', async () => {
+    prismaMock.users.findUnique.mockResolvedValue(fakeUser({ MMR: 100, Money: 10 }));
+    prismaMock.gameHistory.create.mockResolvedValue({ ID_GameHistory: 42 });
 
     const res = await request(app)
       .post('/api/games/result')
       .set('Authorization', token(1))
-      .send({ outcome: 'won', mode: 'pve' });
+      .send({ outcome: 'won', mode: 'pve', rounds: 6 });
 
     expect(res.status).toBe(201);
-    expect(res.body.result).toBeNull();
-    expect(prismaMock.gameHistory.create).not.toHaveBeenCalled();
+    expect(res.body.result).toMatchObject({ delta: 0, moneyDelta: 0, xpDelta: 0 });
+    expect(prismaMock.gameHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ Mode: 'pve', Rounds: 6, MMRWin: 0, XPWin: 0 }) }),
+    );
   });
 
   it.each(['pvp_quick', 'pvp_ranked'])('rejects a client-declared %s result', async (mode) => {
@@ -67,11 +74,30 @@ describe('POST /api/games/result', () => {
 
   it('accepts a Bearer-prefixed token', async () => {
     prismaMock.users.findUnique.mockResolvedValue(fakeUser());
+    prismaMock.gameHistory.create.mockResolvedValue({ ID_GameHistory: 1 });
     const res = await request(app)
       .post('/api/games/result')
       .set('Authorization', `Bearer ${token(1)}`)
       .send({ outcome: 'won', mode: 'pve' });
     expect(res.status).toBe(201);
+  });
+
+  it('rejects a token revoked by a tokenVersion bump', async () => {
+    prismaMock.users.findUnique.mockResolvedValue(fakeUser({ tokenVersion: 3 }));
+    const res = await request(app)
+      .post('/api/games/result')
+      .set('Authorization', token(1))
+      .send({ outcome: 'won', mode: 'pve' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a banned account', async () => {
+    prismaMock.users.findUnique.mockResolvedValue(fakeUser({ banned: true }));
+    const res = await request(app)
+      .post('/api/games/result')
+      .set('Authorization', token(1))
+      .send({ outcome: 'won', mode: 'pve' });
+    expect(res.status).toBe(401);
   });
 
   it('rejects an archived account', async () => {
@@ -94,8 +120,9 @@ describe('recordGame (server-side, called by the socket game room)', () => {
     expect(result?.mmrAfter).toBe(100);
     expect(result?.delta).toBe(0);
     expect(result?.moneyDelta).toBe(20);
+    expect(result?.xpDelta).toBe(50);
     expect(prismaMock.users.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { MMR: 100, Money: { increment: 20 } } }),
+      expect.objectContaining({ data: { MMR: 100, Money: { increment: 20 }, XP: { increment: 50 } } }),
     );
     expect(prismaMock.gameHistory.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ Mode: 'pvp_quick' }) }),
@@ -121,6 +148,15 @@ describe('recordGame (server-side, called by the socket game room)', () => {
     expect(result?.mmrAfter).toBe(0);
   });
 
+  it('friendly duels are never persisted', async () => {
+    prismaMock.users.findUnique.mockResolvedValue(fakeUser());
+
+    const result = await recordGame({ userId: 1, outcome: 'won', mode: 'pvp_friendly' });
+
+    expect(result).toBeNull();
+    expect(prismaMock.gameHistory.create).not.toHaveBeenCalled();
+  });
+
   it('guests are never persisted', async () => {
     prismaMock.users.findUnique.mockResolvedValue(fakeUser({ isGuest: true }));
 
@@ -138,20 +174,24 @@ describe('GET /api/games/me/stats', () => {
       .mockResolvedValueOnce(fakeUser()); // service lookup
     prismaMock.gameHistory.count
       .mockResolvedValueOnce(5) // quick wins
-      .mockResolvedValueOnce(3) // quick losses
+      .mockResolvedValueOnce(1) // quick draws
+      .mockResolvedValueOnce(9) // quick total
       .mockResolvedValueOnce(2) // ranked wins
-      .mockResolvedValueOnce(1); // ranked losses
+      .mockResolvedValueOnce(0) // ranked draws
+      .mockResolvedValueOnce(3); // ranked total
     prismaMock.gameHistory.findMany.mockResolvedValue([
-      { ID_GameHistory: 1, V_D: true, DateGame: new Date(), MMRWin: 25, Mode: 'pvp_ranked' },
-      { ID_GameHistory: 2, V_D: false, DateGame: new Date(), MMRWin: 0, Mode: 'pvp_quick' },
+      { ID_GameHistory: 1, V_D: true, Draw: false, Rounds: 5, DateGame: new Date(), MMRWin: 25, XPWin: 75, Mode: 'pvp_ranked', OpponentId: 7 },
+      { ID_GameHistory: 2, V_D: false, Draw: true, Rounds: 8, DateGame: new Date(), MMRWin: 0, XPWin: 25, Mode: 'pvp_quick', OpponentId: null },
     ]);
+    prismaMock.users.findMany.mockResolvedValue([{ ID_User: 7, Username: 'rival' }]);
 
     const res = await request(app).get('/api/games/me/stats').set('Authorization', token(1));
 
     expect(res.status).toBe(200);
-    expect(res.body.stats.quick).toEqual({ wins: 5, losses: 3, total: 8, winRate: 5 / 8 });
-    expect(res.body.stats.ranked).toEqual({ wins: 2, losses: 1, total: 3, winRate: 2 / 3 });
+    expect(res.body.stats.quick).toEqual({ wins: 5, draws: 1, losses: 3, total: 9, winRate: 5 / 9 });
+    expect(res.body.stats.ranked).toEqual({ wins: 2, draws: 0, losses: 1, total: 3, winRate: 2 / 3 });
     expect(res.body.recentGames).toHaveLength(2);
-    expect(res.body.recentGames[0].mode).toBe('pvp_ranked');
+    expect(res.body.recentGames[0]).toMatchObject({ mode: 'pvp_ranked', opponent: 'rival', rounds: 5 });
+    expect(res.body.recentGames[1]).toMatchObject({ draw: true, won: false, opponent: null });
   });
 });

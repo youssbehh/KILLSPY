@@ -132,7 +132,7 @@ export const MatchmakingScreen: React.FC<Props> = ({ onAbort }) => {
         <View style={styles.eyebrowRow}>
           <Animated.Text style={[styles.eyebrowLive, blinkStyle]}>●</Animated.Text>
           <Text style={styles.eyebrowLive}>
-            {' '}{mode === 'pvp_ranked' ? 'RANKED' : 'QUICK PLAY'} · {elapsedStr}
+            {' '}{mode === 'pvp_ranked' ? 'RANKED' : mode === 'pvp_friendly' ? 'FRIENDLY DUEL' : 'QUICK PLAY'} · {elapsedStr}
           </Text>
         </View>
         <Text style={styles.title}>{found ? 'TARGET ACQUIRED' : 'SEARCHING FOR TARGET'}</Text>

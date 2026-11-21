@@ -34,6 +34,7 @@ import { Lives } from '@/src/components/ks/Lives';
 import { Ammo } from '@/src/components/ks/Ammo';
 import { EndMatchScreen } from '@/src/screens/EndMatchScreen';
 import { CombatFx } from '@/src/components/ks/CombatFx';
+import { useRecordTrainingGame } from '@/src/hooks/useGames';
 import { MOTION } from '@/src/theme/motion';
 import * as Haptics from 'expo-haptics';
 
@@ -63,6 +64,15 @@ export default function BotGameScreen() {
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECS);
   const [playerAction, setPlayerAction] = useState<GameAction | null>(null);
   const memoryRef = useRef<BotMemory>(createBotMemory());
+  const isGuest = useAuthStore((s) => s.user?.guest ?? true);
+  const { mutate: recordTraining } = useRecordTrainingGame();
+
+  // A finished training game goes to the history (no reward). Guests keep no history.
+  useEffect(() => {
+    if (phase !== 'finished' || isGuest || state.status === 'choosing') return;
+    recordTraining({ outcome: state.status, rounds: state.round });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   /** Starts a fresh training match on the same screen. */
   const restart = useCallback(() => {

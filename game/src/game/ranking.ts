@@ -4,7 +4,8 @@
  */
 
 export type GameOutcome = 'won' | 'lost' | 'draw';
-export type GameMode = 'pve' | 'pvp_quick' | 'pvp_ranked';
+/** pvp_friendly = a duel between friends: played on the server, never rewarded nor recorded. */
+export type GameMode = 'pve' | 'pvp_quick' | 'pvp_ranked' | 'pvp_friendly';
 
 export interface RankTier {
   id: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' | 'master';
@@ -46,8 +47,12 @@ export const progressToNext = (mmr: number): number => {
 };
 
 /**
- * MMR delta only applies to ranked mode. PvE and PvP Quick still record
- * a GameHistory row (for V/D stats) but with delta = 0.
+ * Compute MMR delta. Only ranked games affect MMR.
+ * - PvE (vs bot) and PvP Quick (casual): no MMR change. Games are still
+ *   recorded in GameHistory for V/D stats, but with delta = 0.
+ * - PvP Ranked: full Elo-style gain/loss.
+ *
+ * Floor handled separately by applyMmrDelta (cannot drop below 0).
  */
 export const computeMmrDelta = (outcome: GameOutcome, mode: GameMode): number => {
   if (mode !== 'pvp_ranked') return 0;

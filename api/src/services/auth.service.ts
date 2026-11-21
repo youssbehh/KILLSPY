@@ -1,15 +1,17 @@
-import { hashSync, compareSync } from 'bcrypt';
+import { hash, compare } from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
 import { Users } from '@prisma/client';
 
 import { prisma } from '../lib/prisma';
 import { JWT_SECRET } from '../secrets';
 import { HttpException, ErrCodes, statusCodes } from '../utils/exceptions';
 import { logger } from '../lib/logger';
+import { levelFromXp } from '../game/progression';
 
 const DEFAULT_THEME_NAME = 'Agent Mint';
 
-const BCRYPT_ROUNDS = 12;
+export const BCRYPT_ROUNDS = 12;
 const TOKEN_TTL = '7d';
 
 export type PublicUser = {
@@ -18,20 +20,27 @@ export type PublicUser = {
   email: string;
   mmr: number;
   money: number;
+  xp: number;
+  level: number;
+  emailVerified: boolean;
   guest: boolean;
 };
 
-const toPublicUser = (u: Users): PublicUser => ({
+export const toPublicUser = (u: Users): PublicUser => ({
   id: u.ID_User,
   username: u.Username,
   email: u.Email,
   mmr: u.MMR,
   money: u.Money,
+  xp: u.XP,
+  level: levelFromXp(u.XP),
+  emailVerified: u.emailVerified,
   guest: u.isGuest,
 });
 
-const signToken = (userId: number) =>
-  jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: TOKEN_TTL });
+/** `v` is the user's tokenVersion: bumping it server-side revokes every older token. */
+export const signToken = (userId: number, tokenVersion: number) =>
+  jwt.sign({ id: userId, v: tokenVersion }, JWT_SECRET, { expiresIn: TOKEN_TTL });
 
 export const signupUser = async (input: { username: string; email: string; passwordCrea: string }) => {
   const existing = await prisma.users.findFirst({
@@ -45,7 +54,7 @@ export const signupUser = async (input: { username: string; email: string; passw
     data: {
       Username: input.username,
       Email: input.email,
-      Password: hashSync(input.passwordCrea, BCRYPT_ROUNDS),
+      Password: await hash(input.passwordCrea, BCRYPT_ROUNDS),
       isGuest: false,
     },
   });
@@ -78,26 +87,32 @@ const grantDefaultTheme = async (userId: number) => {
 export const loginUser = async (input: { identifier: string; password: string }) => {
   const isEmail = input.identifier.includes('@');
   const user = await prisma.users.findFirst({
-    where: isEmail ? { Email: input.identifier } : { Username: input.identifier },
+    // E-mails are stored lower-cased at signup.
+    where: isEmail ? { Email: input.identifier.toLowerCase() } : { Username: input.identifier },
   });
 
   if (!user || user.archived) {
     throw new HttpException('Identifiants invalides.', ErrCodes.USER_NOT_FOUND, statusCodes.UNAUTHORIZED, null);
   }
 
-  if (!compareSync(input.password, user.Password)) {
+  if (!(await compare(input.password, user.Password))) {
     throw new HttpException('Identifiants invalides.', ErrCodes.INCORRECT_PASSWORD, statusCodes.UNAUTHORIZED, null);
+  }
+
+  if (user.banned) {
+    throw new HttpException('Ce compte est suspendu.', ErrCodes.ACCOUNT_LOCKED, statusCodes.FORBIDDEN, null);
   }
 
   await upsertSession(user.ID_User);
   await ensureRole(user.ID_User);
 
-  return { user: toPublicUser(user), token: signToken(user.ID_User) };
+  return { user: toPublicUser(user), token: signToken(user.ID_User, user.tokenVersion) };
 };
 
 export const createGuestUser = async () => {
   const username = await generateGuestUsername();
-  const tempPassword = hashSync(`${username}-${Date.now()}-${Math.random()}`, BCRYPT_ROUNDS);
+  // Guests never log in with a password: store an unusable value instead of paying for a hash.
+  const tempPassword = `!guest:${randomBytes(24).toString('hex')}`;
 
   const guest = await prisma.users.create({
     data: {
@@ -112,7 +127,7 @@ export const createGuestUser = async () => {
     data: { ID_User: guest.ID_User, Connected: true, LastConnection: new Date(), TotalLoginCount: 1 },
   });
 
-  return { user: toPublicUser(guest), token: signToken(guest.ID_User) };
+  return { user: toPublicUser(guest), token: signToken(guest.ID_User, guest.tokenVersion) };
 };
 
 export const logoutUser = async (userId: number) => {
@@ -131,6 +146,8 @@ export const logoutUser = async (userId: number) => {
     where: { ID_User: userId, Connected: true },
     data: { Connected: false, LastConnection: new Date() },
   });
+  // Revoke the token that was just used (and any other one of this account).
+  await prisma.users.update({ where: { ID_User: userId }, data: { tokenVersion: { increment: 1 } } });
 
   return { message: 'Déconnexion réussie.' };
 };

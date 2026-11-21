@@ -5,7 +5,7 @@ import { getSession, setSessionDisconnected } from '../controllers/sessionContro
 
 const sessionRoutes: Router = Router()
 
-sessionRoutes.get('/get', authMiddleware("1"), getSession)
-sessionRoutes.post('/set', authMiddleware("1"), setSessionDisconnected)
+sessionRoutes.get('/get', authMiddleware(), getSession)
+sessionRoutes.post('/set', authMiddleware(), setSessionDisconnected)
 
 export default sessionRoutes

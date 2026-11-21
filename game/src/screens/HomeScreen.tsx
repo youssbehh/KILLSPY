@@ -94,6 +94,7 @@ export const HomeScreen: React.FC = () => {
   const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
   const money = useAuthStore((s) => s.user?.money ?? 0);
   const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
+  const level = useAuthStore((s) => s.user?.level ?? 1);
   const isGuest = useAuthStore((s) => s.user?.guest ?? false);
   const insets = useSafeAreaInsets();
 
@@ -137,7 +138,7 @@ export const HomeScreen: React.FC = () => {
               <View style={styles.rankRow}>
                 <RankBadge tier={rankTierIndex(mmr)} size={18} />
                 <Text style={styles.rankLabel}>
-                  {isGuest ? 'GUEST' : `${rank.label.toUpperCase()} · ${mmr.toLocaleString('en-US')} RP`}
+                  {isGuest ? 'GUEST' : `LVL ${level} · ${rank.label.toUpperCase()} · ${mmr.toLocaleString('en-US')} RP`}
                 </Text>
               </View>
             </View>

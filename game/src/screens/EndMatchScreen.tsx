@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
 import { GameMode, mmrToRank, progressToNext } from '../game/ranking';
+import { levelFromXp, levelProgress } from '../game/progression';
 
 interface StatPod {
   label: string;
@@ -41,7 +42,7 @@ interface Props {
   /** 'pve' for training games against the bot (nothing is credited). */
   mode: GameMode;
   /** What the server credited. Null for training games. */
-  rewards?: { mmrDelta: number; moneyDelta: number } | null;
+  rewards?: { mmrDelta: number; moneyDelta: number; xpDelta: number } | null;
   rounds: number;
   livesLeft: number;
   onRematch?: () => void;
@@ -52,6 +53,7 @@ const MODE_LABEL: Record<GameMode, string> = {
   pve: 'TRAINING',
   pvp_quick: 'QUICK PLAY',
   pvp_ranked: 'RANKED',
+  pvp_friendly: 'FRIENDLY',
 };
 
 const HEADLINE: Record<MatchOutcome, { title: string; sub: string }> = {
@@ -82,6 +84,8 @@ export const EndMatchScreen: React.FC<Props> = ({
 
   const coins = rewards?.moneyDelta ?? 0;
   const rpDelta = rewards?.mmrDelta ?? 0;
+  const xpDelta = rewards?.xpDelta ?? 0;
+  const xp = useAuthStore((s) => s.user?.xp ?? 0);
   const ranked = mode === 'pvp_ranked';
   const rank = mmrToRank(mmr);
 
@@ -89,7 +93,7 @@ export const EndMatchScreen: React.FC<Props> = ({
     { label: 'MODE', value: MODE_LABEL[mode], color: KS.primary },
     { label: 'ROUNDS', value: String(rounds), color: KS.ink },
     { label: 'LIVES LEFT', value: String(livesLeft), color: livesLeft > 0 ? KS.live : KS.danger },
-    { label: 'RANK', value: rank.label.toUpperCase(), color: KS.alert },
+    { label: 'XP EARNED', value: `+${xpDelta}`, color: xpDelta > 0 ? KS.live : KS.inkMute },
   ];
 
   const stampScale = useSharedValue(2.2);
@@ -138,11 +142,13 @@ export const EndMatchScreen: React.FC<Props> = ({
   const rewardNote =
     mode === 'pve'
       ? 'TRAINING · NO REWARD'
+      : mode === 'pvp_friendly'
+        ? 'FRIENDLY · NO REWARD'
       : isGuest
         ? 'GUEST ACCOUNT · NO REWARD'
         : ranked
           ? `RANK PROGRESS · ${rank.label.toUpperCase()}`
-          : 'QUICK PLAY · NO RP';
+          : `LEVEL ${levelFromXp(xp)} · XP`;
 
   return (
     <View style={styles.container}>
@@ -192,7 +198,7 @@ export const EndMatchScreen: React.FC<Props> = ({
                     {rpDelta > 0 ? '+' : ''}{rpDelta} RP
                   </Text>
                 )}
-                <ProgressBar value={progressToNext(mmr)} segments={26} color={accent} height={6} />
+                <ProgressBar value={ranked ? progressToNext(mmr) : levelProgress(xp)} segments={26} color={accent} height={6} />
               </View>
             </View>
           </GlassCard>
@@ -223,8 +229,14 @@ export const EndMatchScreen: React.FC<Props> = ({
 
           {/* CTAs */}
           <View style={styles.ctas}>
-            <PrimaryButton label="REMATCH" onPress={onRematch} size="large" />
-            <SecondaryButton label="HOME" onPress={onHome} />
+            {onRematch ? (
+              <>
+                <PrimaryButton label="REMATCH" onPress={onRematch} size="large" />
+                <SecondaryButton label="HOME" onPress={onHome} />
+              </>
+            ) : (
+              <PrimaryButton label="HOME" onPress={onHome} size="large" />
+            )}
           </View>
 
           <View style={{ height: insets.bottom + 24 }} />

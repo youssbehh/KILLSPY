@@ -5,10 +5,15 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { motTraduit } from '@/components/translationHelper';
 import { useLanguageStore } from '@/src/stores/languageStore';
-import LoadingOverlay from '@/components/LoadingOverlay';
 import { useAuthStore } from '@/src/stores/authStore';
 import { updateUsername as apiUpdateUsername } from '@/src/api/users';
 import { extractApiError } from '@/src/api/client';
+import { useLocalT } from '@/src/i18n/local';
+import { FormNotice } from '@/src/components/ks/FormField';
+import { ACCOUNT_STRINGS } from '@/src/screens/account/strings';
+import { checkUsername } from '@/src/screens/account/rules';
+import { EmailVerification } from '@/src/screens/account/EmailVerification';
+import { GuestUpgradeForm } from '@/src/screens/account/GuestUpgradeForm';
 import { KSAccordion } from './KSAccordion';
 import { KS } from '@/src/theme/colors';
 import { TYPO, SIZES } from '@/src/theme/typography';
@@ -17,11 +22,14 @@ const LANGS = ['Français', 'English'];
 
 const CompteContainer = () => {
   const { langIndex, setLanguage } = useLanguageStore();
+  const t = useLocalT(ACCOUNT_STRINGS);
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
   const [userChange, setUserChange] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  // Set when the guest form succeeds: by then the form itself is gone (the user is no longer a guest).
+  const [justUpgraded, setJustUpgraded] = useState(false);
 
   const updateUsernameMutation = useMutation({
     mutationFn: apiUpdateUsername,
@@ -36,29 +44,51 @@ const CompteContainer = () => {
   const isGuest = user?.guest ?? false;
   const username = user?.username ?? '';
 
+  const saveUsername = () => {
+    if (updateUsernameMutation.isPending) return;
+    const next = userChange.trim();
+    if (next === username) {
+      setIsEditing(false);
+      setErrorMsg('');
+      return;
+    }
+    const error = checkUsername(next);
+    if (error) return setErrorMsg(t(error));
+    updateUsernameMutation.mutate(next);
+  };
+
   return (
     <KSAccordion title={motTraduit(langIndex, 20)}>
-      <LoadingOverlay isLoading={updateUsernameMutation.isPending} />
+      {justUpgraded && !isGuest && <FormNotice notice={{ text: t('upgradeDone'), ok: true }} />}
 
-      {/* Username row */}
+      {/* Username row (a guest's name is chosen when the account is created, below) */}
       <Text style={styles.label}>{motTraduit(langIndex, 46)}</Text>
       <View style={styles.inputRow}>
         <TextInput
           style={[styles.input, !isEditing && styles.inputDisabled]}
           placeholder={username || motTraduit(langIndex, 58)}
           placeholderTextColor={KS.inkFaint}
+          selectionColor={KS.primary}
           value={isEditing ? userChange : username}
           onChangeText={setUserChange}
           editable={isEditing}
           autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="username"
+          maxLength={20}
+          onSubmitEditing={saveUsername}
+          accessibilityLabel={motTraduit(langIndex, 46)}
         />
         {!isGuest && (
           isEditing ? (
             <View style={styles.btnRow}>
               <Pressable
                 style={[styles.btn, { backgroundColor: KS.live + '22', borderColor: KS.live }]}
-                onPress={() => updateUsernameMutation.mutate(userChange)}
+                onPress={saveUsername}
                 disabled={updateUsernameMutation.isPending}
+                accessibilityRole="button"
+                accessibilityLabel={t('usernameSave')}
+                accessibilityState={{ disabled: updateUsernameMutation.isPending }}
               >
                 {updateUsernameMutation.isPending
                   ? <ActivityIndicator color={KS.live} size="small" />
@@ -67,6 +97,9 @@ const CompteContainer = () => {
               <Pressable
                 style={[styles.btn, { backgroundColor: KS.danger + '22', borderColor: KS.danger }]}
                 onPress={() => { setIsEditing(false); setUserChange(username); setErrorMsg(''); }}
+                disabled={updateUsernameMutation.isPending}
+                accessibilityRole="button"
+                accessibilityLabel={t('usernameCancel')}
               >
                 <Text style={[styles.btnText, { color: KS.danger }]}>✕</Text>
               </Pressable>
@@ -75,22 +108,38 @@ const CompteContainer = () => {
             <Pressable
               style={[styles.btn, { backgroundColor: KS.primary + '22', borderColor: KS.primary }]}
               onPress={() => { setUserChange(username); setIsEditing(true); setErrorMsg(''); }}
+              accessibilityRole="button"
+              accessibilityLabel={t('usernameEdit')}
             >
               <Text style={[styles.btnText, { color: KS.primary }]}>✎</Text>
             </Pressable>
           )
         )}
       </View>
-      {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
+      {errorMsg ? (
+        <Text style={styles.error} accessibilityLiveRegion="polite" accessibilityRole="alert">
+          {errorMsg}
+        </Text>
+      ) : null}
+
+      <View style={styles.divider} />
+
+      {/* A guest has no e-mail to verify: it gets the "create my account" form instead. */}
+      {isGuest ? <GuestUpgradeForm onDone={() => setJustUpgraded(true)} /> : <EmailVerification />}
+
+      <View style={styles.divider} />
 
       {/* Language */}
-      <Text style={[styles.label, { marginTop: 8 }]}>{motTraduit(langIndex, 25)}</Text>
+      <Text style={styles.label}>{motTraduit(langIndex, 25)}</Text>
       <View style={styles.langRow}>
         {LANGS.map((lng, i) => (
           <Pressable
-            key={i}
+            key={lng}
             onPress={() => setLanguage(i)}
             style={[styles.langChip, langIndex === i && styles.langChipActive]}
+            accessibilityRole="button"
+            accessibilityLabel={lng}
+            accessibilityState={{ selected: langIndex === i }}
           >
             <Text style={[styles.langText, langIndex === i && styles.langTextActive]}>{lng}</Text>
           </Pressable>
@@ -111,7 +160,7 @@ const styles = StyleSheet.create({
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: {
     flex: 1,
-    height: 40,
+    height: 44,
     paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: KS.hairSoft,
@@ -123,17 +172,20 @@ const styles = StyleSheet.create({
   inputDisabled: { color: KS.inkDim },
   btnRow: { flexDirection: 'row', gap: 6 },
   btn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderRadius: 4,
   },
-  btnText: { fontFamily: TYPO.mono, fontSize: 14 },
+  btnText: { fontFamily: TYPO.mono, fontSize: SIZES.monoLg },
   error: { color: KS.danger, fontFamily: TYPO.mono, fontSize: SIZES.monoSm, marginTop: 4 },
+  divider: { height: 1, backgroundColor: KS.divider, marginVertical: 6 },
   langRow: { flexDirection: 'row', gap: 8 },
   langChip: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderWidth: 1,

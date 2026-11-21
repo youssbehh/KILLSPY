@@ -57,6 +57,9 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
   const deadlineAt = useGameStore((s) => s.deadlineAt);
   const matchStatus = useGameStore((s) => s.matchStatus);
   const errorMessage = useGameStore((s) => s.errorMessage);
+  const connected = useGameStore((s) => s.connected);
+  const opponentGraceUntil = useGameStore((s) => s.opponentGraceUntil);
+  const [graceSecs, setGraceSecs] = useState(0);
 
   // 'finished' is shown as a last reveal: the screen stays up while the final turn plays out.
   const resolving = matchStatus === 'resolving' || matchStatus === 'finished';
@@ -98,13 +101,14 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
   useEffect(() => {
     const tick = () => {
       setElapsedSecs(Math.floor((Date.now() - startedAt) / 1000));
+      setGraceSecs(opponentGraceUntil === null ? 0 : Math.max(0, Math.ceil((opponentGraceUntil - Date.now()) / 1000)));
       if (deadlineAt === null) return setCountdown(0);
       setCountdown(Math.max(0, Math.ceil((deadlineAt - Date.now()) / 1000)));
     };
     tick();
     const interval = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [deadlineAt, startedAt]);
+  }, [deadlineAt, startedAt, opponentGraceUntil]);
 
   const blinkStyle = useAnimatedStyle(() => ({ opacity: blinkOp.value }));
   const recStyle = useAnimatedStyle(() => ({ opacity: recDot.value }));
@@ -162,7 +166,7 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
           </View>
           <View style={styles.statusChip}>
             <Text style={[styles.statusText, { color: resolving ? KS.alert : KS.inkDim }]}>
-              {resolving ? '◉ REVEALED' : '⌛ THINKING'}
+              {opponentGraceUntil !== null ? '✕ OFFLINE' : resolving ? '◉ REVEALED' : '⌛ THINKING'}
             </Text>
           </View>
         </View>
@@ -191,7 +195,11 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
         <Text style={styles.resolvingIn}>{resolving ? 'RESOLVING' : 'RESOLVING IN'}</Text>
         <Countdown value={countdown} max={TURN_SECS} />
         <Animated.Text style={[styles.lockLabel, blinkStyle]}>
-          {errorMessage ?? (selectedAction ? 'ACTION LOCKED' : countdown <= 2 ? '⚠ LOCK YOUR ACTION' : 'LOCK YOUR ACTION')}
+          {!connected
+            ? '⚠ CONNECTION LOST · RECONNECTING'
+            : opponentGraceUntil !== null
+              ? `OPPONENT DISCONNECTED · FORFEIT IN ${graceSecs}S`
+              : errorMessage ?? (selectedAction ? 'ACTION LOCKED' : countdown <= 2 ? '⚠ LOCK YOUR ACTION' : 'LOCK YOUR ACTION')}
         </Animated.Text>
       </View>
 
