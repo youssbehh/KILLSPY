@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KS } from '@/src/theme/colors';
 import { TYPO } from '@/src/theme/typography';
 import { useInbox } from '@/src/hooks/useMessages';
+import { useFriends } from '@/src/hooks/useFriends';
 import type { ConversationSummary } from '@/src/api/messages';
 
 // ── SVG icon paths ─────────────────────────────────────────────────────────────
@@ -48,7 +49,10 @@ function activeItemId(pathname: string): string {
 // ── Friends unread hook (for badge) ──────────────────────────────────────────
 function useFriendsUnread(): number {
   const { data: inbox } = useInbox();
-  return (inbox ?? []).reduce((acc: number, s: ConversationSummary) => acc + s.unreadCount, 0);
+  const { data: friends } = useFriends();
+  const unread = ((inbox ?? []) as ConversationSummary[]).reduce((acc, s) => acc + s.unreadCount, 0);
+  // Requests waiting for an answer count too: the badge means "something needs you here".
+  return unread + (friends?.incoming.length ?? 0);
 }
 
 // ── Custom tab bar ─────────────────────────────────────────────────────────────
@@ -88,6 +92,7 @@ function KSBottomNav() {
               onPress={() => router.replace(item.route as any)}
               style={styles.item}
               accessibilityRole="tab"
+              accessibilityLabel={item.label}
               accessibilityState={{ selected: on }}
             >
               {/* Active indicator bar */}

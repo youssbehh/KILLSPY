@@ -9,6 +9,9 @@ export interface AuthUser {
   email?: string;
   mmr: number;
   money: number;
+  xp: number;
+  level: number;
+  emailVerified: boolean;
   guest: boolean;
 }
 

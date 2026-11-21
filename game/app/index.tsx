@@ -2,14 +2,12 @@ import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TextInputProps,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AlertModal from '@/components/AlertModal';
@@ -19,21 +17,25 @@ import { useLoginMutation, useGuestMutation, useSignupMutation } from '@/src/hoo
 import { ping } from '@/src/api/auth';
 import { extractApiError } from '@/src/api/client';
 import { useT } from '@/src/i18n';
+import { useLocalT } from '@/src/i18n/local';
 import { KS } from '@/src/theme/colors';
 import { TYPO, SIZES } from '@/src/theme/typography';
 import { TopoBg } from '@/src/components/ks/TopoBg';
 import { Logo } from '@/src/components/ks/Logo';
 import { PrimaryButton } from '@/src/components/ks/PrimaryButton';
 import { SecondaryButton } from '@/src/components/ks/SecondaryButton';
+import { Check, Field, FormNotice, LinkButton, Notice } from '@/src/components/ks/FormField';
+import { ACCOUNT_STRINGS } from '@/src/screens/account/strings';
+import { checkEmail, checkPassword, checkUsername, normalizeEmail } from '@/src/screens/account/rules';
 
 const REMEMBERED_KEY = 'rememberedIdentifier';
 const RGPD_DELAY_SECS = 5;
 
-type Notice = { text: string; ok: boolean } | null;
-
 // Navigation after a successful login is handled by the auth guard in app/_layout.tsx.
 export default function LoginFormScreen() {
   const t = useT();
+  const tAccount = useLocalT(ACCOUNT_STRINGS);
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const loginMutation = useLoginMutation();
   const guestMutation = useGuestMutation();
@@ -90,12 +92,15 @@ export default function LoginFormScreen() {
 
   const handleSignup = async () => {
     if (!username || !email) return fail(t('errFieldsEmpty'));
+    // Same rules as the server, which only answers "invalid data" when one is broken.
+    const ruleError = checkUsername(username) ?? checkEmail(email) ?? checkPassword(passwordCrea);
+    if (ruleError) return fail(tAccount(ruleError));
     if (passwordCrea !== confirmPassword) return fail(t('errPasswordMismatch'));
     if (!acceptTerms) return fail(t('errAcceptTerms'));
 
     try {
-      await signupMutation.mutateAsync({ username, email, passwordCrea });
-      setIdentifier(username);
+      await signupMutation.mutateAsync({ username: username.trim(), email: normalizeEmail(email), passwordCrea });
+      setIdentifier(username.trim());
       setUsername('');
       setEmail('');
       setPasswordCrea('');
@@ -164,6 +169,12 @@ export default function LoginFormScreen() {
                 onSubmitEditing={handleLogin}
               />
               <Check label={t('rememberMe')} checked={rememberMe} onToggle={() => setRememberMe((v) => !v)} />
+              <LinkButton
+                label={tAccount('forgotLink')}
+                onPress={() => router.push('/forgot-password')}
+                disabled={isLoading}
+                style={styles.forgot}
+              />
             </>
           ) : (
             <>
@@ -188,8 +199,8 @@ export default function LoginFormScreen() {
                 onChangeText={setPasswordCrea}
                 secureTextEntry
                 autoComplete="new-password"
+                hint={t('passwordRules')}
               />
-              <Text style={styles.hint}>{t('passwordRules')}</Text>
               <Field
                 label={t('passwordConfirm')}
                 value={confirmPassword}
@@ -205,14 +216,7 @@ export default function LoginFormScreen() {
             </>
           )}
 
-          {notice && (
-            <Text
-              style={[styles.notice, { color: notice.ok ? KS.live : KS.danger }]}
-              accessibilityLiveRegion="polite"
-            >
-              › {notice.text}
-            </Text>
-          )}
+          <FormNotice notice={notice} />
 
           <PrimaryButton
             label={(isLoginForm ? t('loginButton') : t('signup')).toUpperCase()}
@@ -227,11 +231,12 @@ export default function LoginFormScreen() {
             disabled={isLoading}
           />
 
-          <Pressable onPress={switchForm} accessibilityRole="button" hitSlop={12} style={styles.switch}>
-            <Text style={styles.switchText}>
-              {isLoginForm ? t('createAccount') : t('alreadyHaveAccount')}
-            </Text>
-          </Pressable>
+          <LinkButton
+            label={isLoginForm ? t('createAccount') : t('alreadyHaveAccount')}
+            onPress={switchForm}
+            disabled={isLoading}
+            style={styles.switch}
+          />
 
           <View style={styles.footer}>
             {serverUp !== null && (
@@ -267,40 +272,6 @@ export default function LoginFormScreen() {
   );
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-const Field: React.FC<TextInputProps & { label: string }> = ({ label, ...input }) => (
-  <View style={styles.field}>
-    <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
-    <TextInput
-      {...input}
-      accessibilityLabel={label}
-      placeholderTextColor={KS.inkFaint}
-      selectionColor={KS.primary}
-      style={styles.input}
-    />
-  </View>
-);
-
-const Check: React.FC<{ label: string; checked: boolean; onToggle: () => void }> = ({
-  label,
-  checked,
-  onToggle,
-}) => (
-  <Pressable
-    onPress={onToggle}
-    accessibilityRole="checkbox"
-    accessibilityState={{ checked }}
-    hitSlop={8}
-    style={styles.check}
-  >
-    <View style={[styles.checkBox, checked && styles.checkBoxOn]}>
-      {checked && <Text style={styles.checkMark}>✓</Text>}
-    </View>
-    <Text style={styles.checkLabel}>{label}</Text>
-  </Pressable>
-);
-
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: KS.bg },
@@ -313,48 +284,9 @@ const styles = StyleSheet.create({
     letterSpacing: SIZES.monoMd * 0.18,
     textTransform: 'uppercase',
   },
-  field: { marginBottom: 14, gap: 6 },
-  fieldLabel: {
-    color: KS.inkDim,
-    fontFamily: TYPO.mono,
-    fontSize: SIZES.monoSm,
-    letterSpacing: SIZES.monoSm * 0.18,
-  },
-  input: {
-    height: 48,
-    paddingHorizontal: 14,
-    backgroundColor: KS.surface,
-    borderWidth: 1,
-    borderColor: KS.hairSoft,
-    borderRadius: 4,
-    color: KS.ink,
-    fontFamily: TYPO.ui,
-    fontSize: SIZES.bodyLg,
-  },
-  hint: {
-    color: KS.inkDim,
-    fontFamily: TYPO.ui,
-    fontSize: SIZES.bodySm,
-    marginTop: -6,
-    marginBottom: 14,
-  },
-  check: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
-  checkBox: {
-    width: 22,
-    height: 22,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: KS.hair,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkBoxOn: { backgroundColor: KS.primary, borderColor: KS.primary },
-  checkMark: { color: KS.ink, fontFamily: TYPO.uiBold, fontSize: SIZES.body },
-  checkLabel: { color: KS.inkMute, fontFamily: TYPO.ui, fontSize: SIZES.body, flexShrink: 1 },
-  notice: { fontFamily: TYPO.mono, fontSize: SIZES.monoMd, marginTop: 4, marginBottom: 4 },
   cta: { marginTop: 12, marginBottom: 10, alignSelf: 'stretch' },
-  switch: { alignSelf: 'center', paddingVertical: 16, minHeight: 48, justifyContent: 'center' },
-  switchText: { color: KS.primary, fontFamily: TYPO.uiBold, fontSize: SIZES.body },
+  switch: { marginTop: 4 },
+  forgot: { alignSelf: 'flex-end' },
   footer: { marginTop: 'auto', paddingTop: 16, alignItems: 'center', gap: 6 },
   serverRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   serverDot: { width: 7, height: 7, borderRadius: 4 },

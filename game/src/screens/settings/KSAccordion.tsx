@@ -20,6 +20,9 @@ export const KSAccordion: React.FC<KSAccordionProps> = ({ title, children, defau
     <View style={styles.container}>
       <Pressable
         onPress={() => setOpen((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded: open }}
         style={({ pressed }) => [styles.header, pressed && { opacity: 0.8 }]}
       >
         <Text style={styles.title}>{title.toUpperCase()}</Text>

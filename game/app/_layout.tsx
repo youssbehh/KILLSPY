@@ -1,6 +1,6 @@
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
@@ -21,6 +21,9 @@ import {
 
 import { useAuthStore } from '@/src/stores/authStore';
 import { KS } from '@/src/theme/colors';
+import { useRealtime } from '@/src/sockets/useRealtime';
+import { isInMatch, useGameStore } from '@/src/stores/gameStore';
+import { ChallengeOverlay } from '@/src/components/ks/ChallengeOverlay';
 import { queryClient } from '@/src/lib/queryClient';
 import { useEquippedTheme } from '@/src/hooks/useEquippedTheme';
 import { useSyncMe } from '@/src/hooks/useAuthFlow';
@@ -70,6 +73,26 @@ export default function RootLayout() {
 const ThemeSync: React.FC = () => {
   useEquippedTheme();
   useSyncMe();
+  useRealtime();
+  return null;
+};
+
+const DUEL_ROUTE = '/play/partieRapide';
+
+/**
+ * A match can begin while the player is anywhere in the app — an accepted friend
+ * challenge, or a connection that comes back mid-match. Bring them to the duel screen.
+ */
+const MatchRouter: React.FC = () => {
+  const inMatch = useGameStore((s) => isInMatch(s.matchStatus));
+  const pathname = usePathname();
+  const router = useRouter();
+  const navigationReady = useRootNavigationState()?.key != null;
+
+  useEffect(() => {
+    if (navigationReady && inMatch && pathname !== DUEL_ROUTE) router.push(DUEL_ROUTE);
+  }, [navigationReady, inMatch, pathname, router]);
+
   return null;
 };
 
@@ -96,13 +119,17 @@ const AuthGate: React.FC = () => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const segments = useSegments();
   const router = useRouter();
+  // Navigating before the navigator is mounted throws (cold start on a deep link).
+  const navigationReady = useRootNavigationState()?.key != null;
 
   useEffect(() => {
-    if (!hydrated) return;
-    const onLogin = (segments as string[]).length === 0;
-    if (!isAuthenticated && !onLogin) router.replace('/');
-    else if (isAuthenticated && onLogin) router.replace('/(tabs)/gamechoice');
-  }, [hydrated, isAuthenticated, segments, router]);
+    if (!hydrated || !navigationReady) return;
+    const first = (segments as string[])[0];
+    // Screens reachable without a session: login and password reset.
+    const isPublic = first === undefined || first === 'forgot-password';
+    if (!isAuthenticated && !isPublic) router.replace('/');
+    else if (isAuthenticated && isPublic) router.replace('/(tabs)/gamechoice');
+  }, [hydrated, navigationReady, isAuthenticated, segments, router]);
 
   return null;
 };
@@ -114,10 +141,12 @@ function RootLayoutNav() {
       <ThemeSync />
       <ThemeProvider value={NAV_THEME}>
         <AuthGate />
+        <MatchRouter />
         <Stack screenOptions={{ contentStyle: { backgroundColor: KS.bg } }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
+        <ChallengeOverlay />
       </ThemeProvider>
     </QueryClientProvider>
   );

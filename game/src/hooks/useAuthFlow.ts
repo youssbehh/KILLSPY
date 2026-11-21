@@ -33,7 +33,14 @@ export const useSyncMe = () => {
     queryKey: ['users', 'me'],
     queryFn: async () => {
       const me = await usersApi.getMe();
-      updateUser({ mmr: me.mmr, money: me.money, username: me.username });
+      updateUser({
+        mmr: me.mmr,
+        money: me.money,
+        username: me.username,
+        xp: me.xp,
+        level: me.level,
+        emailVerified: me.emailVerified,
+      });
       return me;
     },
     enabled: isAuth && !isGuest,

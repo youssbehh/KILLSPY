@@ -16,12 +16,10 @@ import { RankBadge } from '../components/ks/RankBadge';
 import { ChamferContainer } from '../components/ks/ChamferContainer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useLeaderboardPages, useMyLeaderboardPosition } from '../hooks/useLeaderboard';
 import { useAuthStore } from '../stores/authStore';
 import { LeaderboardEntry } from '../api/leaderboard';
 import { rankTierIndex } from '../game/rankDisplay';
-
-const TOP_LIMIT = 50;
 
 const toRow = (e: LeaderboardEntry) => ({
   rank: e.position,
@@ -39,17 +37,11 @@ export const LeaderboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const me = useAuthStore((s) => s.user);
-  const { data, isLoading, isError, refetch } = useLeaderboard(TOP_LIMIT);
-
-  const entries: LeaderboardEntry[] = data ?? [];
+  const { entries, isLoading, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } = useLeaderboardPages();
+  const { data: myPosition } = useMyLeaderboardPosition();
   const podium = entries.slice(0, 3).map((e) => ({ ...toRow(e), rp: e.rank.label }));
   const rest = entries.slice(3).map(toRow);
-  const mine = entries.find((e) => e.userId === me?.id);
-  const myRow = me
-    ? mine
-      ? toRow(mine)
-      : { rank: 0, name: me.username.toUpperCase(), tier: rankTierIndex(me.mmr), score: me.mmr.toLocaleString('en-US'), delta: 0 }
-    : null;
+  const myRow = myPosition ? toRow(myPosition as LeaderboardEntry) : null;
 
   return (
     <View style={styles.container}>
@@ -58,7 +50,7 @@ export const LeaderboardScreen: React.FC = () => {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" hitSlop={12}>
-          <Text style={styles.eyebrow}>‹ BACK · // INTEL · TOP {TOP_LIMIT}</Text>
+          <Text style={styles.eyebrow}>‹ BACK · // INTEL · GLOBAL LADDER</Text>
         </Pressable>
         <Text style={styles.title}>LEADERBOARD</Text>
       </View>
@@ -99,6 +91,18 @@ export const LeaderboardScreen: React.FC = () => {
           ))}
         </View>
 
+        {hasNextPage && (
+          <Pressable
+            onPress={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            accessibilityRole="button"
+            accessibilityLabel="Load more"
+            style={styles.more}
+          >
+            {isFetchingNextPage ? <ActivityIndicator color={KS.primary} /> : <Text style={styles.moreText}>LOAD MORE</Text>}
+          </Pressable>
+        )}
+
         <View style={{ height: 120 }} />
       </ScrollView>
 
@@ -106,7 +110,7 @@ export const LeaderboardScreen: React.FC = () => {
       {myRow && !me?.guest && (
         <View style={[styles.ownRank, { left: PAD, right: PAD, bottom: insets.bottom + 12 }]}>
           <Text style={styles.ownEyebrow}>
-            // YOUR POSITION{myRow.rank === 0 ? ` · OUTSIDE TOP ${TOP_LIMIT}` : ''}
+            // YOUR POSITION
           </Text>
           <LeaderRow entry={myRow} self />
         </View>
@@ -195,6 +199,8 @@ const LeaderRow: React.FC<{ entry: ListEntry; self: boolean }> = ({ entry, self 
 };
 
 const styles = StyleSheet.create({
+  more: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: KS.hair, borderRadius: 4, marginTop: 8 },
+  moreText: { color: KS.primary, fontFamily: TYPO.display, fontSize: SIZES.labelLg },
   stateBox: { alignItems: 'center', paddingVertical: 60, gap: 6 },
   stateText: { color: KS.ink, fontFamily: TYPO.display, fontSize: SIZES.titleSm },
   stateHint: { color: KS.inkDim, fontFamily: TYPO.mono, fontSize: SIZES.monoXs },

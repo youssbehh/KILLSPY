@@ -19,7 +19,8 @@ export const useClaimMission = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: missionsApi.claimDailyMission,
-    onSuccess: () => {
+    onSuccess: (result) => {
+      useAuthStore.getState().updateUser({ xp: result.xp, level: result.level });
       qc.invalidateQueries({ queryKey: KEY });
     },
   });

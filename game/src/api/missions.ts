@@ -18,7 +18,14 @@ export const getDailyMissions = async (): Promise<DailyMission[]> => {
   return data.missions;
 };
 
-export const claimDailyMission = async (id: number): Promise<{ xpEarned: number }> => {
-  const { data } = await apiClient.post<{ xpEarned: number }>(`/missions/daily/${id}/claim`);
+export interface ClaimResult {
+  xpEarned: number;
+  /** New XP total and level of the player. */
+  xp: number;
+  level: number;
+}
+
+export const claimDailyMission = async (id: number): Promise<ClaimResult> => {
+  const { data } = await apiClient.post<ClaimResult>(`/missions/daily/${id}/claim`);
   return data;
 };

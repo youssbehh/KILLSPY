@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
   Easing,
@@ -28,7 +28,8 @@ function hexPoints(cx: number, cy: number, r: number): string {
 }
 
 const LifeToken: React.FC<{ index: number; isAlive: boolean }> = ({ index, isAlive }) => {
-  const id = `life-${index}`;
+  // Unique per token: on web every SVG shares one id space, and two rows of lives are on screen.
+  const id = `life-${useId().replace(/:/g, "")}-${index}`;
   const c1 = isAlive ? '#ff6b6b' : KS.surfaceHi;
   const c2 = isAlive ? '#ff3b30' : KS.surface;
 
