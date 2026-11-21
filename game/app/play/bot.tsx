@@ -13,6 +13,7 @@ import {
   GameAction,
   GameState,
   COUNTDOWN_DURATION_MS,
+  MAX_AMMO,
   TURN_DURATION_MS,
   createInitialState,
   forcedAction,
@@ -32,6 +33,9 @@ import { Countdown } from '@/src/components/ks/Countdown';
 import { Lives } from '@/src/components/ks/Lives';
 import { Ammo } from '@/src/components/ks/Ammo';
 import { EndMatchScreen } from '@/src/screens/EndMatchScreen';
+import { CombatFx } from '@/src/components/ks/CombatFx';
+import { MOTION } from '@/src/theme/motion';
+import * as Haptics from 'expo-haptics';
 
 type Phase = 'countdown' | 'choosing' | 'resolving' | 'finished';
 
@@ -59,6 +63,15 @@ export default function BotGameScreen() {
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECS);
   const [playerAction, setPlayerAction] = useState<GameAction | null>(null);
   const memoryRef = useRef<BotMemory>(createBotMemory());
+
+  /** Starts a fresh training match on the same screen. */
+  const restart = useCallback(() => {
+    memoryRef.current = createBotMemory();
+    setState(createInitialState());
+    setPlayerAction(null);
+    setSecondsLeft(COUNTDOWN_SECS);
+    setPhase('countdown');
+  }, []);
 
   const blinkOp = useSharedValue(1);
   const recDot = useSharedValue(1);
@@ -110,15 +123,15 @@ export default function BotGameScreen() {
     memoryRef.current = rememberPlayerAction(memoryRef.current, chosenAction);
     const next = resolveTurn(state, chosenAction, botAction);
     setState(next);
-    setPlayerAction(null);
     setTimeout(() => {
+      setPlayerAction(null);
       if (next.status === 'choosing') {
         setPhase('choosing');
         setSecondsLeft(TURN_SECS);
       } else {
         setPhase('finished');
       }
-    }, 800);
+    }, MOTION.reveal);
   }, [state, difficulty]);
 
   const handleCardPress = useCallback((card: CardAction) => {
@@ -127,6 +140,7 @@ export default function BotGameScreen() {
     if (!isActionLegal(state.player, gameAction)) return;
     if (playerAction) return;
     setPlayerAction(gameAction);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setTimeout(() => resolveRound(gameAction), 300);
   }, [phase, state, playerAction, resolveRound]);
 
@@ -145,7 +159,7 @@ export default function BotGameScreen() {
           mode="pve"
           rounds={state.round}
           livesLeft={state.player.lives}
-          onRematch={() => router.replace('/play/bot')}
+          onRematch={restart}
           onHome={() => router.replace('/(tabs)/gamechoice')}
         />
       </>
@@ -186,7 +200,7 @@ export default function BotGameScreen() {
             </View>
             <View style={styles.statusChip}>
               <Text style={[styles.statusText, { color: KS.inkDim }]}>
-                {phase === 'resolving' ? '⚙ COMPUTING' : '⌛ THINKING'}
+                {phase === 'resolving' ? '◉ REVEALED' : '⌛ THINKING'}
               </Text>
             </View>
           </View>
@@ -194,12 +208,17 @@ export default function BotGameScreen() {
           {/* Face-down cards */}
           <View style={styles.cardsRow}>
             {CARD_ACTIONS.map((action) => (
-              <ActionCard key={action} action={action} faceUp={false} />
+              <ActionCard
+                key={action}
+                action={action}
+                faceUp={phase === 'resolving' && state.lastOpponentAction === toGameAction(action)}
+                selected={phase === 'resolving' && state.lastOpponentAction === toGameAction(action)}
+              />
             ))}
           </View>
 
           <View style={styles.infoRow}>
-            <Ammo current={state.opponent.ammo} color={KS.enemy} />
+            <Ammo current={state.opponent.ammo} max={MAX_AMMO} color={KS.enemy} />
             <Lives alive={state.opponent.lives} />
           </View>
         </View>
@@ -233,17 +252,18 @@ export default function BotGameScreen() {
               </Text>
             </View>
             <Lives alive={state.player.lives} />
-            <Ammo current={state.player.ammo} color={KS.primary} />
+            <Ammo current={state.player.ammo} max={MAX_AMMO} color={KS.primary} />
           </View>
 
           <View style={styles.cardsRow}>
             {CARD_ACTIONS.map((action) => {
               const gameAction = toGameAction(action);
-              const isSelected = playerAction === gameAction;
+              const isSelected =
+                phase === 'resolving' ? state.lastPlayerAction === gameAction : playerAction === gameAction;
+              // The locked card stays lit during the reveal; the others dim.
               const isDisabled =
-                phase !== 'choosing' ||
-                !!playerAction ||
-                !isActionLegal(state.player, gameAction);
+                !isSelected &&
+                (phase !== 'choosing' || !!playerAction || !isActionLegal(state.player, gameAction));
               return (
                 <ActionCard
                   key={action}
@@ -270,6 +290,9 @@ export default function BotGameScreen() {
             </View>
           </View>
         </View>
+
+        {/* Shot / shield / reload effects of the turn being revealed */}
+        <CombatFx state={state} />
       </View>
     </>
   );

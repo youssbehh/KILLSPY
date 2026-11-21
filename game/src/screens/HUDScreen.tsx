@@ -27,6 +27,7 @@ import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { GameAction, MAX_AMMO, TURN_DURATION_MS, isActionLegal } from '../game/gameEngine';
 import { DangerButton } from '../components/ks/DangerButton';
+import { CombatFx } from '../components/ks/CombatFx';
 import { rankTierIndex } from '../game/rankDisplay';
 
 // Map design card names to game engine action names
@@ -57,7 +58,8 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
   const matchStatus = useGameStore((s) => s.matchStatus);
   const errorMessage = useGameStore((s) => s.errorMessage);
 
-  const resolving = matchStatus === 'resolving';
+  // 'finished' is shown as a last reveal: the screen stays up while the final turn plays out.
+  const resolving = matchStatus === 'resolving' || matchStatus === 'finished';
   const [countdown, setCountdown] = useState(TURN_SECS);
   const [startedAt] = useState(() => Date.now());
   const [elapsedSecs, setElapsedSecs] = useState(0);
@@ -240,6 +242,9 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
           <DangerButton label="FORFEIT" onPress={onQuit} />
         </View>
       </View>
+
+      {/* Shot / shield / reload effects of the turn being revealed */}
+      <CombatFx state={state} />
     </View>
   );
 };

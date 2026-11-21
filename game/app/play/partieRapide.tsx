@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGameStore } from '@/src/stores/gameStore';
@@ -9,6 +9,7 @@ import { GameAction, isActionLegal } from '@/src/game/gameEngine';
 import { MatchmakingScreen } from '@/src/screens/MatchmakingScreen';
 import { HUDScreen } from '@/src/screens/HUDScreen';
 import { EndMatchScreen } from '@/src/screens/EndMatchScreen';
+import { MOTION } from '@/src/theme/motion';
 
 const HOME = '/(tabs)/gamechoice';
 
@@ -69,8 +70,20 @@ export default function PartieRapideScreen() {
     [sendAction],
   );
 
-  const isFinished = matchStatus === 'finished';
-  const isPlaying = matchStatus === 'playing' || matchStatus === 'resolving';
+  // The server announces the end with the last turn: hold the duel screen long
+  // enough for the killing shot to be seen, then show the debrief.
+  const [debriefReady, setDebriefReady] = useState(false);
+  const lastTurnPlayed = finalState.round > 0 && outcome !== 'opponent_forfeit';
+  useEffect(() => {
+    if (matchStatus !== 'finished') return setDebriefReady(false);
+    if (!lastTurnPlayed) return setDebriefReady(true);
+    const timer = setTimeout(() => setDebriefReady(true), MOTION.reveal);
+    return () => clearTimeout(timer);
+  }, [matchStatus, lastTurnPlayed]);
+
+  const isFinished = matchStatus === 'finished' && debriefReady;
+  const isPlaying =
+    matchStatus === 'playing' || matchStatus === 'resolving' || (matchStatus === 'finished' && !debriefReady);
 
   return (
     <>
