@@ -23,8 +23,10 @@ import { ChamferContainer } from '../components/ks/ChamferContainer';
 import { PrimaryButton } from '../components/ks/PrimaryButton';
 import { SecondaryButton } from '../components/ks/SecondaryButton';
 import { ProgressBar } from '../components/ks/ProgressBar';
-
-export type MatchOutcome = 'won' | 'lost';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { useAuthStore } from '../stores/authStore';
+import { GameMode, mmrToRank, progressToNext } from '../game/ranking';
 
 interface StatPod {
   label: string;
@@ -32,28 +34,63 @@ interface StatPod {
   color: string;
 }
 
+export type MatchOutcome = 'won' | 'lost' | 'draw' | 'opponent_forfeit';
+
 interface Props {
   outcome: MatchOutcome;
-  xpEarned?: number;
-  rpDelta?: number;
-  stats?: StatPod[];
-  onContinue?: () => void;
+  /** 'pve' for training games against the bot (nothing is credited). */
+  mode: GameMode;
+  /** What the server credited. Null for training games. */
+  rewards?: { mmrDelta: number; moneyDelta: number } | null;
+  rounds: number;
+  livesLeft: number;
   onRematch?: () => void;
   onHome?: () => void;
 }
 
+const MODE_LABEL: Record<GameMode, string> = {
+  pve: 'TRAINING',
+  pvp_quick: 'QUICK PLAY',
+  pvp_ranked: 'RANKED',
+};
+
+const HEADLINE: Record<MatchOutcome, { title: string; sub: string }> = {
+  won: { title: 'MISSION COMPLETE', sub: 'TARGET ELIMINATED · OBJECTIVE SECURED' },
+  opponent_forfeit: { title: 'MISSION COMPLETE', sub: 'TARGET FLED THE FIELD' },
+  draw: { title: 'STALEMATE', sub: 'BOTH AGENTS DOWN' },
+  lost: { title: 'MISSION FAILED', sub: 'AGENT KIA · INTEL COMPROMISED' },
+};
+
 export const EndMatchScreen: React.FC<Props> = ({
-  outcome = 'won',
-  xpEarned = outcome === 'won' ? 1840 : 420,
-  rpDelta = outcome === 'won' ? 28 : -15,
-  stats = DEFAULT_STATS,
-  onContinue,
+  outcome,
+  mode,
+  rewards,
+  rounds,
+  livesLeft,
   onRematch,
   onHome,
 }) => {
   const { width } = useWindowDimensions();
-  const win = outcome === 'won';
-  const accent = win ? KS.alert : KS.danger;
+  const insets = useSafeAreaInsets();
+  const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
+  const isGuest = useAuthStore((s) => s.user?.guest ?? false);
+
+  const win = outcome === 'won' || outcome === 'opponent_forfeit';
+  const draw = outcome === 'draw';
+  const accent = win ? KS.alert : draw ? KS.primary : KS.danger;
+  const headline = HEADLINE[outcome];
+
+  const coins = rewards?.moneyDelta ?? 0;
+  const rpDelta = rewards?.mmrDelta ?? 0;
+  const ranked = mode === 'pvp_ranked';
+  const rank = mmrToRank(mmr);
+
+  const stats: StatPod[] = [
+    { label: 'MODE', value: MODE_LABEL[mode], color: KS.primary },
+    { label: 'ROUNDS', value: String(rounds), color: KS.ink },
+    { label: 'LIVES LEFT', value: String(livesLeft), color: livesLeft > 0 ? KS.live : KS.danger },
+    { label: 'RANK', value: rank.label.toUpperCase(), color: KS.alert },
+  ];
 
   const stampScale = useSharedValue(2.2);
   const stampRotate = useSharedValue(-14);
@@ -61,6 +98,10 @@ export const EndMatchScreen: React.FC<Props> = ({
   const contentOpacity = useSharedValue(0);
 
   useEffect(() => {
+    Haptics.notificationAsync(
+      win ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error,
+    ).catch(() => {});
+
     // Stamp in
     stampOpacity.value = withTiming(1, { duration: 100 });
     stampScale.value = withTiming(1, {
@@ -94,6 +135,15 @@ export const EndMatchScreen: React.FC<Props> = ({
   const PAD = 16;
   const cardWidth = width - PAD * 2;
 
+  const rewardNote =
+    mode === 'pve'
+      ? 'TRAINING · NO REWARD'
+      : isGuest
+        ? 'GUEST ACCOUNT · NO REWARD'
+        : ranked
+          ? `RANK PROGRESS · ${rank.label.toUpperCase()}`
+          : 'QUICK PLAY · NO RP';
+
   return (
     <View style={styles.container}>
       <TopoBg />
@@ -109,44 +159,40 @@ export const EndMatchScreen: React.FC<Props> = ({
       />
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD }]}
+        contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD, paddingTop: insets.top + 20 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Eyebrow */}
         <Text style={styles.eyebrow}>
-          // DEBRIEF · OP NIGHTFALL{!win ? ' · REDACTED' : ''}
+          // DEBRIEF · {MODE_LABEL[mode]}
         </Text>
 
         {/* Stamp */}
         <View style={styles.stampWrapper}>
           <Animated.View style={[styles.stampContainer, { borderColor: accent, shadowColor: accent }, stampStyle]}>
-            <Text style={[styles.stampTitle, { color: accent }]}>
-              {win ? 'MISSION COMPLETE' : 'MISSION FAILED'}
-            </Text>
-            <Text style={styles.stampSub}>
-              {win
-                ? 'TARGET ELIMINATED · OBJECTIVE SECURED'
-                : 'AGENT KIA · INTEL COMPROMISED'}
-            </Text>
+            <Text style={[styles.stampTitle, { color: accent }]}>{headline.title}</Text>
+            <Text style={styles.stampSub}>{headline.sub}</Text>
           </Animated.View>
         </View>
 
         <Animated.View style={[contentStyle, { gap: 12 }]}>
-          {/* XP Card */}
+          {/* Rewards card */}
           <GlassCard width={cardWidth} height={132} chamfer={10} variant="tr-bl">
             <View style={styles.xpInner}>
               <View style={styles.xpLeft}>
-                <Text style={styles.xpLabel}>XP EARNED</Text>
-                <Text style={[styles.xpValue, { color: win ? KS.live : KS.inkMute }]}>
-                  +{xpEarned.toLocaleString('en-US')}
+                <Text style={styles.xpLabel}>COINS EARNED</Text>
+                <Text style={[styles.xpValue, { color: coins > 0 ? KS.live : KS.inkMute }]}>
+                  +{coins.toLocaleString('en-US')}
                 </Text>
               </View>
               <View style={styles.xpRight}>
-                <Text style={styles.rankProgress}>RANK PROGRESS · AGENT III</Text>
-                <Text style={[styles.rpDelta, { color: win ? KS.live : KS.danger }]}>
-                  {rpDelta > 0 ? '+' : ''}{rpDelta} RP
-                </Text>
-                <ProgressBar value={win ? 0.65 : 0.35} segments={26} color={accent} height={6} />
+                <Text style={styles.rankProgress}>{rewardNote}</Text>
+                {ranked && (
+                  <Text style={[styles.rpDelta, { color: rpDelta >= 0 ? KS.live : KS.danger }]}>
+                    {rpDelta > 0 ? '+' : ''}{rpDelta} RP
+                  </Text>
+                )}
+                <ProgressBar value={progressToNext(mmr)} segments={26} color={accent} height={6} />
               </View>
             </View>
           </GlassCard>
@@ -167,7 +213,9 @@ export const EndMatchScreen: React.FC<Props> = ({
                   {/* Colored top stripe */}
                   <View style={[styles.statStripe, { backgroundColor: s.color }]} />
                   <Text style={styles.statLabel}>{s.label}</Text>
-                  <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
+                  <Text style={[styles.statValue, { color: s.color }]} numberOfLines={1} adjustsFontSizeToFit>
+                    {s.value}
+                  </Text>
                 </View>
               </ChamferContainer>
             ))}
@@ -175,34 +223,20 @@ export const EndMatchScreen: React.FC<Props> = ({
 
           {/* CTAs */}
           <View style={styles.ctas}>
-            <PrimaryButton
-              label={win ? 'CONTINUE' : 'REMATCH'}
-              onPress={win ? onContinue : onRematch}
-              size="large"
-            />
-            <View style={styles.ctaRow}>
-              <SecondaryButton label="REPLAY" onPress={() => {}} style={{ flex: 1 }} />
-              <SecondaryButton label="HOME" onPress={onHome} style={{ flex: 1 }} />
-            </View>
+            <PrimaryButton label="REMATCH" onPress={onRematch} size="large" />
+            <SecondaryButton label="HOME" onPress={onHome} />
           </View>
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: insets.bottom + 24 }} />
         </Animated.View>
       </ScrollView>
     </View>
   );
 };
 
-const DEFAULT_STATS: StatPod[] = [
-  { label: 'KILLS',    value: '3',    color: KS.danger },
-  { label: 'DEATHS',   value: '1',    color: KS.enemy  },
-  { label: 'ACCURACY', value: '75%',  color: KS.primary },
-  { label: 'MVP',      value: '★',    color: KS.alert   },
-];
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: KS.bg },
-  scroll: { paddingTop: 64, gap: 0 },
+  scroll: { gap: 0 },
   eyebrow: {
     color: KS.inkDim,
     fontFamily: TYPO.mono,
@@ -286,5 +320,4 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   ctas: { gap: 8, marginTop: 8 },
-  ctaRow: { flexDirection: 'row', gap: 8 },
 });

@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
@@ -7,18 +8,19 @@ import { TopoBg, ChamferContainer } from '@/src/components/ks';
 import { useAuthStore } from '@/src/stores/authStore';
 import { useLogoutMutation } from '@/src/hooks/useAuthFlow';
 import { motTraduit } from '@/components/translationHelper';
-import { useLanguageStore } from '@/store/languageStore';
+import { useLanguageStore } from '@/src/stores/languageStore';
 import AlertModal from '@/components/AlertModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
-import AudioContainer from './sousoptions/optaudio';
-import CompteContainer from './sousoptions/optcompte';
-import SecuriteContainer from './sousoptions/optsecurite';
-import DiversContainer from './sousoptions/optdivers';
-import SupportContainer from './sousoptions/optsupport';
-import ProposContainer from './sousoptions/optpropos';
+import AudioContainer from '@/src/screens/settings/optaudio';
+import CompteContainer from '@/src/screens/settings/optcompte';
+import SecuriteContainer from '@/src/screens/settings/optsecurite';
+import DiversContainer from '@/src/screens/settings/optdivers';
+import SupportContainer from '@/src/screens/settings/optsupport';
+import ProposContainer from '@/src/screens/settings/optpropos';
 import { appVersion } from '../config';
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { langIndex } = useLanguageStore();
   const isGuest = useAuthStore((s) => s.user?.guest ?? false);
@@ -39,8 +41,8 @@ export default function SettingsScreen() {
         <LoadingOverlay isLoading={logoutMutation.isPending} />
 
         {/* ── Header ── */}
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8}>
             <Text style={styles.backArrow}>‹</Text>
           </Pressable>
           <View>
@@ -105,7 +107,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingTop: 60,
     paddingHorizontal: 16,
     paddingBottom: 12,
   },

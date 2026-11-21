@@ -20,7 +20,8 @@ export const socketAuth = async (socket: Socket, next: (err?: Error) => void) =>
 
     if (!token) return next(new Error('Token requis.'));
 
-    const payload = jwt.verify(token, JWT_SECRET) as { id: number };
+    const raw = token.startsWith('Bearer ') ? token.slice(7) : token;
+    const payload = jwt.verify(raw, JWT_SECRET) as { id: number };
     const user = await prisma.users.findUnique({
       where: { ID_User: payload.id },
       select: { ID_User: true, Username: true, isGuest: true, archived: true },

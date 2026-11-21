@@ -1,6 +1,5 @@
-import { GuildRole, PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { GuildRole } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
 export const GUILD_CREATE_COST = 5_000; // coins — requires real grind to afford
 const MAX_MEMBERS = 30;
@@ -101,6 +100,7 @@ export async function createGuild(userId: number, name: string, tag: string, des
   // Check funds
   const user = await prisma.users.findUnique({ where: { ID_User: userId } });
   if (!user) throw err('Utilisateur introuvable.', 404);
+  if (user.isGuest) throw err('Les invités ne peuvent pas fonder une unité.', 403);
   if (user.Money < GUILD_CREATE_COST) {
     throw err(`Fonds insuffisants. Il faut ${GUILD_CREATE_COST.toLocaleString()} pièces pour fonder une unité.`, 402);
   }
@@ -111,7 +111,11 @@ export async function createGuild(userId: number, name: string, tag: string, des
 
   // Atomic: deduct money + create guild + add leader
   await prisma.$transaction(async (tx) => {
-    await tx.users.update({ where: { ID_User: userId }, data: { Money: { decrement: GUILD_CREATE_COST } } });
+    const debited = await tx.users.updateMany({
+      where: { ID_User: userId, Money: { gte: GUILD_CREATE_COST } },
+      data: { Money: { decrement: GUILD_CREATE_COST } },
+    });
+    if (debited.count !== 1) throw err('Fonds insuffisants.', 402);
     const guild = await tx.guild.create({ data: { name, tag: cleanTag, description, isOpen: true } });
     await tx.guildMember.create({ data: { guildId: guild.id, userId, role: 'LEADER' } });
     return guild;

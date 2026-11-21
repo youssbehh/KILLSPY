@@ -1,20 +1,29 @@
-# Image de base
-FROM node:18-alpine
-
-# Définition du répertoire de travail
+# ---- Build: compile TypeScript and generate the Prisma client ----
+FROM node:22-alpine AS build
 WORKDIR /api
+RUN apk add --no-cache openssl
 
-# Copie des fichiers package.json et package-lock.json
 COPY package*.json ./
+COPY prisma ./prisma
+RUN npm ci
 
-# Installation des dépendances
-RUN npm install
+COPY tsconfig.json ./
+COPY src ./src
+RUN npx prisma generate && npm run build
 
-# Copie du reste des fichiers de l'application
-COPY . .
+# ---- Runtime: production dependencies + compiled output only ----
+FROM node:22-alpine
+WORKDIR /api
+ENV NODE_ENV=production
+RUN apk add --no-cache openssl
 
-# Exposition du port
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY prisma ./prisma
+COPY --from=build /api/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /api/build ./build
+
+USER node
 EXPOSE 4000
-
-# Commande de démarrage
-CMD ["npm", "start"]
+CMD ["node", "build/index.js"]

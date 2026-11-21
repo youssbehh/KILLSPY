@@ -1,49 +1,94 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import React, { useCallback, useEffect } from 'react';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useGameStore } from '@/src/stores/gameStore';
+import { useAuthStore } from '@/src/stores/authStore';
 import { useMatchmaking } from '@/src/sockets/useMatchmaking';
-import { isActionLegal } from '@/src/game/gameEngine';
+import { PvpMode } from '@/src/sockets/events';
+import { GameAction, isActionLegal } from '@/src/game/gameEngine';
 import { MatchmakingScreen } from '@/src/screens/MatchmakingScreen';
 import { HUDScreen } from '@/src/screens/HUDScreen';
 import { EndMatchScreen } from '@/src/screens/EndMatchScreen';
 
+const HOME = '/(tabs)/gamechoice';
+
 export default function PartieRapideScreen() {
   const router = useRouter();
-  const { sendAction, leaveGame } = useMatchmaking();
+  const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const mode: PvpMode = params.mode === 'ranked' ? 'pvp_ranked' : 'pvp_quick';
 
-  const { matchStatus, outcome, state, selectedAction, setSelectedAction } = useGameStore();
+  const { joinQueue, sendAction, leaveGame } = useMatchmaking();
 
-  const handleQuit = () => {
+  const matchStatus = useGameStore((s) => s.matchStatus);
+  const outcome = useGameStore((s) => s.outcome);
+  const rewards = useGameStore((s) => s.rewards);
+  const finalState = useGameStore((s) => s.state);
+  const matchMode = useGameStore((s) => s.mode);
+
+  // Enter the queue when the screen opens; leave queue / forfeit when it closes.
+  useEffect(() => {
+    joinQueue(mode);
+    return () => leaveGame();
+  }, [mode, joinQueue, leaveGame]);
+
+  // Once the server has settled the match, apply the rewards locally and refresh server data.
+  useEffect(() => {
+    if (matchStatus !== 'finished' || !rewards) return;
+    const { user, updateUser } = useAuthStore.getState();
+    if (user && (rewards.moneyDelta !== 0 || rewards.mmrDelta !== 0)) {
+      updateUser({
+        money: user.money + rewards.moneyDelta,
+        mmr: Math.max(0, user.mmr + rewards.mmrDelta),
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: ['games'] });
+    queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+    queryClient.invalidateQueries({ queryKey: ['missions'] });
+    queryClient.invalidateQueries({ queryKey: ['users', 'me'] });
+  }, [matchStatus, rewards, queryClient]);
+
+  const handleQuit = useCallback(() => {
     leaveGame();
-    router.replace('/(tabs)/gamechoice');
-  };
+    router.replace(HOME);
+  }, [leaveGame, router]);
 
-  const handleRematch = () => {
-    router.replace('/play/partieRapide');
-  };
+  const handleRematch = useCallback(() => {
+    joinQueue(matchMode);
+  }, [joinQueue, matchMode]);
+
+  const handleAction = useCallback(
+    (action: GameAction) => {
+      const { state, selectedAction, matchStatus: status, setSelectedAction } = useGameStore.getState();
+      // The server keeps the first action of a turn: lock locally as soon as it is sent.
+      if (status !== 'playing' || selectedAction) return;
+      if (!isActionLegal(state.player, action)) return;
+      setSelectedAction(action);
+      sendAction(action);
+    },
+    [sendAction],
+  );
 
   const isFinished = matchStatus === 'finished';
-  const isPlaying  = matchStatus === 'playing' || matchStatus === 'resolving';
-  const isSearching = matchStatus === 'searching' || matchStatus === 'countdown' || matchStatus === 'idle';
+  const isPlaying = matchStatus === 'playing' || matchStatus === 'resolving';
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, gestureEnabled: !isFinished }} />
+      <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
 
-      {isSearching && (
-        <MatchmakingScreen />
-      )}
+      {!isPlaying && !isFinished && <MatchmakingScreen onAbort={handleQuit} />}
 
-      {isPlaying && (
-        <HUDScreen />
-      )}
+      {isPlaying && <HUDScreen onAction={handleAction} onQuit={handleQuit} />}
 
       {isFinished && (
         <EndMatchScreen
-          outcome={outcome === 'won' ? 'won' : 'lost'}
-          onContinue={() => router.replace('/(tabs)/gamechoice')}
+          outcome={outcome ?? 'lost'}
+          mode={matchMode}
+          rewards={rewards}
+          rounds={finalState.round}
+          livesLeft={finalState.player.lives}
           onRematch={handleRematch}
-          onHome={() => router.replace('/(tabs)/gamechoice')}
+          onHome={handleQuit}
         />
       )}
     </>

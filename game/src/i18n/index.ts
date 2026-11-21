@@ -1,7 +1,7 @@
 import { fr } from './fr';
 import { en } from './en';
 import { I18nKey, I18N_KEYS } from './keys';
-import { useLanguageStore } from '../../store/languageStore';
+import { useLanguageStore } from '../stores/languageStore';
 
 export type Locale = 'fr' | 'en';
 const LOCALES: Record<number, Locale> = { 0: 'fr', 1: 'en' };

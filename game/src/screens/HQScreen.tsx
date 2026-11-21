@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, Pressable, TextInput,
@@ -187,6 +188,7 @@ const createStyles = StyleSheet.create({
 
 // ── Main screen ────────────────────────────────────────────────────────────
 export const HQScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const cardWidth = width - PAD * 2;
   const [search, setSearch] = useState('');
@@ -219,7 +221,7 @@ export const HQScreen: React.FC = () => {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.container}>
         <TopoBg />
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD }]} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingHorizontal: PAD, paddingTop: insets.top + 12 }]} showsVerticalScrollIndicator={false}>
 
           {/* Header */}
           <View style={styles.header}>
@@ -324,7 +326,7 @@ export const HQScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: KS.bg },
-  scroll: { paddingTop: 60 },
+  scroll: {},
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   eyebrow: { color: KS.primary, fontFamily: TYPO.mono, fontSize: SIZES.monoSm, letterSpacing: SIZES.monoSm * 0.32 },
   title: { color: KS.ink, fontFamily: TYPO.display, fontSize: SIZES.titleMd, letterSpacing: SIZES.titleMd * 0.1, marginTop: 2 },

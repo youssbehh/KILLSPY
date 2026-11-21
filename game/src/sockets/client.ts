@@ -20,15 +20,16 @@ export const getSocket = async (): Promise<GameSocket> => {
 
   if (!socket) {
     socket = io(baseURL, {
-      auth: { token },
+      // Re-read the token on every (re)connection attempt so a refreshed session is used.
+      auth: (cb) => {
+        getToken().then((t) => cb({ token: t ?? '' }));
+      },
       autoConnect: false,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       transports: ['websocket'],
     });
-  } else {
-    socket.auth = { token };
   }
 
   return new Promise<GameSocket>((resolve, reject) => {
@@ -46,6 +47,9 @@ export const getSocket = async (): Promise<GameSocket> => {
     socket.connect();
   });
 };
+
+/** The current socket if one exists — never creates or connects one. */
+export const peekSocket = (): GameSocket | null => socket;
 
 export const disconnectSocket = () => {
   if (socket) {

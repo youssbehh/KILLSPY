@@ -129,6 +129,20 @@ describe('POST /api/shop/purchase/:offerId', () => {
     expect(res.body.message).toMatch(/possédez d/i);
   });
 
+  it('refuses when a concurrent purchase already spent the coins', async () => {
+    prismaMock.users.findUnique
+      .mockResolvedValueOnce(fakeUser({ Money: 500 }))
+      .mockResolvedValueOnce(fakeUser({ Money: 500 }));
+    prismaMock.shopOffer.findUnique.mockResolvedValue(fakeOffer({ price: 100 }));
+    prismaMock.userCosmetic.findUnique.mockResolvedValue(null);
+    prismaMock.users.updateMany.mockResolvedValue({ count: 0 });
+
+    const res = await request(app).post('/api/shop/purchase/1').set('Authorization', token(1));
+
+    expect(res.status).toBe(400);
+    expect(prismaMock.userCosmetic.create).not.toHaveBeenCalled();
+  });
+
   it('completes a valid purchase and decrements balance', async () => {
     prismaMock.users.findUnique
       .mockResolvedValueOnce(fakeUser({ Money: 500 }))
@@ -136,15 +150,16 @@ describe('POST /api/shop/purchase/:offerId', () => {
     prismaMock.shopOffer.findUnique.mockResolvedValue(fakeOffer({ price: 100 }));
     prismaMock.userCosmetic.findUnique.mockResolvedValue(null);
     prismaMock.userCosmetic.create.mockResolvedValue({ id: 99 });
-    prismaMock.users.update.mockResolvedValue({});
+    prismaMock.users.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await request(app).post('/api/shop/purchase/1').set('Authorization', token(1));
 
     expect(res.status).toBe(201);
     expect(res.body.result.moneyAfter).toBe(400);
-    expect(prismaMock.users.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { Money: 400 } }),
-    );
+    expect(prismaMock.users.updateMany).toHaveBeenCalledWith({
+      where: { ID_User: 1, Money: { gte: 100 } },
+      data: { Money: { decrement: 100 } },
+    });
   });
 });
 

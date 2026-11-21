@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { router, Stack } from 'expo-router';
@@ -49,8 +50,9 @@ const DIFF_LABELS: Record<string, string> = {
 };
 
 export default function BotGameScreen() {
+  const insets = useSafeAreaInsets();
   const difficulty = useBotStore((s) => s.difficulty);
-  const username = useAuthStore((s) => s.user?.username ?? 'AGENT_KILO');
+  const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
 
   const [state, setState] = useState<GameState>(createInitialState());
   const [phase, setPhase] = useState<Phase>('countdown');
@@ -139,10 +141,10 @@ export default function BotGameScreen() {
       <>
         <Stack.Screen options={{ headerShown: false }} />
         <EndMatchScreen
-          outcome={state.status === 'won' ? 'won' : 'lost'}
-          xpEarned={state.status === 'won' ? 640 : 180}
-          rpDelta={0}
-          onContinue={() => router.replace('/(tabs)/gamechoice')}
+          outcome={state.status === 'won' ? 'won' : state.status === 'draw' ? 'draw' : 'lost'}
+          mode="pve"
+          rounds={state.round}
+          livesLeft={state.player.lives}
           onRematch={() => router.replace('/play/bot')}
           onHome={() => router.replace('/(tabs)/gamechoice')}
         />
@@ -157,7 +159,7 @@ export default function BotGameScreen() {
         <TopoBg />
 
         {/* Eyebrow */}
-        <View style={styles.eyebrow}>
+        <View style={[styles.eyebrow, { paddingTop: insets.top + 12 }]}>
           <Text style={styles.roundLabel}>
             // TRAINING · ROUND {String(state.round + 1).padStart(2, '0')}
           </Text>
@@ -276,7 +278,6 @@ export default function BotGameScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: KS.bg },
   eyebrow: {
-    paddingTop: 60,
     paddingHorizontal: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',

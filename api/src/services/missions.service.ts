@@ -1,6 +1,5 @@
-import { MissionMetric, PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { MissionMetric } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
 const MISSIONS_PER_DAY = 4;
 
@@ -131,12 +130,11 @@ export async function claimMission(
     throw Object.assign(new Error('Mission not completed'), { status: 422 });
   }
 
-  await prisma.$transaction([
-    prisma.playerMissionAssignment.update({
-      where: { id: assignmentId },
-      data: { rewarded: true },
-    }),
-  ]);
+  const claimed = await prisma.playerMissionAssignment.updateMany({
+    where: { id: assignmentId, userId, rewarded: false },
+    data: { rewarded: true },
+  });
+  if (claimed.count !== 1) throw Object.assign(new Error('Already claimed'), { status: 409 });
 
   return { xpEarned: assignment.mission.xpReward };
 }
