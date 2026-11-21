@@ -8,3 +8,12 @@ JWT_SECRET=remplace-moi-par-un-secret-aleatoire-de-32-caracteres-minimum
 # Origines autorisées pour CORS et sockets (vide = tout autorisé en dev)
 ALLOWED_ORIGINS=
 NODE_ENV=development
+# --- Envoi d'e-mails (codes de réinitialisation de mot de passe et de vérification) ---
+# Sans SMTP_HOST, aucun e-mail ne part : en développement le code est écrit dans les logs,
+# en production il est perdu (les joueurs ne peuvent ni réinitialiser ni vérifier).
+SMTP_HOST=
+# 587 (STARTTLS) ou 465 (TLS)
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+MAIL_FROM="KILLSPY <no-reply@exemple.com>"
