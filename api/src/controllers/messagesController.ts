@@ -12,8 +12,8 @@ export const getConversation = async (req: Request, res: Response, next: NextFun
   try {
     const partnerId = parseInt(req.params.userId, 10);
     if (isNaN(partnerId)) { res.status(400).json({ message: 'userId invalide' }); return; }
-    const messages = await messagesService.getConversation(req.user!.ID_User, partnerId);
-    res.json({ messages });
+    const { before, limit } = req.query as unknown as { before?: number; limit?: number };
+    res.json(await messagesService.getConversation(req.user!.ID_User, partnerId, before, limit));
   } catch (e) { next(e); }
 };
 

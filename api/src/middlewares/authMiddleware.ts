@@ -4,12 +4,14 @@ import * as jwt from 'jsonwebtoken'
 import { JWT_SECRET } from '../secrets'
 import { prisma } from '../lib/prisma'
 
-// Roles :
-// 1 = USER
-// 0 = ADMIN
-// -1 = BANN
+export type RequiredRole = 'admin';
 
-const authMiddleware = (_role?: string) => {
+/**
+ * Authenticates the request from its JWT.
+ * - rejects archived and banned accounts, and tokens revoked by a tokenVersion bump;
+ * - with `role`, also requires that role in the Roles table.
+ */
+const authMiddleware = (role?: RequiredRole) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         const header = req.headers.authorization
         const token = header?.startsWith('Bearer ') ? header.slice(7) : header
@@ -18,10 +20,24 @@ const authMiddleware = (_role?: string) => {
         }
 
         try {
-            const payload = jwt.verify(token, JWT_SECRET) as { id: number }
+            const payload = jwt.verify(token, JWT_SECRET) as { id: number; v?: number }
             const user = await prisma.users.findUnique({ where: { ID_User: payload.id } })
             if (!user || user.archived) {
                 return next(new HttpException("Non autorisé!", ErrCodes.UNAUTHORIZED_ACCESS, statusCodes.UNAUTHORIZED, null))
+            }
+            // Tokens issued before versioning carry no `v` and count as version 0.
+            if ((payload.v ?? 0) !== user.tokenVersion) {
+                return next(new HttpException("Session expirée.", ErrCodes.SESSION_EXPIRED, statusCodes.UNAUTHORIZED, null))
+            }
+            if (user.banned) {
+                return next(new HttpException("Ce compte est suspendu.", ErrCodes.ACCOUNT_LOCKED, statusCodes.UNAUTHORIZED, null))
+            }
+
+            if (role) {
+                const granted = await prisma.roles.findFirst({ where: { ID_User: user.ID_User, Role: role } })
+                if (!granted) {
+                    return next(new HttpException("Accès interdit.", ErrCodes.UNAUTHORIZED_ACCESS, statusCodes.FORBIDDEN, null))
+                }
             }
 
             req.user = user

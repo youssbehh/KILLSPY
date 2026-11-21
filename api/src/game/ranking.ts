@@ -4,7 +4,8 @@
  */
 
 export type GameOutcome = 'won' | 'lost' | 'draw';
-export type GameMode = 'pve' | 'pvp_quick' | 'pvp_ranked';
+/** pvp_friendly = a duel between friends: played on the server, never rewarded nor recorded. */
+export type GameMode = 'pve' | 'pvp_quick' | 'pvp_ranked' | 'pvp_friendly';
 
 export interface RankTier {
   id: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' | 'master';

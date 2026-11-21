@@ -11,6 +11,7 @@ import missionsRoutes from './missionsRoutes'
 import guildsRoutes from './guildsRoutes'
 import messagesRoutes from './messagesRoutes'
 import pingRoutes from './pingRoutes'
+import { adminRoutes, reportsRoutes } from './moderationRoutes'
 
 const rootRouter: Router = Router()
 
@@ -26,5 +27,7 @@ rootRouter.use('/missions', missionsRoutes)
 rootRouter.use('/guilds', guildsRoutes)
 rootRouter.use('/messages', messagesRoutes)
 rootRouter.use('/ping', pingRoutes)
+rootRouter.use('/reports', reportsRoutes)
+rootRouter.use('/admin', adminRoutes)
 
 export default rootRouter

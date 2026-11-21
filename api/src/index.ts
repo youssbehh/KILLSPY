@@ -4,10 +4,12 @@ import { app } from './app';
 import { prisma } from './lib/prisma';
 import { logger } from './lib/logger';
 import { attachSockets } from './sockets';
-import './jobs/cronJobs';
+import { startCronJobs } from './jobs/cronJobs';
 
 const httpServer = http.createServer(app);
 const io = attachSockets(httpServer);
+
+startCronJobs();
 
 const server = httpServer.listen(PORT, () => {
   logger.info({ port: PORT, env: NODE_ENV }, 'server running (HTTP + sockets)');

@@ -7,6 +7,7 @@ export const postGameResult = async (req: Request, res: Response, next: NextFunc
       userId: req.user!.ID_User,
       outcome: req.body.outcome,
       mode: req.body.mode,
+      rounds: req.body.rounds,
     });
     res.status(201).json({ result });
   } catch (e) {
@@ -25,8 +26,8 @@ export const getMyStats = async (req: Request, res: Response, next: NextFunction
 
 export const getMyHistory = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const data = await gamesService.getUserStats(req.user!.ID_User);
-    res.status(200).json({ recentGames: data.recentGames, stats: data.stats });
+    const { offset, limit } = req.query as unknown as { offset: number; limit: number };
+    res.status(200).json(await gamesService.getUserHistory(req.user!.ID_User, offset, limit));
   } catch (e) {
     next(e);
   }

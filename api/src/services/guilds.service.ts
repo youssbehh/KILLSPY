@@ -34,14 +34,15 @@ function err(msg: string, status: number): Error {
 
 // ── Service functions ─────────────────────────────────────────────────────
 
-export async function listGuilds(search?: string): Promise<GuildDTO[]> {
+export async function listGuilds(search?: string, offset = 0, limit = 20): Promise<GuildDTO[]> {
   const guilds = await prisma.guild.findMany({
     where: search
       ? { OR: [{ name: { contains: search, mode: 'insensitive' } }, { tag: { contains: search, mode: 'insensitive' } }] }
       : undefined,
     include: { members: true },
-    orderBy: { members: { _count: 'desc' } },
-    take: 30,
+    orderBy: [{ members: { _count: 'desc' } }, { id: 'asc' }],
+    skip: offset,
+    take: limit,
   });
   return guilds.map((g) => ({
     id: g.id,
@@ -130,10 +131,13 @@ export async function joinGuild(userId: number, guildId: number) {
 
   const guild = await prisma.guild.findUnique({ where: { id: guildId }, include: { members: true } });
   if (!guild) throw err('Guilde introuvable.', 404);
-  if (!guild.isOpen) throw err('Cette guilde n\'accepte pas de nouveaux membres.', 403);
+  if (!guild.isOpen) throw err('Cette guilde recrute sur invitation uniquement.', 403);
   if (guild.members.length >= guild.maxMembers) throw err('La guilde est complète.', 409);
 
-  await prisma.guildMember.create({ data: { guildId, userId, role: 'MEMBER' } });
+  await prisma.$transaction([
+    prisma.guildMember.create({ data: { guildId, userId, role: 'MEMBER' } }),
+    prisma.guildInvite.deleteMany({ where: { userId } }),
+  ]);
   return getUserGuild(userId);
 }
 
@@ -157,6 +161,25 @@ export async function leaveGuild(userId: number) {
   } else {
     await prisma.guildMember.delete({ where: { userId } });
   }
+}
+
+/**
+ * Accounts can disappear without leaving their guild first (deleted account, purged
+ * guest). Guilds left without a leader get their most senior officer — or member —
+ * promoted; guilds left empty are removed.
+ */
+export async function repairGuilds(): Promise<{ promoted: number; removed: number }> {
+  const empty = await prisma.guild.deleteMany({ where: { members: { none: {} } } });
+  const leaderless = await prisma.guild.findMany({
+    where: { members: { none: { role: 'LEADER' } } },
+    include: { members: { orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }] } },
+  });
+  for (const guild of leaderless) {
+    // GuildRole order is LEADER, OFFICER, MEMBER: the first row is the most senior one.
+    const heir = guild.members[0];
+    if (heir) await prisma.guildMember.update({ where: { id: heir.id }, data: { role: 'LEADER' } });
+  }
+  return { promoted: leaderless.length, removed: empty.count };
 }
 
 export async function kickMember(requesterId: number, targetUserId: number) {

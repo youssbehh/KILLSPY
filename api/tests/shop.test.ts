@@ -26,6 +26,10 @@ const fakeUser = (overrides: any = {}) => ({
   isGuest: false,
   archived: false,
   deletionDate: null,
+  XP: 0,
+  emailVerified: false,
+  banned: false,
+  tokenVersion: 0,
   CreatedAt: new Date(),
   ...overrides,
 });

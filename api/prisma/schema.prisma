@@ -26,6 +26,11 @@ model Users {
   CreatedAt    DateTime  @default(now())
   archived     Boolean   @default(false)
   deletionDate DateTime?
+  XP            Int      @default(0)
+  emailVerified Boolean  @default(false)
+  banned        Boolean  @default(false)
+  // Bumped on logout / password change: every token signed with an older value is rejected.
+  tokenVersion  Int      @default(0)
 
   Roles       Roles[]
   Sessions    Session[]
@@ -38,6 +43,16 @@ model Users {
   GuildMembership GuildMember?
   SentMessages     DirectMessage[] @relation("dm_sender")
   ReceivedMessages DirectMessage[] @relation("dm_receiver")
+  Tokens           AccountToken[]
+  Blocking         Block[]  @relation("blocker")
+  BlockedBy        Block[]  @relation("blocked")
+  ReportsFiled     Report[] @relation("reporter")
+  ReportsReceived  Report[] @relation("reported")
+  GuildMessages    GuildMessage[]
+  GuildInvites     GuildInvite[] @relation("invitee")
+  GuildInvitesSent GuildInvite[] @relation("inviter")
+
+  @@index([MMR])
 }
 
 model Session {
@@ -56,8 +71,17 @@ model Roles {
   ID_User Int
 }
 
+enum FriendStatus {
+  pending
+  accepted
+}
+
+// One row per pair, owned by the requester (ID_User) and addressed to ID_Friend.
+// Once accepted the friendship is mutual, whichever side asked.
 model Friends {
   ID_Friendship Int      @id @default(autoincrement())
+  // Rows created before friend requests existed are kept as accepted.
+  Status        FriendStatus @default(accepted)
   Connected     Boolean  @default(false)
   Blocked       Boolean  @default(false)
   CreatedAt     DateTime @default(now())
@@ -68,6 +92,59 @@ model Friends {
   ID_Friend Int
 
   @@unique([ID_User, ID_Friend])
+  @@index([ID_Friend, Status])
+}
+
+model Block {
+  id        Int      @id @default(autoincrement())
+  blocker   Users    @relation("blocker", fields: [blockerId], references: [ID_User], onDelete: Cascade)
+  blockerId Int
+  blocked   Users    @relation("blocked", fields: [blockedId], references: [ID_User], onDelete: Cascade)
+  blockedId Int
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+enum ReportStatus {
+  open
+  resolved
+}
+
+model Report {
+  id         Int          @id @default(autoincrement())
+  reporter   Users        @relation("reporter", fields: [reporterId], references: [ID_User], onDelete: Cascade)
+  reporterId Int
+  target     Users        @relation("reported", fields: [targetId], references: [ID_User], onDelete: Cascade)
+  targetId   Int
+  reason     String
+  details    String?
+  status     ReportStatus @default(open)
+  createdAt  DateTime     @default(now())
+
+  @@index([status, createdAt])
+  @@index([targetId])
+}
+
+enum AccountTokenType {
+  password_reset
+  email_verify
+}
+
+// One-time codes sent by e-mail. Only the hash is stored.
+model AccountToken {
+  id        Int              @id @default(autoincrement())
+  user      Users            @relation(fields: [userId], references: [ID_User], onDelete: Cascade)
+  userId    Int
+  type      AccountTokenType
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int              @default(0)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, type])
 }
 
 // =====================================================================
@@ -77,11 +154,16 @@ model Friends {
 enum GameModePersisted {
   pvp_quick
   pvp_ranked
+  pve // training vs bot: history only, never rewarded
 }
 
 model GameHistory {
   ID_GameHistory Int               @id @default(autoincrement())
   V_D            Boolean
+  Draw           Boolean           @default(false)
+  Rounds         Int               @default(0)
+  OpponentId     Int?
+  XPWin          Int               @default(0)
   DateGame       DateTime          @default(now())
   MMRWin         Int               @default(0)
   Mode           GameModePersisted @default(pvp_quick)
@@ -89,6 +171,7 @@ model GameHistory {
   ID_User        Int
 
   @@index([ID_User, Mode, DateGame])
+  @@index([ID_User, DateGame])
 }
 
 // =====================================================================
@@ -234,7 +317,9 @@ model Guild {
   maxMembers  Int      @default(30)
   createdAt   DateTime @default(now())
 
-  members GuildMember[]
+  members  GuildMember[]
+  messages GuildMessage[]
+  invites  GuildInvite[]
 
   @@index([name])
 }
@@ -249,6 +334,32 @@ model GuildMember {
   joinedAt DateTime  @default(now())
 
   @@index([guildId])
+}
+
+model GuildMessage {
+  id       Int      @id @default(autoincrement())
+  guild    Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guildId  Int
+  sender   Users    @relation(fields: [senderId], references: [ID_User], onDelete: Cascade)
+  senderId Int
+  content  String
+  sentAt   DateTime @default(now())
+
+  @@index([guildId, id])
+}
+
+model GuildInvite {
+  id          Int      @id @default(autoincrement())
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  guildId     Int
+  user        Users    @relation("invitee", fields: [userId], references: [ID_User], onDelete: Cascade)
+  userId      Int
+  invitedBy   Users    @relation("inviter", fields: [invitedById], references: [ID_User], onDelete: Cascade)
+  invitedById Int
+  createdAt   DateTime @default(now())
+
+  @@unique([guildId, userId])
+  @@index([userId])
 }
 
 // =====================================================================
@@ -266,5 +377,6 @@ model DirectMessage {
   readAt     DateTime?
 
   @@index([senderId, receiverId, sentAt])
+  @@index([receiverId, senderId, id])
   @@index([receiverId, readAt])
 }
