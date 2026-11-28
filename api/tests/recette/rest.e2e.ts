@@ -57,6 +57,8 @@ beforeAll(async () => {
   // Disposable database: start from no player at all (cosmetics and missions come from the seed).
   await prisma.guild.deleteMany({});
   await prisma.users.deleteMany({});
+  // The seeded offers only last 24 h: start every run with a live shop.
+  await rotateShop(true);
   alice = await signup('Alice');
   bob = await signup('Bob');
   carol = await signup('Carol');
