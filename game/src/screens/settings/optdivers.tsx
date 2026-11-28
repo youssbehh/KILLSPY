@@ -7,41 +7,72 @@ import { BotDifficulty } from '@/src/game/botAI';
 import { KSAccordion } from './KSAccordion';
 import { KS } from '@/src/theme/colors';
 import { TYPO, SIZES } from '@/src/theme/typography';
+import { useLocalT } from '@/src/i18n/local';
 
-const BOT_DIFFICULTIES: { id: BotDifficulty; label: string; desc: string; accent: string }[] = [
-  { id: 'easy',   label: 'EASY',   desc: "Bot aléatoire — pour s'entraîner.", accent: KS.live },
-  { id: 'medium', label: 'MEDIUM', desc: 'Bot qui mémorise vos patterns.',      accent: KS.alert },
-  { id: 'hard',   label: 'HARD',   desc: 'Bot prédictif — il anticipe.',         accent: KS.danger },
+const STRINGS = {
+  fr: {
+    themeTitle: '🎨 THÈME GRAPHIQUE',
+    themeHint: "Les thèmes sont des cosmétiques achetables en boutique et équipables depuis l'inventaire.",
+    botTitle: '🤖 DIFFICULTÉ DU BOT',
+    easy: 'FACILE',
+    medium: 'MOYEN',
+    hard: 'DIFFICILE',
+    easyDesc: "Bot aléatoire — pour s'entraîner.",
+    mediumDesc: 'Bot qui mémorise vos patterns.',
+    hardDesc: 'Bot prédictif — il anticipe.',
+  },
+  en: {
+    themeTitle: '🎨 VISUAL THEME',
+    themeHint: 'Themes are cosmetics you can buy in the shop and equip from the inventory.',
+    botTitle: '🤖 BOT DIFFICULTY',
+    easy: 'EASY',
+    medium: 'MEDIUM',
+    hard: 'HARD',
+    easyDesc: 'Random bot — for practice.',
+    mediumDesc: 'Bot that remembers your patterns.',
+    hardDesc: 'Predictive bot — it anticipates.',
+  },
+} as const;
+
+type DiversKey = keyof typeof STRINGS.fr;
+
+const BOT_DIFFICULTIES: { id: BotDifficulty; label: DiversKey; desc: DiversKey; accent: string }[] = [
+  { id: 'easy',   label: 'easy',   desc: 'easyDesc',   accent: KS.live },
+  { id: 'medium', label: 'medium', desc: 'mediumDesc', accent: KS.alert },
+  { id: 'hard',   label: 'hard',   desc: 'hardDesc',   accent: KS.danger },
 ];
 
 const DiversContainer = () => {
   const { langIndex } = useLanguageStore();
+  const t = useLocalT(STRINGS);
   const botDifficulty = useBotStore((s) => s.difficulty);
   const setBotDifficulty = useBotStore((s) => s.setDifficulty);
 
   return (
     <KSAccordion title={motTraduit(langIndex, 22)}>
       {/* Theme info */}
-      <Text style={styles.sectionLabel}>🎨 THÈME GRAPHIQUE</Text>
+      <Text style={styles.sectionLabel}>{t('themeTitle')}</Text>
       <Text style={styles.hint}>
-        Les thèmes sont des cosmétiques achetables en boutique et équipables depuis l'inventaire.
+        {t('themeHint')}
       </Text>
 
       <View style={styles.divider} />
 
       {/* Bot difficulty */}
-      <Text style={styles.sectionLabel}>🤖 DIFFICULTÉ DU BOT</Text>
+      <Text style={styles.sectionLabel}>{t('botTitle')}</Text>
       {BOT_DIFFICULTIES.map((d) => {
         const active = botDifficulty === d.id;
         return (
           <Pressable
             key={d.id}
             onPress={() => setBotDifficulty(d.id)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
             style={[styles.diffRow, active && { borderColor: d.accent, backgroundColor: d.accent + '12' }]}
           >
             <View style={styles.diffTexts}>
-              <Text style={[styles.diffLabel, active && { color: d.accent }]}>{d.label}</Text>
-              <Text style={styles.diffDesc}>{d.desc}</Text>
+              <Text style={[styles.diffLabel, active && { color: d.accent }]}>{t(d.label)}</Text>
+              <Text style={styles.diffDesc}>{t(d.desc)}</Text>
             </View>
             {active && <Text style={[styles.check, { color: d.accent }]}>✓</Text>}
           </Pressable>

@@ -9,7 +9,7 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
-import { KS } from '../../theme/colors';
+import { KS, mix } from '../../theme/colors';
 import { TYPO, SIZES } from '../../theme/typography';
 import { MOTION } from '../../theme/motion';
 
@@ -75,7 +75,7 @@ export const PrimaryButton: React.FC<Props> = ({
           android_ripple={{ color: 'rgba(255,255,255,0.2)' }}
         >
           <LinearGradient
-            colors={['#1e90ff', '#007bff', '#0062cc']}
+            colors={[mix(KS.primary, '#ffffff', 0.15), KS.primary, mix(KS.primary, '#000000', 0.2)]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
             style={[styles.gradient, { height, borderRadius: height / 2, opacity: disabled ? 0.5 : 1 }]}
@@ -100,13 +100,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   label: {
-    color: KS.ink,
+    color: KS.onPrimary,
     fontFamily: TYPO.display,
     letterSpacing: SIZES.titleSm * 0.06,
     textTransform: 'uppercase',
   },
   subLabel: {
-    color: 'rgba(255,255,255,0.65)',
+    color: KS.onPrimary,
+    opacity: 0.65,
     fontFamily: TYPO.mono,
     fontSize: SIZES.monoXs,
     letterSpacing: SIZES.monoXs * 0.18,

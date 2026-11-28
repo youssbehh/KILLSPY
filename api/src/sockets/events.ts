@@ -10,9 +10,17 @@ export type PvpMode = 'pvp_quick' | 'pvp_ranked' | 'pvp_friendly';
 /** Modes that have a public matchmaking queue. */
 export type QueueMode = Exclude<PvpMode, 'pvp_friendly'>;
 
+/** Names of the combat effects a player has equipped (null = default look). */
+export interface CombatFxNames {
+  shoot: string | null;
+  shield: string | null;
+}
+
 export interface PublicPlayer {
   id: number;
   username: string;
+  /** Sent with match:found / match:resume so each side sees the other's effects. */
+  fx?: CombatFxNames;
 }
 
 export interface MatchFoundPayload {

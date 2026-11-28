@@ -13,6 +13,30 @@ import { ChamferContainer } from './ChamferContainer';
 import { KS } from '../../theme/colors';
 import { TYPO, SIZES } from '../../theme/typography';
 import { MOTION } from '../../theme/motion';
+import { useLocalT } from '../../i18n/local';
+
+const STRINGS = {
+  fr: {
+    fire: 'TIR',
+    fireCaption: 'COÛTE 1 BALLE',
+    reload: 'RECHARGE',
+    reloadCaption: '+1 BALLE',
+    shield: 'BOUCLIER',
+    shieldCaption: 'BLOQUE LE TIR',
+    locked: 'VERROUILLÉ',
+    classified: 'CLASSIFIÉ',
+  },
+  en: {
+    fire: 'FIRE',
+    fireCaption: 'COST 1 AMMO',
+    reload: 'RELOAD',
+    reloadCaption: '+1 AMMO',
+    shield: 'SHIELD',
+    shieldCaption: 'BLOCK FIRE',
+    locked: 'LOCKED',
+    classified: 'CLASSIFIED',
+  },
+} as const;
 
 export type CardAction = 'fire' | 'reload' | 'shield';
 
@@ -22,6 +46,8 @@ interface Props {
   selected?: boolean;
   disabled?: boolean;     // FIRE when ammo=0
   onPress?: () => void;
+  /** Pressed while disabled (FIRE with an empty magazine): explain why nothing happens. */
+  onDisabledPress?: () => void;
 }
 
 const CARD_W = 96;
@@ -29,25 +55,25 @@ const CARD_H = 128;
 const CHAMFER = 10;
 
 const ACTION_META: Record<CardAction, {
-  label: string;
-  caption: string;
+  label: keyof typeof STRINGS.fr;
+  caption: keyof typeof STRINGS.fr;
   iconPath: string;
 }> = {
   fire: {
-    label: 'FIRE',
-    caption: 'COST 1 AMMO',
+    label: 'fire',
+    caption: 'fireCaption',
     // Bullet icon
     iconPath: 'M12,6 L14,6 L15,8 L15,18 L9,18 L9,8 L10,6 Z M10,4 Q12,2 14,4 L14,6 L10,6 Z',
   },
   reload: {
-    label: 'RELOAD',
-    caption: '+1 AMMO',
+    label: 'reload',
+    caption: 'reloadCaption',
     // Circular arrow
     iconPath: 'M12,5 A7,7 0 1,1 5,12 M5,12 L3,9 M5,12 L8,10',
   },
   shield: {
-    label: 'SHIELD',
-    caption: 'BLOCK FIRE',
+    label: 'shield',
+    caption: 'shieldCaption',
     // Shield outline
     iconPath: 'M12,3 L20,7 L20,13 Q20,18 12,21 Q4,18 4,13 L4,7 Z',
   },
@@ -59,7 +85,9 @@ export const ActionCard: React.FC<Props> = ({
   selected = false,
   disabled = false,
   onPress,
+  onDisabledPress,
 }) => {
+  const t = useLocalT(STRINGS);
   const scale = useSharedValue(selected ? 1.02 : 1);
   const glowOp = useSharedValue(selected ? 0.5 : 0);
   const flip = useSharedValue(1);
@@ -117,7 +145,13 @@ export const ActionCard: React.FC<Props> = ({
       ]}
     >
       <Animated.View style={cardStyle}>
-        <Pressable onPress={onPress} disabled={!onPress || disabled}>
+        <Pressable
+          onPress={disabled ? onDisabledPress : onPress}
+          disabled={disabled ? !onDisabledPress : !onPress}
+          accessibilityRole="button"
+          accessibilityLabel={faceUp ? `${t(meta.label)}, ${t(meta.caption)}` : undefined}
+          accessibilityState={{ disabled, selected }}
+        >
           <ChamferContainer
             width={CARD_W}
             height={CARD_H}
@@ -181,11 +215,11 @@ export const ActionCard: React.FC<Props> = ({
                       strokeLinejoin="round"
                     />
                   </Svg>
-                  <Text style={styles.label}>{meta.label}</Text>
-                  <Text style={styles.caption}>{meta.caption}</Text>
+                  <Text style={styles.label}>{t(meta.label)}</Text>
+                  <Text style={styles.caption}>{t(meta.caption)}</Text>
                   {selected && (
                     <View style={styles.locked}>
-                      <Text style={styles.lockedText}>LOCKED</Text>
+                      <Text style={styles.lockedText}>{t('locked')}</Text>
                     </View>
                   )}
                   {disabled && (
@@ -197,7 +231,7 @@ export const ActionCard: React.FC<Props> = ({
               ) : (
                 <>
                   <Text style={styles.questionMark}>?</Text>
-                  <Text style={styles.classified}>CLASSIFIED</Text>
+                  <Text style={styles.classified}>{t('classified')}</Text>
                 </>
               )}
             </View>

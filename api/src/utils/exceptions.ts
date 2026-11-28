@@ -29,7 +29,8 @@ export enum ErrCodes {
 
     FRIENDS_NOT_FOUND = 3001,
     FRIEND_ALREADY_EXISTS = 3002,
-    IS_GUEST = 3003
+    IS_GUEST = 3003,
+    EMAIL_NOT_VERIFIED = 3004
 }
 
 

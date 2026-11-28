@@ -8,7 +8,10 @@ jest.mock('../src/services/games.service', () => ({ recordGame: (...args: unknow
 
 import {
   RECONNECT_GRACE_MS,
+  RESTORE_GRACE_MS,
   createRoom,
+  flushPersistence,
+  restoreMatches,
   handleAction,
   handleDisconnect,
   handleLeave,
@@ -36,6 +39,7 @@ const makeIo = (sockets: ReturnType<typeof makeSocket>[]) => {
   const byId = new Map(sockets.map((s) => [s.id, s]));
   return {
     sockets: { sockets: byId },
+    in: () => ({ socketsJoin: jest.fn(), socketsLeave: jest.fn() }),
     to: (target: string) => ({
       emit: (event: string, payload: unknown) => {
         const direct = byId.get(target);
@@ -195,6 +199,99 @@ describe('reconnection', () => {
     handleDisconnect(io, b as any);
     expect(roomTest.rooms.size).toBe(0);
     expect(jest.getTimerCount()).toBe(0);
+  });
+});
+
+describe('persistence across restarts', () => {
+  const liveRow = (round: number, status = 'choosing') => ({
+    id: 'room-1',
+    mode: 'pvp_ranked',
+    players: [
+      { userId: 1, username: 'agent1', isGuest: false },
+      { userId: 2, username: 'agent2', isGuest: false },
+    ],
+    state: {
+      round,
+      status,
+      player: { lives: 2, ammo: 1 },
+      opponent: { lives: 3, ammo: 0 },
+      lastPlayerAction: null,
+      lastOpponentAction: null,
+    },
+  });
+
+  beforeEach(() => {
+    prismaMock.liveMatch.upsert.mockClear();
+    prismaMock.liveMatch.deleteMany.mockClear();
+    prismaMock.liveMatch.findMany.mockReset();
+  });
+
+  it('saves the match when it starts and after every turn, and deletes it at the end', async () => {
+    const { a, b, io } = setup();
+    await flushPersistence();
+    expect(prismaMock.liveMatch.upsert).toHaveBeenCalledTimes(1);
+
+    jest.advanceTimersByTime(COUNTDOWN_DURATION_MS);
+    handleAction(io, a as any, 'reload');
+    handleAction(io, b as any, 'reload');
+    await flushPersistence();
+    expect(prismaMock.liveMatch.upsert).toHaveBeenCalledTimes(2);
+    expect(prismaMock.liveMatch.upsert.mock.calls[1][0]).toMatchObject({ update: { state: { round: 1 } } });
+
+    handleLeave(io, a as any);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(prismaMock.liveMatch.deleteMany).toHaveBeenCalled();
+  });
+
+  it('reloads a saved match and resumes it once both players are back', async () => {
+    prismaMock.liveMatch.findMany.mockResolvedValue([liveRow(3)]);
+    const a = makeSocket('na', 1);
+    const b = makeSocket('nb', 2);
+    const io = makeIo([a, b]) as any;
+    expect(await restoreMatches(io)).toBe(1);
+
+    expect(tryResume(io, a as any)).toBe(true);
+    expect(last(a, 'match:resume')).toMatchObject({ mode: 'pvp_ranked', turnRemainingMs: null, state: { round: 3 } });
+    // Alone for now: told how long the opponent has to come back, and no turn starts.
+    expect(last(a, 'opponent:status')).toMatchObject({ connected: false });
+    jest.advanceTimersByTime(5000);
+    expect(last(a, 'turn:start')).toBeUndefined();
+
+    expect(tryResume(io, b as any)).toBe(true);
+    // B sees the board from its own side.
+    expect(last(b, 'match:resume').state.player.lives).toBe(3);
+    jest.advanceTimersByTime(2000);
+    expect(last(a, 'turn:start')).toMatchObject({ round: 4 });
+    expect(last(b, 'turn:start')).toMatchObject({ round: 4 });
+  });
+
+  it('the player who does not come back forfeits', async () => {
+    prismaMock.liveMatch.findMany.mockResolvedValue([liveRow(3)]);
+    const a = makeSocket('na', 1);
+    const io = makeIo([a]) as any;
+    await restoreMatches(io);
+    tryResume(io, a as any);
+
+    jest.advanceTimersByTime(RESTORE_GRACE_MS);
+    expect(last(a, 'game:over')).toMatchObject({ outcome: 'opponent_forfeit', rewards: { mmrDelta: expect.any(Number) } });
+    expect(last(a, 'game:over').rewards.mmrDelta).toBeGreaterThan(0);
+    expect(recordGame).toHaveBeenCalledTimes(2);
+  });
+
+  it('a match nobody comes back to is void', async () => {
+    prismaMock.liveMatch.findMany.mockResolvedValue([liveRow(3)]);
+    const io = makeIo([]) as any;
+    await restoreMatches(io);
+    jest.advanceTimersByTime(RESTORE_GRACE_MS);
+    expect(roomTest.rooms.size).toBe(0);
+    expect(recordGame).not.toHaveBeenCalled();
+  });
+
+  it('drops saved rows of matches that were already over', async () => {
+    prismaMock.liveMatch.findMany.mockResolvedValue([liveRow(6, 'won')]);
+    expect(await restoreMatches(makeIo([]) as any)).toBe(0);
+    expect(prismaMock.liveMatch.deleteMany).toHaveBeenCalledWith({ where: { id: 'room-1' } });
   });
 });
 

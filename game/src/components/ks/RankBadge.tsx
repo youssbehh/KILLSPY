@@ -3,8 +3,14 @@ import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Polygon, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { KS, TierName } from '../../theme/colors';
 import { TYPO, SIZES } from '../../theme/typography';
+import { useLocalT } from '../../i18n/local';
 
-const RANK_NAMES = ['RECRUIT', 'OPERATIVE', 'AGENT', 'SPECIALIST', 'PHANTOM'] as const;
+const STRINGS = {
+  fr: { tier0: 'RECRUE', tier1: 'OPÉRATEUR', tier2: 'AGENT', tier3: 'SPÉCIALISTE', tier4: 'FANTÔME' },
+  en: { tier0: 'RECRUIT', tier1: 'OPERATIVE', tier2: 'AGENT', tier3: 'SPECIALIST', tier4: 'PHANTOM' },
+} as const;
+
+const RANK_NAMES = ['tier0', 'tier1', 'tier2', 'tier3', 'tier4'] as const;
 const RANK_TIERS: TierName[] = ['bronze', 'silver', 'gold', 'diamond', 'phantom'];
 
 // Simple glyph paths scaled to a ~20px viewBox
@@ -37,6 +43,7 @@ function hexPoints(cx: number, cy: number, r: number): string {
 }
 
 export const RankBadge: React.FC<Props> = ({ tier, size = 32, showName = false }) => {
+  const t = useLocalT(STRINGS);
   const tierName = RANK_TIERS[tier];
   const color = KS.tier[tierName];
   const cx = size / 2;
@@ -84,7 +91,7 @@ export const RankBadge: React.FC<Props> = ({ tier, size = 32, showName = false }
             marginTop: 2,
           }}
         >
-          {RANK_NAMES[tier]}
+          {t(RANK_NAMES[tier])}
         </Text>
       )}
     </View>

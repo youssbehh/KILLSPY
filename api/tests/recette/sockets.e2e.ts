@@ -11,7 +11,7 @@ import { io as connect, Socket } from 'socket.io-client';
 import { app } from '../../src/app';
 import { prisma } from '../../src/lib/prisma';
 import { attachSockets } from '../../src/sockets';
-import { RECONNECT_GRACE_MS } from '../../src/sockets/gameRoom';
+import { RECONNECT_GRACE_MS, restoreMatches, __test as rooms } from '../../src/sockets/gameRoom';
 import { ClientToServerEvents, GameOverPayload, ServerToClientEvents } from '../../src/sockets/events';
 import { GameAction, GameState } from '../../src/game/gameEngine';
 
@@ -19,6 +19,7 @@ type Client = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 const PASSWORD = 'Passw0rd!';
 let server: http.Server;
+let ioServer: ReturnType<typeof attachSockets>;
 let url: string;
 const open: Client[] = [];
 
@@ -33,9 +34,10 @@ const bearer = (a: Agent) => ({ Authorization: `Bearer ${a.token}` });
 
 const signup = async (username: string, mmr = 0): Promise<Agent> => {
   const email = `${username.toLowerCase()}@sock.test`;
-  await api().post('/api/auth/signup').send({ username, email, passwordCrea: PASSWORD });
+  await api().post('/api/auth/signup').send({ username, email, passwordCrea: PASSWORD, acceptTerms: true });
   const logged = await api().post('/api/auth/login').send({ identifier: username, password: PASSWORD });
-  if (mmr) await prisma.users.update({ where: { ID_User: logged.body.user.id }, data: { MMR: mmr } });
+  // Verified, so ranked play is open (the mailer is mocked as configured).
+  await prisma.users.update({ where: { ID_User: logged.body.user.id }, data: { MMR: mmr, emailVerified: true } });
   return { id: logged.body.user.id, username, token: logged.body.token };
 };
 
@@ -98,7 +100,7 @@ beforeAll(async () => {
   await prisma.guild.deleteMany({});
   await prisma.users.deleteMany({});
   server = http.createServer(app);
-  attachSockets(server);
+  ioServer = attachSockets(server);
   await new Promise<void>((resolve) => server.listen(0, resolve));
   url = `http://localhost:${(server.address() as AddressInfo).port}`;
 });
@@ -173,6 +175,23 @@ describe('2. Partie rapide de bout en bout', () => {
     expect((await api().get(`/api/users/${ben.id}/profile`).set(bearer(ann))).body.profile.stats).toMatchObject({ wins: 0, losses: 1, total: 1 });
   });
 
+  it('chaque joueur reçoit les effets de combat équipés par son adversaire', async () => {
+    const [u1, u2] = [await signup('Fxa'), await signup('Fxb')];
+    const laser = await prisma.cosmeticItem.findUniqueOrThrow({ where: { name: 'Tir laser' } });
+    const ice = await prisma.cosmeticItem.findUniqueOrThrow({ where: { name: 'Mur de glace' } });
+    for (const item of [laser, ice]) {
+      await prisma.userCosmetic.create({ data: { userId: u1.id, itemId: item.id, pricePaid: 0 } });
+      await prisma.equippedCosmetic.create({ data: { userId: u1.id, type: item.type, itemId: item.id } });
+    }
+    const [a, b] = [await client(u1.token), await client(u2.token)];
+    const [foundA, foundB] = [once(a, 'match:found'), once(b, 'match:found')];
+    a.emit('matchmaking:join');
+    b.emit('matchmaking:join');
+    expect((await foundB).opponent.fx).toEqual({ shoot: 'Tir laser', shield: 'Mur de glace' });
+    expect((await foundA).opponent.fx).toEqual({ shoot: null, shield: null });
+    a.emit('game:leave');
+  });
+
   it('refuse une action illégale ou inconnue, et la file en double', async () => {
     const [u1, u2] = [await signup('Cleo'), await signup('Dan')];
     const [a, b] = [await client(u1.token), await client(u2.token)];
@@ -205,11 +224,20 @@ describe('2. Partie rapide de bout en bout', () => {
 // ════════════════════════════════════════════════════════════════════════════
 describe('3. File classée', () => {
   it('interdite aux invités', async () => {
-    const guest = await api().get('/api/auth/guest');
+    const guest = await api().post('/api/auth/guest').send({ acceptTerms: true });
     const g = await client(guest.body.token);
     const refused = once(g, 'error:message');
     g.emit('matchmaking:join', 'pvp_ranked');
     expect(await refused).toBe('Le mode classé nécessite un compte.');
+  });
+
+  it("interdite tant que l'adresse e-mail n'est pas vérifiée", async () => {
+    const agent = await signup('Unverified');
+    await prisma.users.update({ where: { ID_User: agent.id }, data: { emailVerified: false } });
+    const u = await client(agent.token);
+    const refused = once(u, 'error:message');
+    u.emit('matchmaking:join', 'pvp_ranked');
+    expect(await refused).toMatch(/Vérifie ton adresse/);
   });
 
   it("n'apparie pas deux niveaux trop éloignés, apparie deux niveaux proches et crédite le MMR", async () => {
@@ -273,6 +301,57 @@ describe('4. Reconnexion', () => {
     const mirror = { won: 'lost', lost: 'won', draw: 'draw' } as const;
     expect(['won', 'lost', 'draw']).toContain(endA.outcome);
     expect(endB.outcome).toBe(mirror[endA.outcome as keyof typeof mirror]);
+  });
+
+  it('un redémarrage du serveur ne perd pas la partie : elle reprend au tour suivant', async () => {
+    const [u1, u2] = [await signup('Ike', 1000), await signup('Jay', 1000)];
+    const [a, b] = [await client(u1.token), await client(u2.token)];
+    const secondReveal = new Promise<void>((resolve) => {
+      b.on('state:update', (p) => { if (p.state.round === 2) resolve(); });
+    });
+    a.on('turn:start', () => a.emit('game:action', 'reload'));
+    b.on('turn:start', () => b.emit('game:action', 'reload'));
+    a.emit('matchmaking:join', 'pvp_ranked');
+    b.emit('matchmaking:join', 'pvp_ranked');
+    await secondReveal;
+    await sleep(300);
+    expect(await prisma.liveMatch.count()).toBe(1);
+
+    // Crash: the process forgets everything, both connections drop.
+    rooms.forgetInMemory();
+    a.disconnect();
+    b.disconnect();
+    expect(await restoreMatches(ioServer)).toBe(1);
+
+    const reconnect = (token: string) => {
+      const socket: Client = connect(url, { auth: { token }, transports: ['websocket'], reconnection: false, forceNew: true });
+      open.push(socket);
+      return socket;
+    };
+    const a2 = reconnect(u1.token);
+    const resumeA = await once(a2, 'match:resume');
+    expect(resumeA).toMatchObject({ mode: 'pvp_ranked', opponent: { id: u2.id }, turnRemainingMs: null });
+    expect(resumeA.state.round).toBe(2);
+    expect(resumeA.state.player.ammo).toBe(2);
+    // No turn while the opponent is still away.
+    expect(await silent(a2, 'turn:start', 2500)).toBe(true);
+
+    const b2 = reconnect(u2.token);
+    await once(b2, 'match:resume');
+    const [nextA, nextB] = await Promise.all([once(a2, 'turn:start'), once(b2, 'turn:start')]);
+    expect(nextA.round).toBe(3);
+    expect(nextB.round).toBe(3);
+
+    // Played to the end, then the saved row is gone and the result is recorded.
+    const overA = autoplay(a2, hunter);
+    const overB = autoplay(b2, sittingDuck);
+    a2.emit('game:action', 'shoot');
+    b2.emit('game:action', 'reload');
+    const [endA] = await Promise.all([overA, overB]);
+    expect(endA.outcome).toBe('won');
+    await sleep(300);
+    expect(await prisma.liveMatch.count()).toBe(0);
+    expect(await prisma.gameHistory.count({ where: { ID_User: u1.id, Mode: 'pvp_ranked' } })).toBe(1);
   });
 
   it('forfait si le joueur ne revient pas avant la fin du délai', async () => {

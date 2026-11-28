@@ -18,9 +18,24 @@ import DiversContainer from '@/src/screens/settings/optdivers';
 import SupportContainer from '@/src/screens/settings/optsupport';
 import ProposContainer from '@/src/screens/settings/optpropos';
 import { appVersion } from '../config';
+import { useLocalT } from '@/src/i18n/local';
+
+const STRINGS = {
+  fr: {
+    back: 'Retour',
+    eyebrow: '// CONFIG AGENT',
+    title: 'PARAMÈTRES',
+  },
+  en: {
+    back: 'Back',
+    eyebrow: '// AGENT CONFIG',
+    title: 'SETTINGS',
+  },
+} as const;
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const t = useLocalT(STRINGS);
   const router = useRouter();
   const { langIndex } = useLanguageStore();
   const isGuest = useAuthStore((s) => s.user?.guest ?? false);
@@ -42,12 +57,12 @@ export default function SettingsScreen() {
 
         {/* ── Header ── */}
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back" hitSlop={8}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel={t('back')} hitSlop={8}>
             <Text style={styles.backArrow}>‹</Text>
           </Pressable>
           <View>
-            <Text style={styles.eyebrow}>// AGENT CONFIG</Text>
-            <Text style={styles.title}>SETTINGS</Text>
+            <Text style={styles.eyebrow}>{t('eyebrow')}</Text>
+            <Text style={styles.title}>{t('title')}</Text>
           </View>
         </View>
 
@@ -66,6 +81,7 @@ export default function SettingsScreen() {
           {/* Logout */}
           <Pressable
             onPress={() => setModalVisible(true)}
+            accessibilityRole="button"
             style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.75 }]}
           >
             <ChamferContainer

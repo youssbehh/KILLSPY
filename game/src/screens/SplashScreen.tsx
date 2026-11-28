@@ -2,11 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
+  Pressable,
   StyleSheet,
   useWindowDimensions,
   Animated as RNAnimated,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,21 +16,77 @@ import Animated, {
   withRepeat,
   Easing,
   runOnJS,
+  useReducedMotion,
 } from 'react-native-reanimated';
+import { appVersion } from '../../config';
 import { KS } from '../theme/colors';
 import { TYPO, SIZES } from '../theme/typography';
 import { MOTION } from '../theme/motion';
 import { TopoBg } from '../components/ks/TopoBg';
 import { Logo } from '../components/ks/Logo';
 import { ProgressBar } from '../components/ks/ProgressBar';
+import { useLocalT } from '../i18n/local';
 
-export const SplashScreen: React.FC = () => {
+const STRINGS = {
+  fr: {
+    init: 'INITIALISATION DES SYSTÈMES',
+    decrypting: 'DÉCHIFFREMENT DE LA CARTE',
+    loadingAssets: 'CHARGEMENT DES RESSOURCES',
+    syncing: 'SYNCHRO DES RENSEIGNEMENTS',
+    arming: 'ARMEMENT DES SYSTÈMES',
+    channel: 'OUVERTURE DU CANAL',
+    ready: 'MISSION PRÊTE',
+    dossier: 'DOSSIER · B-2747',
+    clearance: '● HABILITATION 4',
+    presents: '// MIMIR STUDIO PRÉSENTE',
+    classified: '[ CLASSIFIÉ · RENSEIGNEMENT ]',
+    topSecret: 'TOP SECRET',
+    loadingMission: '// CHARGEMENT DES RESSOURCES DE MISSION',
+    links: '✓ LIEN NEURAL ✓ CRYPTO',
+    skip: "Passer l'introduction",
+  },
+  en: {
+    init: 'INITIALIZING SYSTEMS',
+    decrypting: 'DECRYPTING MAP',
+    loadingAssets: 'LOADING ASSETS',
+    syncing: 'SYNCING INTEL',
+    arming: 'ARMING SYSTEMS',
+    channel: 'ESTABLISHING CHANNEL',
+    ready: 'MISSION READY',
+    dossier: 'FILE · B-2747',
+    clearance: '● CLEARANCE 4',
+    presents: '// MIMIR STUDIO PRESENTS',
+    classified: '[ CLASSIFIED · INTEL ]',
+    topSecret: 'TOP SECRET',
+    loadingMission: '// LOADING MISSION ASSETS',
+    links: '✓ NEURAL LINK ✓ CRYPTO',
+    skip: 'Skip the intro',
+  },
+} as const;
+
+type SplashKey = keyof typeof STRINGS.fr;
+
+/** How long the intro plays (the stamp lands, then the progress bar fills). */
+export const SPLASH_DURATION_MS = 2800;
+
+/**
+ * Animated intro shown over the app at every cold start, while the session is
+ * restored behind it. Tap anywhere to skip; with reduced motion it is short.
+ */
+export const SplashScreen: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   const { width, height } = useWindowDimensions();
-  const router = useRouter();
+  const reducedMotion = useReducedMotion();
+  const done = React.useRef(false);
+  const finish = React.useCallback(() => {
+    if (done.current) return;
+    done.current = true;
+    onDone();
+  }, [onDone]);
+  const t = useLocalT(STRINGS);
 
   // Simulate loading progress
   const [progress, setProgress] = React.useState(0);
-  const [status, setStatus] = React.useState('INITIALIZING SYSTEMS');
+  const [status, setStatus] = React.useState<SplashKey>('init');
 
   const stampScale = useSharedValue(2.2);
   const stampRotate = useSharedValue(-14);
@@ -50,13 +106,13 @@ export const SplashScreen: React.FC = () => {
     );
 
     // Simulate loading
-    const steps = [
-      { pct: 0.15, label: 'DECRYPTING MAP' },
-      { pct: 0.35, label: 'LOADING ASSETS' },
-      { pct: 0.55, label: 'SYNCING INTEL' },
-      { pct: 0.75, label: 'ARMING SYSTEMS' },
-      { pct: 0.92, label: 'ESTABLISHING CHANNEL' },
-      { pct: 1.00, label: 'MISSION READY' },
+    const steps: { pct: number; label: SplashKey }[] = [
+      { pct: 0.15, label: 'decrypting' },
+      { pct: 0.35, label: 'loadingAssets' },
+      { pct: 0.55, label: 'syncing' },
+      { pct: 0.75, label: 'arming' },
+      { pct: 0.92, label: 'channel' },
+      { pct: 1.00, label: 'ready' },
     ];
 
     let idx = 0;
@@ -78,10 +134,7 @@ export const SplashScreen: React.FC = () => {
       stampRotate.value = withTiming(-6, { duration: MOTION.stampIn, easing: Easing.out(Easing.back(1.5)) });
     }, logoDelay);
 
-    // Navigate when done
-    const navTimer = setTimeout(() => {
-      router.replace('/(tabs)/gamechoice');
-    }, 2800);
+    const navTimer = setTimeout(finish, reducedMotion ? 900 : SPLASH_DURATION_MS);
 
     return () => {
       clearInterval(interval);
@@ -102,53 +155,58 @@ export const SplashScreen: React.FC = () => {
   }));
 
   return (
-    <View style={[styles.container, { width, height }]}>
+    <Pressable
+      style={[styles.container, { width, height }]}
+      onPress={finish}
+      accessibilityRole="button"
+      accessibilityLabel={t('skip')}
+    >
       <TopoBg showRadar radarDuration={MOTION.radarSlow} intensity={1.2} />
 
       {/* Top eyebrow row */}
-      <View style={[styles.topRow, { top: 70, width: width - 32 }]}>
-        <Text style={styles.eyebrow}>DOSSIER · B-2747</Text>
+      <View style={[styles.topRow, { top: 70, width: Math.max(0, width - 32) }]}>
+        <Text style={styles.eyebrow}>{t('dossier')}</Text>
         <Animated.View style={[styles.row, blinkStyle]}>
-          <Text style={[styles.eyebrow, { color: KS.live }]}>● CLEARANCE 4</Text>
+          <Text style={[styles.eyebrow, { color: KS.live }]}>{t('clearance')}</Text>
         </Animated.View>
       </View>
 
       {/* Center logo block */}
       <View style={styles.centerBlock}>
-        <Text style={styles.presenter}>// MIMIR STUDIO PRESENTS</Text>
+        <Text style={styles.presenter}>{t('presents')}</Text>
 
         <Logo size={SIZES.logoXL} animated color={KS.ink} />
 
-        <Text style={styles.classified}>[ CLASSIFIED · INTEL ]</Text>
+        <Text style={styles.classified}>{t('classified')}</Text>
 
         {/* TOP SECRET stamp */}
         <Animated.View style={[styles.topSecret, stampStyle]}>
-          <Text style={styles.topSecretText}>TOP SECRET</Text>
+          <Text style={styles.topSecretText}>{t('topSecret')}</Text>
         </Animated.View>
       </View>
 
       {/* Bottom — loading bar */}
-      <View style={[styles.bottomBlock, { width: width - 32 }]}>
+      <View style={[styles.bottomBlock, { width: Math.max(0, width - 32) }]}>
         <View style={styles.loadRow}>
-          <Text style={styles.loadLabel}>// LOADING MISSION ASSETS</Text>
+          <Text style={styles.loadLabel}>{t('loadingMission')}</Text>
           <Text style={[styles.loadLabel, { color: KS.primary }]}>
             {Math.round(progress * 100)}%
           </Text>
         </View>
         <ProgressBar value={progress} segments={28} color={KS.live} height={10} />
         <View style={styles.statusRow}>
-          <Text style={styles.statusText}>✓ NEURAL LINK ✓ CRYPTO</Text>
+          <Text style={styles.statusText}>{t('links')}</Text>
           <Animated.Text style={[styles.statusText, { color: KS.alert }, blinkStyle]}>
-            › {status}
+            › {t(status)}
           </Animated.Text>
         </View>
       </View>
 
       {/* Footer */}
       <Text style={[styles.footer, { bottom: 28 }]}>
-        MIMIR STUDIO · v1.0.26 · BUILD 0524
+        MIMIR STUDIO · v{appVersion}
       </Text>
-    </View>
+    </Pressable>
   );
 };
 

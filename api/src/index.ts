@@ -5,9 +5,13 @@ import { prisma } from './lib/prisma';
 import { logger } from './lib/logger';
 import { attachSockets } from './sockets';
 import { startCronJobs } from './jobs/cronJobs';
+import { startRealtime } from './sockets';
 
 const httpServer = http.createServer(app);
 const io = attachSockets(httpServer);
+
+// Joins the other instances if any, then reloads the matches that were running before a restart.
+startRealtime(io).catch((err) => logger.error({ err }, 'failed to start the realtime layer'));
 
 startCronJobs();
 

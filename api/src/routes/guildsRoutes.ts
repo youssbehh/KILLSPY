@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authMiddleware from '../middlewares/authMiddleware';
+import { requireVerifiedEmail } from '../middlewares/requireVerified';
 import { validate } from '../middlewares/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { createGuildSchema, guildIdParamSchema, userIdParamSchema } from '../validators/social';
@@ -26,8 +27,8 @@ guildsRoutes.get('/', validate(guildListQuerySchema, 'query'), asyncHandler(asyn
 }));
 
 guildsRoutes.get('/me', getMyGuild);
-guildsRoutes.post('/', validate(createGuildSchema), createGuild);
-guildsRoutes.post('/:id/join', validate(guildIdParamSchema, 'params'), joinGuild);
+guildsRoutes.post('/', requireVerifiedEmail, validate(createGuildSchema), createGuild);
+guildsRoutes.post('/:id/join', requireVerifiedEmail, validate(guildIdParamSchema, 'params'), joinGuild);
 guildsRoutes.delete('/me', leaveGuild);
 guildsRoutes.delete('/kick/:userId', validate(userIdParamSchema, 'params'), kickMember);
 
@@ -55,7 +56,7 @@ guildsRoutes.get('/me/messages', validate(cursorQuerySchema, 'query'), asyncHand
   res.json(await admin.getGuildMessages(req.user!.ID_User, before, limit));
 }));
 
-guildsRoutes.post('/me/messages', validate(chatMessageSchema), asyncHandler(async (req, res) => {
+guildsRoutes.post('/me/messages', requireVerifiedEmail, validate(chatMessageSchema), asyncHandler(async (req, res) => {
   res.status(201).json({ message: await admin.postGuildMessage(req.user!.ID_User, req.body.content) });
 }));
 
@@ -64,12 +65,12 @@ guildsRoutes.get('/invites', asyncHandler(async (req, res) => {
   res.json({ invites: await admin.listMyInvites(req.user!.ID_User) });
 }));
 
-guildsRoutes.post('/invites', validate(guildInviteSchema), asyncHandler(async (req, res) => {
+guildsRoutes.post('/invites', requireVerifiedEmail, validate(guildInviteSchema), asyncHandler(async (req, res) => {
   const result = await admin.invitePlayer(req.user!.ID_User, req.body.username);
   res.status(201).json({ message: `Invitation envoyée à "${result.username}".` });
 }));
 
-guildsRoutes.post('/invites/:id/accept', validate(idParamSchema, 'params'), asyncHandler(async (req, res) => {
+guildsRoutes.post('/invites/:id/accept', requireVerifiedEmail, validate(idParamSchema, 'params'), asyncHandler(async (req, res) => {
   res.json({ guild: await admin.acceptInvite(req.user!.ID_User, Number(req.params.id)) });
 }));
 

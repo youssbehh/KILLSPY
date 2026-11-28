@@ -10,7 +10,6 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AlertModal from '@/components/AlertModal';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { appVersion } from '../config';
 import { useLoginMutation, useGuestMutation, useSignupMutation } from '@/src/hooks/useAuthFlow';
@@ -25,11 +24,11 @@ import { Logo } from '@/src/components/ks/Logo';
 import { PrimaryButton } from '@/src/components/ks/PrimaryButton';
 import { SecondaryButton } from '@/src/components/ks/SecondaryButton';
 import { Check, Field, FormNotice, LinkButton, Notice } from '@/src/components/ks/FormField';
+import { ConsentModal } from '@/src/components/ks/ConsentModal';
 import { ACCOUNT_STRINGS } from '@/src/screens/account/strings';
 import { checkEmail, checkPassword, checkUsername, normalizeEmail } from '@/src/screens/account/rules';
 
 const REMEMBERED_KEY = 'rememberedIdentifier';
-const RGPD_DELAY_SECS = 5;
 
 // Navigation after a successful login is handled by the auth guard in app/_layout.tsx.
 export default function LoginFormScreen() {
@@ -50,8 +49,8 @@ export default function LoginFormScreen() {
   const [passwordCrea, setPasswordCrea] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [rgpdVisible, setRgpdVisible] = useState(false);
-  const [rgpdCountdown, setRgpdCountdown] = useState(RGPD_DELAY_SECS);
+  /** What the privacy notice is being shown for: ticking the signup box, or starting as a guest. */
+  const [consentFor, setConsentFor] = useState<'signup' | 'guest' | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [serverUp, setServerUp] = useState<boolean | null>(null);
 
@@ -71,23 +70,11 @@ export default function LoginFormScreen() {
     };
   }, []);
 
-  // The consent button unlocks after a short reading delay.
-  useEffect(() => {
-    if (!rgpdVisible || rgpdCountdown <= 0) return;
-    const timer = setTimeout(() => setRgpdCountdown((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [rgpdVisible, rgpdCountdown]);
-
   const fail = (text: string) => setNotice({ text, ok: false });
 
   const switchForm = () => {
     setNotice(null);
     setIsLoginForm((prev) => !prev);
-  };
-
-  const openRgpd = () => {
-    setRgpdCountdown(RGPD_DELAY_SECS);
-    setRgpdVisible(true);
   };
 
   const handleSignup = async () => {
@@ -99,7 +86,12 @@ export default function LoginFormScreen() {
     if (!acceptTerms) return fail(t('errAcceptTerms'));
 
     try {
-      await signupMutation.mutateAsync({ username: username.trim(), email: normalizeEmail(email), passwordCrea });
+      await signupMutation.mutateAsync({
+        username: username.trim(),
+        email: normalizeEmail(email),
+        passwordCrea,
+        acceptTerms: true,
+      });
       setIdentifier(username.trim());
       setUsername('');
       setEmail('');
@@ -211,7 +203,7 @@ export default function LoginFormScreen() {
               <Check
                 label={t('acceptTerms')}
                 checked={acceptTerms}
-                onToggle={() => (acceptTerms ? setAcceptTerms(false) : openRgpd())}
+                onToggle={() => (acceptTerms ? setAcceptTerms(false) : setConsentFor('signup'))}
               />
             </>
           )}
@@ -227,7 +219,7 @@ export default function LoginFormScreen() {
           />
           <SecondaryButton
             label={t('playAsGuest').toUpperCase()}
-            onPress={handleGuest}
+            onPress={() => setConsentFor('guest')}
             disabled={isLoading}
           />
 
@@ -250,22 +242,17 @@ export default function LoginFormScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <AlertModal
-        visible={rgpdVisible}
-        text1={t('rgpdIntro')}
-        text2={t('rgpdData')}
-        text3={t('rgpdUsage')}
-        error1Button={rgpdCountdown > 0 ? `${rgpdCountdown}…` : t('iAccept')}
-        onPressError1={() => {
-          if (rgpdCountdown > 0) return;
-          setRgpdVisible(false);
-          setAcceptTerms(true);
+      <ConsentModal
+        visible={consentFor !== null}
+        onAccept={() => {
+          const reason = consentFor;
+          setConsentFor(null);
+          if (reason === 'signup') setAcceptTerms(true);
+          else void handleGuest();
         }}
-        disabledError1={rgpdCountdown > 0}
-        button1={t('iRefuse')}
-        onPress1={() => {
-          setRgpdVisible(false);
-          setAcceptTerms(false);
+        onRefuse={() => {
+          if (consentFor === 'signup') setAcceptTerms(false);
+          setConsentFor(null);
         }}
       />
     </View>

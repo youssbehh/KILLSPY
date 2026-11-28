@@ -44,6 +44,14 @@ const COSMETICS: SeedItem[] = [
   { type: 'background', name: 'Jungle tropicale', imageUrl: 'https://placehold.co/1280x720/228b22/ffffff?text=JUNGLE',   basePrice: 200, rarity: 'rare' },
   { type: 'background', name: 'Bunker secret',    imageUrl: 'https://placehold.co/1280x720/2e2e2e/c0c0c0?text=BUNKER',   basePrice: 400, rarity: 'epic' },
   { type: 'background', name: 'Casino royal',     imageUrl: 'https://placehold.co/1280x720/001f3f/ffd700?text=CASINO',   basePrice: 900, rarity: 'legendary' },
+
+  // ---- COMBAT EFFECTS (rendered by game/src/game/cosmeticFx.ts, matched by name) ----
+  { type: 'shoot_anim',  name: 'Tir laser',          imageUrl: 'https://placehold.co/256x256/1f242a/ff2d55?text=LASER',   basePrice: 220,  rarity: 'rare' },
+  { type: 'shoot_anim',  name: 'Tir plasma',         imageUrl: 'https://placehold.co/256x256/1f242a/a040ff?text=PLASMA',  basePrice: 600,  rarity: 'epic' },
+  { type: 'shoot_anim',  name: 'Rafale dorée',       imageUrl: 'https://placehold.co/256x256/1f242a/ffc107?text=RAFALE',  basePrice: 1400, rarity: 'legendary' },
+  { type: 'shield_anim', name: 'Bouclier hexagonal', imageUrl: 'https://placehold.co/256x256/1f242a/7be0ff?text=HEX',     basePrice: 220,  rarity: 'rare' },
+  { type: 'shield_anim', name: "Dôme d'énergie",     imageUrl: 'https://placehold.co/256x256/1f242a/a040ff?text=DOME',    basePrice: 600,  rarity: 'epic' },
+  { type: 'shield_anim', name: 'Mur de glace',       imageUrl: 'https://placehold.co/256x256/1f242a/e0f7ff?text=ICE',     basePrice: 1400, rarity: 'legendary' },
 ];
 
 /**

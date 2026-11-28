@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailSchema, passwordSchema, usernameSchema } from './auth';
+import { acceptTermsSchema, emailSchema, passwordSchema, usernameSchema } from './auth';
 import { REPORT_REASONS } from '../services/social.service';
 
 const id = z.coerce.number().int().positive();
@@ -24,6 +24,7 @@ export const upgradeGuestSchema = z.object({
   username: usernameSchema,
   email: emailSchema,
   passwordCrea: passwordSchema,
+  acceptTerms: acceptTermsSchema,
 });
 
 export const searchQuerySchema = z.object({

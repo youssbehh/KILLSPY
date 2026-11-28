@@ -20,6 +20,47 @@ import { useLeaderboardPages, useMyLeaderboardPosition } from '../hooks/useLeade
 import { useAuthStore } from '../stores/authStore';
 import { LeaderboardEntry } from '../api/leaderboard';
 import { rankTierIndex } from '../game/rankDisplay';
+import { useRankLabel } from '../game/displayNames';
+import { useLocalT } from '../i18n/local';
+
+const STRINGS = {
+  fr: {
+    back: 'Retour',
+    eyebrow: '‹ RETOUR · // RENSEIGNEMENT · CLASSEMENT MONDIAL',
+    title: 'CLASSEMENT',
+    unavailable: 'RENSEIGNEMENTS INDISPONIBLES',
+    tapRetry: 'TOUCHER POUR RÉESSAYER',
+    empty: 'AUCUN AGENT CLASSÉ',
+    emptyHint: 'JOUE EN CLASSÉ POUR PRENDRE LA PREMIÈRE PLACE',
+    loadMoreA11y: 'Charger plus',
+    loadMore: 'CHARGER PLUS',
+    yourPosition: '// TA POSITION',
+    tier0: 'RECRUE',
+    tier1: 'OPÉRATEUR',
+    tier2: 'AGENT',
+    tier3: 'SPÉCIALISTE',
+    tier4: 'FANTÔME',
+  },
+  en: {
+    back: 'Back',
+    eyebrow: '‹ BACK · // INTEL · GLOBAL LADDER',
+    title: 'LEADERBOARD',
+    unavailable: 'INTEL UNAVAILABLE',
+    tapRetry: 'TAP TO RETRY',
+    empty: 'NO RANKED AGENT YET',
+    emptyHint: 'PLAY RANKED TO CLAIM THE TOP SPOT',
+    loadMoreA11y: 'Load more',
+    loadMore: 'LOAD MORE',
+    yourPosition: '// YOUR POSITION',
+    tier0: 'RECRUIT',
+    tier1: 'OPERATIVE',
+    tier2: 'AGENT',
+    tier3: 'SPECIALIST',
+    tier4: 'PHANTOM',
+  },
+} as const;
+
+const TIER_TITLES = ['tier0', 'tier1', 'tier2', 'tier3', 'tier4'] as const;
 
 const toRow = (e: LeaderboardEntry) => ({
   rank: e.position,
@@ -36,10 +77,12 @@ export const LeaderboardScreen: React.FC = () => {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const t = useLocalT(STRINGS);
+  const rankName = useRankLabel();
   const me = useAuthStore((s) => s.user);
   const { entries, isLoading, isError, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } = useLeaderboardPages();
   const { data: myPosition } = useMyLeaderboardPosition();
-  const podium = entries.slice(0, 3).map((e) => ({ ...toRow(e), rp: e.rank.label }));
+  const podium = entries.slice(0, 3).map((e) => ({ ...toRow(e), rp: rankName(e.rank.id) }));
   const rest = entries.slice(3).map(toRow);
   const myRow = myPosition ? toRow(myPosition as LeaderboardEntry) : null;
 
@@ -49,10 +92,10 @@ export const LeaderboardScreen: React.FC = () => {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" hitSlop={12}>
-          <Text style={styles.eyebrow}>‹ BACK · // INTEL · GLOBAL LADDER</Text>
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={t('back')} hitSlop={12}>
+          <Text style={styles.eyebrow}>{t('eyebrow')}</Text>
         </Pressable>
-        <Text style={styles.title}>LEADERBOARD</Text>
+        <Text style={styles.title}>{t('title')}</Text>
       </View>
 
       <ScrollView
@@ -63,15 +106,15 @@ export const LeaderboardScreen: React.FC = () => {
 
         {isError && (
           <Pressable onPress={() => refetch()} accessibilityRole="button" style={styles.stateBox}>
-            <Text style={[styles.stateText, { color: KS.danger }]}>INTEL UNAVAILABLE</Text>
-            <Text style={styles.stateHint}>TAP TO RETRY</Text>
+            <Text style={[styles.stateText, { color: KS.danger }]}>{t('unavailable')}</Text>
+            <Text style={styles.stateHint}>{t('tapRetry')}</Text>
           </Pressable>
         )}
 
         {!isLoading && !isError && entries.length === 0 && (
           <View style={styles.stateBox}>
-            <Text style={styles.stateText}>NO RANKED AGENT YET</Text>
-            <Text style={styles.stateHint}>PLAY RANKED TO CLAIM THE TOP SPOT</Text>
+            <Text style={styles.stateText}>{t('empty')}</Text>
+            <Text style={styles.stateHint}>{t('emptyHint')}</Text>
           </View>
         )}
 
@@ -96,10 +139,10 @@ export const LeaderboardScreen: React.FC = () => {
             onPress={() => fetchNextPage()}
             disabled={isFetchingNextPage}
             accessibilityRole="button"
-            accessibilityLabel="Load more"
+            accessibilityLabel={t('loadMoreA11y')}
             style={styles.more}
           >
-            {isFetchingNextPage ? <ActivityIndicator color={KS.primary} /> : <Text style={styles.moreText}>LOAD MORE</Text>}
+            {isFetchingNextPage ? <ActivityIndicator color={KS.primary} /> : <Text style={styles.moreText}>{t('loadMore')}</Text>}
           </Pressable>
         )}
 
@@ -110,7 +153,7 @@ export const LeaderboardScreen: React.FC = () => {
       {myRow && !me?.guest && (
         <View style={[styles.ownRank, { left: PAD, right: PAD, bottom: insets.bottom + 12 }]}>
           <Text style={styles.ownEyebrow}>
-            // YOUR POSITION
+            {t('yourPosition')}
           </Text>
           <LeaderRow entry={myRow} self />
         </View>
@@ -176,6 +219,7 @@ interface ListEntry {
 }
 
 const LeaderRow: React.FC<{ entry: ListEntry; self: boolean }> = ({ entry, self }) => {
+  const t = useLocalT(STRINGS);
   const tierName = ['bronze','silver','gold','diamond','phantom'][entry.tier] as keyof typeof KS.tier;
   const deltaColor = entry.delta > 0 ? KS.live : entry.delta < 0 ? KS.danger : KS.inkDim;
   const deltaStr = entry.delta > 0 ? `+${entry.delta}` : entry.delta < 0 ? `${entry.delta}` : '—';
@@ -189,7 +233,7 @@ const LeaderRow: React.FC<{ entry: ListEntry; self: boolean }> = ({ entry, self 
       <View style={rowStyles.nameCol}>
         <Text style={rowStyles.name}>{entry.name}</Text>
         <Text style={rowStyles.rankName}>
-          {['RECRUIT','OPERATIVE','AGENT','SPECIALIST','PHANTOM'][entry.tier]}
+          {t(TIER_TITLES[entry.tier])}
         </Text>
       </View>
       <Text style={rowStyles.score}>{entry.score}</Text>
@@ -241,7 +285,7 @@ const styles = StyleSheet.create({
     fontFamily: TYPO.mono,
     fontSize: SIZES.monoSm,
   },
-  tabTextActive: { color: KS.ink },
+  tabTextActive: { color: KS.onPrimary },
   scroll: { paddingTop: 8 },
   podium: {
     flexDirection: 'row',

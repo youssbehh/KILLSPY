@@ -16,6 +16,13 @@ import { GameAction, GameState } from '../../game/gameEngine';
 import { KS } from '../../theme/colors';
 import { TYPO, SIZES } from '../../theme/typography';
 import { MOTION } from '../../theme/motion';
+import { CombatLook, DEFAULT_LOOK } from '../../game/cosmeticFx';
+import { useLocalT } from '../../i18n/local';
+
+const STRINGS = {
+  fr: { hit: 'TOUCHÉ · −1', blocked: 'BLOQUÉ' },
+  en: { hit: 'HIT · −1', blocked: 'BLOCKED' },
+} as const;
 
 /**
  * Turn-resolution effects, drawn over the duel screen.
@@ -28,12 +35,18 @@ import { MOTION } from '../../theme/motion';
  *
  * The component is purely visual (pointerEvents none) and reads everything from
  * the engine state, so PvP and the bot mode share it as-is.
+ *
+ * Each side can wear purchased effects (laser, plasma, golden burst; hexagonal,
+ * dome or ice shield): see game/cosmeticFx.ts.
  */
 
 type Side = 'player' | 'opponent';
 
 interface Props {
   state: GameState;
+  /** Effects equipped by me and by the opponent (default look when omitted). */
+  playerLook?: CombatLook;
+  opponentLook?: CombatLook;
 }
 
 interface TurnFx {
@@ -56,7 +69,7 @@ const T = {
 
 const clamp = { extrapolateLeft: Extrapolation.CLAMP, extrapolateRight: Extrapolation.CLAMP };
 
-export const CombatFx: React.FC<Props> = ({ state }) => {
+export const CombatFx: React.FC<Props> = ({ state, playerLook = DEFAULT_LOOK, opponentLook = DEFAULT_LOOK }) => {
   const reducedMotion = useReducedMotion();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [fx, setFx] = useState<TurnFx | null>(null);
@@ -121,6 +134,7 @@ export const CombatFx: React.FC<Props> = ({ state }) => {
           <SideFx
             key={`player-${fx.round}`}
             side="player"
+            look={playerLook}
             action={fx.playerAction}
             hit={fx.opponentHit}
             blocked={fx.playerAction === 'shoot' && fx.opponentAction === 'shield'}
@@ -132,6 +146,7 @@ export const CombatFx: React.FC<Props> = ({ state }) => {
           <SideFx
             key={`opponent-${fx.round}`}
             side="opponent"
+            look={opponentLook}
             action={fx.opponentAction}
             hit={fx.playerHit}
             blocked={fx.opponentAction === 'shoot' && fx.playerAction === 'shield'}
@@ -173,6 +188,7 @@ const HitFlash: React.FC<{
 
 interface SideFxProps {
   side: Side;
+  look: CombatLook;
   action: GameAction | null;
   /** This side's shot wounded the other side. */
   hit: boolean;
@@ -199,9 +215,70 @@ const yFor = (side: Side, fraction: number, height: number) =>
 const TRACER_H = 84;
 const MUZZLE = 56;
 const IMPACT = 72;
+const ORB = 22;
 
-const ShotFx: React.FC<SideFxProps> = ({ side, hit, blocked, progress, width, height }) => {
-  const color = SIDE_COLOR[side];
+/** One projectile on the shared timeline; `delay` staggers the shots of a burst. */
+const Projectile: React.FC<{
+  progress: SharedValue<number>;
+  originY: number;
+  endY: number;
+  x: number;
+  color: string;
+  orb: boolean;
+  delay: number;
+}> = ({ progress, originY, endY, x, color, orb, delay }) => {
+  const from = T.flight[0] + delay;
+  const to = T.flight[1] + delay;
+  const size = orb ? ORB : TRACER_H;
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [from, from + 0.02, to, to + 0.05], [0, 1, 1, 0], clamp),
+    transform: [{ translateY: interpolate(progress.value, [from, to], [originY, endY], clamp) - size / 2 }],
+  }));
+  return (
+    <Animated.View
+      style={[
+        orb ? styles.orb : styles.tracer,
+        { left: x - (orb ? ORB / 2 : 2), backgroundColor: color, shadowColor: color },
+        style,
+      ]}
+    />
+  );
+};
+
+/** Laser: the whole line lights up at once, then thins out. */
+const Beam: React.FC<{ progress: SharedValue<number>; originY: number; endY: number; x: number; color: string }> = ({
+  progress,
+  originY,
+  endY,
+  x,
+  color,
+}) => {
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [T.flight[0], T.flight[0] + 0.03, T.impact[1], T.impact[2]], [0, 1, 1, 0], clamp),
+    transform: [{ scaleX: interpolate(progress.value, [T.flight[0], T.flight[0] + 0.05, T.impact[2]], [3, 1, 0.4], clamp) }],
+  }));
+  return (
+    <Animated.View
+      style={[
+        styles.beam,
+        { left: x - 1.5, top: Math.min(originY, endY), height: Math.abs(endY - originY), backgroundColor: color, shadowColor: color },
+        style,
+      ]}
+    />
+  );
+};
+
+/** Three shots, slightly apart in time and space. */
+const BURST = [
+  { dx: -10, delay: 0 },
+  { dx: 0, delay: 0.035 },
+  { dx: 10, delay: 0.07 },
+];
+
+const ShotFx: React.FC<SideFxProps> = ({ side, look, hit, blocked, progress, width, height }) => {
+  const t = useLocalT(STRINGS);
+  const color = look.shot.color ?? SIDE_COLOR[side];
+  const shape = look.shot.shape;
   const originY = yFor(side, 0.66, height);
   // A blocked shot dies on the barrier; otherwise it reaches the target.
   const endY = yFor(side, blocked ? 0.38 : 0.27, height);
@@ -210,18 +287,6 @@ const ShotFx: React.FC<SideFxProps> = ({ side, hit, blocked, progress, width, he
   const muzzleStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [...T.muzzle], [0, 1, 0], clamp),
     transform: [{ scale: interpolate(progress.value, [T.muzzle[0], T.muzzle[2]], [0.4, 1.8], clamp) }],
-  }));
-
-  const tracerStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      progress.value,
-      [T.flight[0], T.flight[0] + 0.02, T.flight[1], T.flight[1] + 0.05],
-      [0, 1, 1, 0],
-      clamp,
-    ),
-    transform: [
-      { translateY: interpolate(progress.value, [...T.flight], [originY, endY], clamp) - TRACER_H / 2 },
-    ],
   }));
 
   const impactStyle = useAnimatedStyle(() => ({
@@ -243,13 +308,14 @@ const ShotFx: React.FC<SideFxProps> = ({ side, hit, blocked, progress, width, he
           muzzleStyle,
         ]}
       />
-      <Animated.View
-        style={[
-          styles.tracer,
-          { left: cx - 2, backgroundColor: color, shadowColor: color },
-          tracerStyle,
-        ]}
-      />
+      {shape === 'beam' && <Beam progress={progress} originY={originY} endY={endY} x={cx} color={color} />}
+      {(shape === 'tracer' || shape === 'orb') && (
+        <Projectile progress={progress} originY={originY} endY={endY} x={cx} color={color} orb={shape === 'orb'} delay={0} />
+      )}
+      {shape === 'burst' &&
+        BURST.map((b, i) => (
+          <Projectile key={i} progress={progress} originY={originY} endY={endY} x={cx + b.dx} color={color} orb={false} delay={b.delay} />
+        ))}
       <Animated.View
         style={[
           styles.impact,
@@ -264,23 +330,31 @@ const ShotFx: React.FC<SideFxProps> = ({ side, hit, blocked, progress, width, he
       />
       {hit && (
         <Animated.Text style={[styles.label, { top: endY - 46, color: KS.danger }, labelStyle]}>
-          HIT · −1
+          {t('hit')}
         </Animated.Text>
       )}
     </>
   );
 };
 
-const ShieldFx: React.FC<SideFxProps> = ({ side, blocks, progress, width, height }) => {
+const HEX_CELLS = 5;
+const HEX = 26;
+
+const ShieldFx: React.FC<SideFxProps> = ({ side, look, blocks, progress, width, height }) => {
+  const t = useLocalT(STRINGS);
+  const color = look.shield.color ?? SHIELD_COLOR;
+  const shape = look.shield.shape;
   const y = yFor(side, 0.62, height);
   const barWidth = Math.min(width * 0.72, 300);
+  const left = (width - barWidth) / 2;
+  const flare = shape === 'bar' ? 3 : 1.35;
 
   const barrierStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0, 0.1, 0.72, 1], [0, 0.95, 0.95, 0], clamp),
     transform: [
       { scaleX: interpolate(progress.value, [0, 0.18], [0.35, 1], clamp) },
       // The barrier flares when the incoming shot lands on it.
-      { scaleY: blocks ? interpolate(progress.value, [T.impact[0], T.impact[1], 0.62], [1, 3, 1], clamp) : 1 },
+      { scaleY: blocks ? interpolate(progress.value, [T.impact[0], T.impact[1], 0.62], [1, flare, 1], clamp) : 1 },
     ],
   }));
 
@@ -293,19 +367,59 @@ const ShieldFx: React.FC<SideFxProps> = ({ side, blocks, progress, width, height
     opacity: interpolate(progress.value, [T.impact[0], T.impact[1], 0.88, 1], [0, 1, 1, 0], clamp),
   }));
 
+  const domeHeight = barWidth * 0.32;
+  // The opponent's dome faces down, towards me.
+  const domeFlip = side === 'player' ? null : { transform: [{ rotate: '180deg' }] };
+
   return (
     <>
       <Animated.View
-        style={[styles.shieldHalo, { left: (width - barWidth) / 2, width: barWidth, top: y - 22 }, haloStyle]}
+        style={[styles.shieldHalo, { left, width: barWidth, top: y - 22, backgroundColor: color }, haloStyle]}
       />
-      <Animated.View
-        style={[styles.shieldBar, { left: (width - barWidth) / 2, width: barWidth, top: y - 3 }, barrierStyle]}
-      />
-      {blocks && (
-        <Animated.Text
-          style={[styles.label, { top: y + (side === 'player' ? -34 : 14), color: SHIELD_COLOR }, labelStyle]}
+      {shape === 'bar' && (
+        <Animated.View
+          style={[styles.shieldBar, { left, width: barWidth, top: y - 3, backgroundColor: color, shadowColor: color }, barrierStyle]}
+        />
+      )}
+      {shape === 'hex' && (
+        <Animated.View style={[styles.hexRow, { left, width: barWidth, top: y - HEX / 2 }, barrierStyle]}>
+          {Array.from({ length: HEX_CELLS }, (_, i) => (
+            <View key={i} style={[styles.hexCell, { borderColor: color, shadowColor: color }]} />
+          ))}
+        </Animated.View>
+      )}
+      {shape === 'dome' && (
+        <View
+          style={[
+            styles.domeBox,
+            { left, width: barWidth, height: domeHeight, top: side === 'player' ? y - domeHeight : y },
+            domeFlip,
+          ]}
         >
-          BLOCKED
+          <Animated.View
+            style={[
+              styles.dome,
+              {
+                borderColor: color,
+                shadowColor: color,
+                borderTopLeftRadius: barWidth / 2,
+                borderTopRightRadius: barWidth / 2,
+              },
+              barrierStyle,
+            ]}
+          />
+        </View>
+      )}
+      {shape === 'ice' && (
+        <Animated.View
+          style={[styles.ice, { left, width: barWidth, top: y - 10, borderColor: color, shadowColor: color }, barrierStyle]}
+        >
+          <View style={[styles.iceShine, { backgroundColor: color }]} />
+        </Animated.View>
+      )}
+      {blocks && (
+        <Animated.Text style={[styles.label, { top: y + (side === 'player' ? -34 : 14), color }, labelStyle]}>
+          {t('blocked')}
         </Animated.Text>
       )}
     </>
@@ -360,6 +474,20 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     ...glow,
   },
+  orb: {
+    position: 'absolute',
+    top: 0,
+    width: ORB,
+    height: ORB,
+    borderRadius: ORB / 2,
+    ...glow,
+  },
+  beam: {
+    position: 'absolute',
+    width: 3,
+    borderRadius: 1.5,
+    ...glow,
+  },
   impact: {
     position: 'absolute',
     width: IMPACT,
@@ -372,16 +500,44 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: 6,
     borderRadius: 3,
-    backgroundColor: SHIELD_COLOR,
-    shadowColor: SHIELD_COLOR,
     ...glow,
   },
   shieldHalo: {
     position: 'absolute',
     height: 44,
     borderRadius: 22,
-    backgroundColor: SHIELD_COLOR,
   },
+  hexRow: {
+    position: 'absolute',
+    height: HEX,
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+  },
+  hexCell: {
+    width: HEX * 0.72,
+    height: HEX * 0.72,
+    borderWidth: 2.5,
+    transform: [{ rotate: '45deg' }],
+    ...glow,
+  },
+  domeBox: { position: 'absolute' },
+  dome: {
+    flex: 1,
+    borderWidth: 3,
+    borderBottomWidth: 0,
+    ...glow,
+  },
+  ice: {
+    position: 'absolute',
+    height: 20,
+    borderWidth: 2,
+    borderRadius: 3,
+    backgroundColor: 'rgba(224,247,255,0.28)',
+    overflow: 'hidden',
+    ...glow,
+  },
+  iceShine: { position: 'absolute', top: 3, left: 8, right: '40%', height: 3, opacity: 0.8 },
   reloadRing: {
     position: 'absolute',
     width: RING,

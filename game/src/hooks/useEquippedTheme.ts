@@ -14,18 +14,18 @@ const NAME_TO_THEME_ID: Record<string, ThemeId> = Object.entries(THEME_COSMETIC_
   }, {} as Record<string, ThemeId>);
 
 /**
- * Read the user's currently equipped `ui_theme` cosmetic and push it into the
- * local themeStore so the UI re-renders with the right palette.
+ * Read the user's currently equipped `ui_theme` cosmetic and remember it for the
+ * next start (the palette is fixed for a run). The theme store then says whether a
+ * restart is needed to see it — ThemeRestartBanner offers it.
  *
- * - Falls back to DEFAULT_THEME_ID (spyCasual) if nothing is equipped or
- *   the server returns an unknown theme name.
+ * - Nothing equipped or an unknown name: nothing changes.
  * - Mount once at the root layout (after QueryClientProvider) — it's a fire
  *   and forget effect, no rendering of its own.
  */
 export const useEquippedTheme = () => {
   const { data } = useInventory();
-  const setTheme = useThemeStore((s) => s.setTheme);
-  const currentThemeId = useThemeStore((s) => s.themeId);
+  const setEquipped = useThemeStore((s) => s.setEquipped);
+  const currentThemeId = useThemeStore((s) => s.equippedId);
 
   useEffect(() => {
     const equipped = data?.equipped?.ui_theme;
@@ -39,9 +39,9 @@ export const useEquippedTheme = () => {
     }
 
     if (themeId !== currentThemeId) {
-      setTheme(themeId);
+      setEquipped(themeId);
     }
-  }, [data?.equipped?.ui_theme?.itemId, currentThemeId, setTheme]);
+  }, [data?.equipped?.ui_theme?.itemId, currentThemeId, setEquipped]);
 };
 
 export const fallbackThemeId = DEFAULT_THEME_ID;

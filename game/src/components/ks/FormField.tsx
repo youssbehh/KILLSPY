@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkBoxOn: { backgroundColor: KS.primary, borderColor: KS.primary },
-  checkMark: { color: KS.ink, fontFamily: TYPO.uiBold, fontSize: SIZES.body },
+  checkMark: { color: KS.onPrimary, fontFamily: TYPO.uiBold, fontSize: SIZES.body },
   checkLabel: { color: KS.inkMute, fontFamily: TYPO.ui, fontSize: SIZES.body, flexShrink: 1 },
   notice: { fontFamily: TYPO.mono, fontSize: SIZES.monoMd, marginTop: 4, marginBottom: 4 },
   link: { alignSelf: 'center', minHeight: 48, paddingHorizontal: 8, justifyContent: 'center' },

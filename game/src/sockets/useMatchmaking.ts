@@ -3,6 +3,9 @@ import { useGameStore } from '../stores/gameStore';
 import { getSocket, peekSocket } from './client';
 import { GameAction } from '../game/gameEngine';
 import { QueueMode } from './events';
+import { useLanguageStore } from '../stores/languageStore';
+
+const CONNECT_ERROR = ['Connexion au serveur impossible.', 'Unable to reach the server.'];
 
 /**
  * Actions of the duel screen: search, cancel, play, leave.
@@ -16,7 +19,8 @@ export const useMatchmaking = () => {
       const socket = await getSocket();
       socket.emit('matchmaking:join', mode);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Connexion au serveur impossible.');
+      const { langIndex } = useLanguageStore.getState();
+      setError(e instanceof Error ? e.message : (CONNECT_ERROR[langIndex] ?? CONNECT_ERROR[0]));
     }
   }, []);
 

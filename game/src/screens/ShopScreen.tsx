@@ -21,13 +21,71 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useShop, usePurchase } from '../hooks/useShop';
 import { useAuthStore } from '../stores/authStore';
+import { VerifyEmailBanner } from '../components/ks/VerifyEmailBanner';
 import { extractApiError } from '../api/client';
 import { CosmeticType, ShopOffer } from '../api/shop';
 import { RarityId } from '../game/rarities';
+import { useRarityLabel } from '../game/displayNames';
+import { useLocalT } from '../i18n/local';
 
 const PAD = 16;
 const ITEM_KINDS = ['ALL', 'AVATARS', 'SKINS', 'THEMES', 'FX'] as const;
 type ItemKind = typeof ITEM_KINDS[number];
+
+const STRINGS = {
+  fr: {
+    ALL: 'TOUT',
+    AVATARS: 'AVATARS',
+    SKINS: 'SKINS',
+    THEMES: 'THÈMES',
+    FX: 'FX',
+    needAccount: 'CRÉE UN COMPTE POUR ACHETER',
+    notEnoughCoins: 'PIÈCES INSUFFISANTES',
+    acquired: '{name} ACQUIS',
+    eyebrow: '// BOUTIQUE',
+    title: 'MARCHÉ NOIR',
+    dailyDrop: 'ARRIVAGE DU JOUR · ROTATION DANS',
+    unreachable: 'MARCHÉ INJOIGNABLE',
+    tapRetry: 'TOUCHER POUR RÉESSAYER',
+    noDrop: "AUCUN ARRIVAGE AUJOURD'HUI",
+    comeBack: 'REVIENS APRÈS LA PROCHAINE ROTATION',
+    lineup: 'Sélection du jour · {count} articles',
+    footer: '// TOUTES LES TRANSACTIONS SONT ENREGISTRÉES · REGISTRE MIMIR',
+    limitedOffer: 'OFFRE LIMITÉE · {tab}',
+    buyA11y: 'Acheter {name} pour {price} pièces',
+    confirm: 'CONFIRMER',
+    confirmShort: 'OK ?',
+    buy: 'ACHETER',
+    owned: '✓ POSSÉDÉ',
+    soldOut: 'ÉPUISÉ',
+  },
+  en: {
+    ALL: 'ALL',
+    AVATARS: 'AVATARS',
+    SKINS: 'SKINS',
+    THEMES: 'THEMES',
+    FX: 'FX',
+    needAccount: 'CREATE AN ACCOUNT TO BUY',
+    notEnoughCoins: 'NOT ENOUGH COINS',
+    acquired: '{name} ACQUIRED',
+    eyebrow: '// SHOP',
+    title: 'BLACK MARKET',
+    dailyDrop: 'DAILY DROP · ROTATES IN',
+    unreachable: 'MARKET UNREACHABLE',
+    tapRetry: 'TAP TO RETRY',
+    noDrop: 'NO DROP TODAY',
+    comeBack: 'COME BACK AFTER THE NEXT ROTATION',
+    lineup: "Today's Lineup · {count} items",
+    footer: '// ALL TRANSACTIONS LOGGED · MIMIR LEDGER',
+    limitedOffer: 'LIMITED TIME OFFER · {tab}',
+    buyA11y: 'Buy {name} for {price} coins',
+    confirm: 'CONFIRM',
+    confirmShort: 'OK ?',
+    buy: 'BUY',
+    owned: '✓ OWNED',
+    soldOut: 'SOLD OUT',
+  },
+} as const;
 
 interface ShopItem {
   id: string;
@@ -101,6 +159,7 @@ function formatCountdown(ms: number): string {
 export const ShopScreen: React.FC = () => {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const t = useLocalT(STRINGS);
   const [tab, setTab] = useState<ItemKind>('ALL');
   const [now, setNow] = useState(() => Date.now());
   const [confirmId, setConfirmId] = useState<number | null>(null);
@@ -130,8 +189,8 @@ export const ShopScreen: React.FC = () => {
 
   const handleBuy = (item: ShopItem) => {
     if (purchase.isPending || item.owned) return;
-    if (isGuest) return setFeedback({ text: 'CREATE AN ACCOUNT TO BUY', ok: false });
-    if (money < item.price) return setFeedback({ text: 'NOT ENOUGH COINS', ok: false });
+    if (isGuest) return setFeedback({ text: t('needAccount'), ok: false });
+    if (money < item.price) return setFeedback({ text: t('notEnoughCoins'), ok: false });
     // Two-step purchase: first tap arms the button, second tap confirms.
     if (confirmId !== item.offerId) {
       setFeedback(null);
@@ -140,7 +199,7 @@ export const ShopScreen: React.FC = () => {
     purchase.mutate(item.offerId, {
       onSuccess: (result) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        setFeedback({ text: `${result.itemName.toUpperCase()} ACQUIRED`, ok: true });
+        setFeedback({ text: t('acquired', { name: result.itemName.toUpperCase() }), ok: true });
       },
       onError: (e) => setFeedback({ text: extractApiError(e).message.toUpperCase(), ok: false }),
       onSettled: () => setConfirmId(null),
@@ -160,12 +219,16 @@ export const ShopScreen: React.FC = () => {
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <View>
-            <Text style={styles.eyebrow}>// MARCHÉ NOIR</Text>
-            <Text style={styles.title}>BLACK MARKET</Text>
+            <Text style={styles.eyebrow}>{t('eyebrow')}</Text>
+            <Text style={styles.title}>{t('title')}</Text>
           </View>
           <View style={styles.currencies}>
             <Currency kind="coin" value={money} />
           </View>
+        </View>
+
+        <View style={{ marginTop: 12 }}>
+          <VerifyEmailBanner />
         </View>
 
         {/* Daily reset banner */}
@@ -185,7 +248,7 @@ export const ShopScreen: React.FC = () => {
             style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, borderRadius: 1 }}
           />
           <View style={styles.bannerInner}>
-            <Text style={styles.bannerLabel}>DAILY DROP · ROTATES IN</Text>
+            <Text style={styles.bannerLabel}>{t('dailyDrop')}</Text>
             <Text style={[styles.bannerTimer, { color: KS.live }]}>
               {items.length > 0 ? formatCountdown(rotateMs) : '--:--:--'}
             </Text>
@@ -197,7 +260,7 @@ export const ShopScreen: React.FC = () => {
           {ITEM_KINDS.map((k) => (
             <Pressable key={k} onPress={() => setTab(k)} accessibilityRole="tab" accessibilityState={{ selected: tab === k }} hitSlop={8}>
               <View style={[styles.tab, tab === k && styles.tabActive]}>
-                <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>{k}</Text>
+                <Text style={[styles.tabText, tab === k && styles.tabTextActive]}>{t(k)}</Text>
               </View>
             </Pressable>
           ))}
@@ -213,15 +276,15 @@ export const ShopScreen: React.FC = () => {
 
         {isError && (
           <Pressable onPress={() => refetch()} accessibilityRole="button" style={styles.stateBox}>
-            <Text style={[styles.stateText, { color: KS.danger }]}>MARKET UNREACHABLE</Text>
-            <Text style={styles.stateHint}>TAP TO RETRY</Text>
+            <Text style={[styles.stateText, { color: KS.danger }]}>{t('unreachable')}</Text>
+            <Text style={styles.stateHint}>{t('tapRetry')}</Text>
           </Pressable>
         )}
 
         {!isLoading && !isError && items.length === 0 && (
           <View style={styles.stateBox}>
-            <Text style={styles.stateText}>NO DROP TODAY</Text>
-            <Text style={styles.stateHint}>COME BACK AFTER THE NEXT ROTATION</Text>
+            <Text style={styles.stateText}>{t('noDrop')}</Text>
+            <Text style={styles.stateHint}>{t('comeBack')}</Text>
           </View>
         )}
 
@@ -239,7 +302,7 @@ export const ShopScreen: React.FC = () => {
         {/* Section header */}
         {visible.length > 0 && (
           <View style={{ marginTop: 16, marginBottom: 10 }}>
-            <SectionLabel label={`Today's Lineup · ${visible.length} items`} />
+            <SectionLabel label={t('lineup', { count: visible.length })} />
           </View>
         )}
 
@@ -257,7 +320,7 @@ export const ShopScreen: React.FC = () => {
           ))}
         </View>
 
-        <Text style={styles.footer}>// ALL TRANSACTIONS LOGGED · MIMIR LEDGER</Text>
+        <Text style={styles.footer}>{t('footer')}</Text>
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -268,6 +331,8 @@ export const ShopScreen: React.FC = () => {
 // ── Sub-components ──
 
 const FeaturedCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pending: boolean; onBuy: () => void }> = ({ item, width, armed, pending, onBuy }) => {
+  const t = useLocalT(STRINGS);
+  const rarityName = useRarityLabel();
   const rarityColor = KS.rarity[item.rarity] ?? KS.rarity.common;
 
   return (
@@ -290,10 +355,10 @@ const FeaturedCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pe
         {/* Right details */}
         <View style={featured.details}>
           <Text style={[featured.rarity, { color: rarityColor }]}>
-            {item.rarity.toUpperCase()}
+            {rarityName(item.rarity).toUpperCase()}
           </Text>
           <Text style={featured.name}>{item.name}</Text>
-          <Text style={featured.desc}>LIMITED TIME OFFER · {item.tab}</Text>
+          <Text style={featured.desc}>{t('limitedOffer', { tab: t(item.tab) })}</Text>
 
           <View style={featured.priceRow}>
             {item.oldPrice && (
@@ -306,11 +371,11 @@ const FeaturedCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pe
               onPress={onBuy}
               disabled={pending}
               accessibilityRole="button"
-              accessibilityLabel={`Buy ${item.name} for ${item.price} coins`}
+              accessibilityLabel={t('buyA11y', { name: item.name, price: item.price })}
               hitSlop={10}
             >
               <Text style={featured.buyGlyph}>◈</Text>
-              <Text style={featured.buyPrice}>{pending ? '…' : armed ? 'CONFIRM' : item.price}</Text>
+              <Text style={featured.buyPrice}>{pending ? '…' : armed ? t('confirm') : item.price}</Text>
             </Pressable>
           </View>
 
@@ -326,6 +391,8 @@ const FeaturedCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pe
 };
 
 const ShopCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pending: boolean; onBuy: () => void }> = ({ item, width, armed, pending, onBuy }) => {
+  const t = useLocalT(STRINGS);
+  const rarityName = useRarityLabel();
   const rarityColor = KS.rarity[item.rarity] ?? KS.rarity.common;
 
   return (
@@ -349,7 +416,7 @@ const ShopCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pendin
       {/* Bottom info */}
       <View style={card.bottom}>
         <Text style={[card.rarity, { color: rarityColor }]}>
-          {item.rarity.toUpperCase()}
+          {rarityName(item.rarity).toUpperCase()}
         </Text>
         <Text style={card.name}>{item.name}</Text>
         <View style={card.priceRow}>
@@ -362,10 +429,10 @@ const ShopCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pendin
             onPress={onBuy}
             disabled={pending || item.owned}
             accessibilityRole="button"
-            accessibilityLabel={`Buy ${item.name} for ${item.price} coins`}
+            accessibilityLabel={t('buyA11y', { name: item.name, price: item.price })}
             hitSlop={12}
           >
-            <Text style={card.buyText}>{pending ? '…' : armed ? 'OK ?' : 'BUY'}</Text>
+            <Text style={card.buyText}>{pending ? '…' : armed ? t('confirmShort') : t('buy')}</Text>
           </Pressable>
         </View>
       </View>
@@ -373,12 +440,12 @@ const ShopCard: React.FC<{ item: ShopItem; width: number; armed: boolean; pendin
       {/* Overlays */}
       {item.owned && (
         <View style={[StyleSheet.absoluteFill, card.overlay]}>
-          <Text style={card.ownedText}>✓ OWNED</Text>
+          <Text style={card.ownedText}>{t('owned')}</Text>
         </View>
       )}
       {item.soldOut && (
         <View style={[StyleSheet.absoluteFill, card.overlay]}>
-          <Text style={[card.ownedText, { color: KS.danger }]}>SOLD OUT</Text>
+          <Text style={[card.ownedText, { color: KS.danger }]}>{t('soldOut')}</Text>
         </View>
       )}
       {item.salePct && !item.owned && !item.soldOut && (
@@ -488,7 +555,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: KS.primary, borderColor: KS.primary },
   tabText: { color: KS.inkDim, fontFamily: TYPO.mono, fontSize: SIZES.monoXs },
-  tabTextActive: { color: KS.ink },
+  tabTextActive: { color: KS.onPrimary },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   viewAll: { fontFamily: TYPO.mono, fontSize: SIZES.monoXs },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

@@ -30,6 +30,41 @@ import { ProgressBar } from '../components/ks/ProgressBar';
 import { mmrToRank } from '../game/ranking';
 import { levelFromXp, levelProgress } from '../game/progression';
 import { rankTierIndex, rankTierName } from '../game/rankDisplay';
+import { useRankLabel, useRarityLabel } from '../game/displayNames';
+import { useLocalT } from '../i18n/local';
+
+const STRINGS = {
+  fr: {
+    eyebrow: '// FICHE AGENT',
+    title: 'DOSSIER',
+    settingsA11y: 'Paramètres',
+    inventoryA11y: 'Inventaire',
+    level: 'NIV. {level}',
+    statWl: 'V/D',
+    statWin: '% VICT.',
+    statMatch: 'MATCHS',
+    statStreak: 'SÉRIE',
+    lastGames: '{count} DERNIÈRES PARTIES',
+    loadout: 'Équipement · Skins · {owned}/12',
+    noSkins: "Aucun skin pour l'instant — passe à la boutique pour t'équiper.",
+    equipped: 'ÉQ.',
+  },
+  en: {
+    eyebrow: '// AGENT FILE',
+    title: 'DOSSIER',
+    settingsA11y: 'Settings',
+    inventoryA11y: 'Inventory',
+    level: 'LVL {level}',
+    statWl: 'W/L',
+    statWin: 'WIN %',
+    statMatch: 'MATCH',
+    statStreak: 'STREAK',
+    lastGames: 'LAST {count} GAMES',
+    loadout: 'Loadout · Skins · {owned}/12',
+    noSkins: 'No skins yet — visit the shop to gear up.',
+    equipped: 'EQ',
+  },
+} as const;
 
 const PAD = 16;
 
@@ -141,6 +176,8 @@ const Sparkline: React.FC<{ width: number; values: number[] }> = ({ width, value
 
 // ── Skin card ──────────────────────────────────────────────────────────────
 const SkinCard: React.FC<{ skin: OwnedCosmetic; width: number }> = ({ skin, width }) => {
+  const t = useLocalT(STRINGS);
+  const rarityName = useRarityLabel();
   const c = RARITY_COLOR[skin.rarity] ?? KS.inkMute;
   const borderColor = skin.equipped ? KS.live : c;
 
@@ -165,13 +202,13 @@ const SkinCard: React.FC<{ skin: OwnedCosmetic; width: number }> = ({ skin, widt
       {/* Name + rarity */}
       <View style={skinStyles.bottom}>
         <Text style={skinStyles.name} numberOfLines={1}>{skin.name.toUpperCase()}</Text>
-        <Text style={[skinStyles.rarity, { color: c }]}>{skin.rarity.toUpperCase()}</Text>
+        <Text style={[skinStyles.rarity, { color: c }]}>{rarityName(skin.rarity).toUpperCase()}</Text>
       </View>
 
       {/* EQ badge */}
       {skin.equipped && (
         <View style={skinStyles.eqBadge}>
-          <Text style={skinStyles.eqText}>EQ</Text>
+          <Text style={skinStyles.eqText}>{t('equipped')}</Text>
         </View>
       )}
     </ChamferContainer>
@@ -227,6 +264,8 @@ export const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const router = useRouter();
+  const t = useLocalT(STRINGS);
+  const rankName = useRankLabel();
   const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
   const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
   const xp = useAuthStore((s) => s.user?.xp ?? 0);
@@ -285,12 +324,12 @@ export const ProfileScreen: React.FC = () => {
           {/* ── Eyebrow ── */}
           <View style={styles.eyebrow}>
             <View>
-              <Text style={styles.eyebrowMono}>// AGENT FILE</Text>
-              <Text style={styles.eyebrowTitle}>DOSSIER</Text>
+              <Text style={styles.eyebrowMono}>{t('eyebrow')}</Text>
+              <Text style={styles.eyebrowTitle}>{t('title')}</Text>
             </View>
             <View style={styles.iconBtns}>
               {/* Settings */}
-              <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" hitSlop={8}>
+              <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel={t('settingsA11y')} hitSlop={8}>
                 <ChamferContainer
                   width={36}
                   height={36}
@@ -305,7 +344,7 @@ export const ProfileScreen: React.FC = () => {
                 </ChamferContainer>
               </Pressable>
               {/* Inventory */}
-              <Pressable onPress={() => router.push('/(tabs)/inventory')} accessibilityRole="button" accessibilityLabel="Inventory" hitSlop={8}>
+              <Pressable onPress={() => router.push('/(tabs)/inventory')} accessibilityRole="button" accessibilityLabel={t('inventoryA11y')} hitSlop={8}>
                 <ChamferContainer
                   width={36}
                   height={36}
@@ -345,12 +384,12 @@ export const ProfileScreen: React.FC = () => {
                 <View style={styles.rankRow}>
                   <RankBadge tier={rankTier} size={16} />
                   <Text style={[styles.rankLabel, { color: KS.tier.gold }]}>
-                    {mmrToRank(mmr).label.toUpperCase()} · {mmr.toLocaleString()} RP
+                    {rankName(mmrToRank(mmr).id).toUpperCase()} · {mmr.toLocaleString()} RP
                   </Text>
                 </View>
               </View>
               <View style={styles.levelBlock}>
-                <Text style={styles.levelLabel}>LVL {level}</Text>
+                <Text style={styles.levelLabel}>{t('level', { level })}</Text>
                 <ProgressBar value={levelProgress(xp)} segments={10} color={KS.primary} height={4} />
                 <Text style={styles.xpLabel}>{xp.toLocaleString()} XP</Text>
               </View>
@@ -361,10 +400,10 @@ export const ProfileScreen: React.FC = () => {
 
           {/* ── Stats strip ── */}
           <View style={styles.statsRow}>
-            <StatPod label="W/L"    value={`${wlRatio}`}   accent={KS.primary}       width={podWidth} />
-            <StatPod label="WIN %"  value={`${winPct}`}    accent={KS.live}          width={podWidth} />
-            <StatPod label="MATCH"  value={`${allTotal}`}  accent={KS.alert}         width={podWidth} />
-            <StatPod label="STREAK" value={`${streak}`}    accent={KS.tier.diamond}  width={podWidth} />
+            <StatPod label={t('statWl')}     value={`${wlRatio}`}   accent={KS.primary}       width={podWidth} />
+            <StatPod label={t('statWin')}    value={`${winPct}`}    accent={KS.live}          width={podWidth} />
+            <StatPod label={t('statMatch')}  value={`${allTotal}`}  accent={KS.alert}         width={podWidth} />
+            <StatPod label={t('statStreak')} value={`${streak}`}    accent={KS.tier.diamond}  width={podWidth} />
           </View>
 
           {/* ── Rank sparkline ── */}
@@ -377,7 +416,7 @@ export const ProfileScreen: React.FC = () => {
           >
             <View style={styles.sparkInner}>
               <View style={styles.sparkLeft}>
-                <Text style={styles.sparkDays}>LAST {recentGames.length} GAMES</Text>
+                <Text style={styles.sparkDays}>{t('lastGames', { count: recentGames.length })}</Text>
                 <View style={styles.sparkDelta}>
                   <Text style={styles.sparkValue}>{rpDeltaStr}</Text>
                   <Text style={styles.sparkRp}>RP {rpDelta >= 0 ? '↑' : '↓'}</Text>
@@ -390,13 +429,13 @@ export const ProfileScreen: React.FC = () => {
           {/* ── Skins grid ── */}
           <View style={{ marginTop: 16 }}>
             <SectionLabel
-              label={`Loadout · Skins · ${ownedCount}/12`}
+              label={t('loadout', { owned: ownedCount })}
               color={KS.alert}
             />
             {skins.length === 0 ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyText}>
-                  No skins yet — visit the shop to gear up.
+                  {t('noSkins')}
                 </Text>
               </View>
             ) : (

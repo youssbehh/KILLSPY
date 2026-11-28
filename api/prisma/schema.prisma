@@ -31,6 +31,9 @@ model Users {
   banned        Boolean  @default(false)
   // Bumped on logout / password change: every token signed with an older value is rejected.
   tokenVersion  Int      @default(0)
+  // Proof of consent to the privacy notice (RGPD): when, and which version of the text.
+  termsAcceptedAt DateTime?
+  termsVersion    String?
 
   Roles       Roles[]
   Sessions    Session[]
@@ -44,6 +47,7 @@ model Users {
   SentMessages     DirectMessage[] @relation("dm_sender")
   ReceivedMessages DirectMessage[] @relation("dm_receiver")
   Tokens           AccountToken[]
+  RefreshTokens    RefreshToken[]
   Blocking         Block[]  @relation("blocker")
   BlockedBy        Block[]  @relation("blocked")
   ReportsFiled     Report[] @relation("reporter")
@@ -127,6 +131,27 @@ model Report {
   @@index([targetId])
 }
 
+// Long-lived token that buys a new short-lived access JWT. Only its SHA-256 is stored.
+// Each use replaces it by a new one of the same family; reusing a replaced token revokes the family.
+model RefreshToken {
+  id           Int       @id @default(autoincrement())
+  user         Users     @relation(fields: [userId], references: [ID_User], onDelete: Cascade)
+  userId       Int
+  tokenHash    String    @unique
+  familyId     String
+  // Users.tokenVersion when issued: a later bump (logout, new password, ban) voids it.
+  tokenVersion Int
+  expiresAt    DateTime
+  // Set when used: it was traded for a new token of the family.
+  replacedAt   DateTime?
+  // Set when the family is killed (a replaced token was replayed).
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
+
 enum AccountTokenType {
   password_reset
   email_verify
@@ -155,6 +180,18 @@ enum GameModePersisted {
   pvp_quick
   pvp_ranked
   pve // training vs bot: history only, never rewarded
+}
+
+// A PvP match in progress, saved after every turn so a server restart does not lose it.
+// The row is deleted when the match ends; the result goes to GameHistory.
+model LiveMatch {
+  id        String   @id
+  mode      String
+  // [{ userId, username, isGuest }, { … }] — index 0 is the player whose perspective `state` uses.
+  players   Json
+  state     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model GameHistory {

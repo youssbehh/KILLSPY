@@ -13,17 +13,46 @@ import { extractApiError } from '@/src/api/client';
 import { KSAccordion } from './KSAccordion';
 import { KS } from '@/src/theme/colors';
 import { TYPO, SIZES } from '@/src/theme/typography';
+import { useLocalT } from '@/src/i18n/local';
 
-const PRIVACY_ITEMS = [
-  "Nom d'utilisateur — identification du compte.",
-  'Adresse e-mail — communication et récupération.',
-  'Historique de jeu — performances et statistiques.',
-  'Données de connexion — sécurité et analyse.',
-  'Préférences utilisateur — personnalisation.',
-];
+const STRINGS = {
+  fr: {
+    privacy1: "Nom d'utilisateur — identification du compte.",
+    privacy2: 'Adresse e-mail — communication et récupération.',
+    privacy3: 'Historique de jeu — performances et statistiques.',
+    privacy4: 'Données de connexion — sécurité et analyse.',
+    privacy5: 'Préférences utilisateur — personnalisation.',
+    noUser: 'Aucun utilisateur connecté.',
+    deletedTitle: 'Compte supprimé',
+    deletedBody: 'Votre compte a été archivé. Suppression définitive dans 30 jours.',
+    errorTitle: 'Erreur',
+    heading: '// PROTECTION DES DONNÉES',
+    intro: 'Nous nous engageons à protéger vos données personnelles. Voici ce que nous collectons :',
+    noSharing: 'Vos données ne sont pas partagées avec des tiers sans votre consentement.',
+    wait: 'Attendez {seconds} s...',
+  },
+  en: {
+    privacy1: 'Username — account identification.',
+    privacy2: 'E-mail address — communication and recovery.',
+    privacy3: 'Game history — performance and statistics.',
+    privacy4: 'Connection data — security and analytics.',
+    privacy5: 'User preferences — personalisation.',
+    noUser: 'No user signed in.',
+    deletedTitle: 'Account deleted',
+    deletedBody: 'Your account has been archived. It will be permanently deleted in 30 days.',
+    errorTitle: 'Error',
+    heading: '// DATA PROTECTION',
+    intro: 'We are committed to protecting your personal data. Here is what we collect:',
+    noSharing: 'Your data is not shared with third parties without your consent.',
+    wait: 'Wait {seconds}s...',
+  },
+} as const;
+
+const PRIVACY_ITEMS = ['privacy1', 'privacy2', 'privacy3', 'privacy4', 'privacy5'] as const;
 
 const ProposContainer = () => {
   const { langIndex } = useLanguageStore();
+  const tr = useLocalT(STRINGS);
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const isGuest = user?.guest ?? false;
@@ -33,16 +62,16 @@ const ProposContainer = () => {
 
   const deleteMutation = useMutation({
     mutationFn: () => {
-      if (!user) throw new Error('Aucun utilisateur connecté.');
+      if (!user) throw new Error(tr('noUser'));
       return deleteAccount(user.id);
     },
     onSuccess: async () => {
       await endSession();
       setModalVisible(false);
-      Alert.alert('Compte supprimé', 'Votre compte a été archivé. Suppression définitive dans 30 jours.');
+      Alert.alert(tr('deletedTitle'), tr('deletedBody'));
       router.replace('/');
     },
-    onError: (e) => Alert.alert('Erreur', extractApiError(e).message),
+    onError: (e) => Alert.alert(tr('errorTitle'), extractApiError(e).message),
   });
 
   useEffect(() => {
@@ -58,23 +87,24 @@ const ProposContainer = () => {
     <KSAccordion title={motTraduit(langIndex, 29)}>
       <LoadingOverlay isLoading={deleteMutation.isPending} />
 
-      <Text style={styles.heading}>// PROTECTION DES DONNÉES</Text>
+      <Text style={styles.heading}>{tr('heading')}</Text>
       <Text style={styles.intro}>
-        Nous nous engageons à protéger vos données personnelles. Voici ce que nous collectons :
+        {tr('intro')}
       </Text>
       {PRIVACY_ITEMS.map((item, i) => (
         <View key={i} style={styles.bulletRow}>
           <Text style={styles.bullet}>›</Text>
-          <Text style={styles.bulletText}>{item}</Text>
+          <Text style={styles.bulletText}>{tr(item)}</Text>
         </View>
       ))}
       <Text style={[styles.intro, { marginTop: 8 }]}>
-        Vos données ne sont pas partagées avec des tiers sans votre consentement.
+        {tr('noSharing')}
       </Text>
 
       {!isGuest && (
         <Pressable
           onPress={handleOpen}
+          accessibilityRole="button"
           style={({ pressed }) => [styles.deleteBtn, pressed && { opacity: 0.75 }]}
         >
           <Text style={styles.deleteBtnText}>{motTraduit(langIndex, 68)}</Text>
@@ -84,7 +114,7 @@ const ProposContainer = () => {
       <AlertModal
         visible={modalVisible}
         text1={motTraduit(langIndex, 67)}
-        text2={counting ? `Attendez ${countdown}s...` : ''}
+        text2={counting ? tr('wait', { seconds: countdown }) : ''}
         error1Button={motTraduit(langIndex, 65)}
         onPressError1={counting ? () => {} : () => deleteMutation.mutate()}
         disabledError1={counting}

@@ -5,7 +5,8 @@ import { prisma } from '../lib/prisma';
 import { sendMail } from '../lib/mailer';
 import { logger } from '../lib/logger';
 import { HttpException, ErrCodes, statusCodes } from '../utils/exceptions';
-import { BCRYPT_ROUNDS, signToken, toPublicUser } from './auth.service';
+import { BCRYPT_ROUNDS, consentRecord, toPublicUser } from './auth.service';
+import { issueSession } from './tokens.service';
 
 /** One-time codes are short enough to be typed on a phone. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
@@ -110,7 +111,7 @@ export const changePassword = async (userId: number, currentPassword: string, ne
     data: { Password: await hash(newPassword, BCRYPT_ROUNDS), tokenVersion: { increment: 1 } },
   });
   // The caller keeps its session: it gets a token signed with the new version.
-  return { token: signToken(updated.ID_User, updated.tokenVersion) };
+  return issueSession(updated);
 };
 
 // ── E-mail verification ─────────────────────────────────────────────────────
@@ -164,11 +165,13 @@ export const upgradeGuest = async (
       Password: await hash(input.passwordCrea, BCRYPT_ROUNDS),
       isGuest: false,
       tokenVersion: { increment: 1 },
+      // The guest accepted the notice for a guest; an account is a new consent.
+      ...consentRecord(),
     },
   });
 
   const role = await prisma.roles.findFirst({ where: { ID_User: userId } });
   if (!role) await prisma.roles.create({ data: { ID_User: userId, Role: 'player' } });
 
-  return { user: toPublicUser(updated), token: signToken(updated.ID_User, updated.tokenVersion) };
+  return { user: toPublicUser(updated), ...(await issueSession(updated)) };
 };

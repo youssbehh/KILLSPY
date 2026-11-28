@@ -45,16 +45,104 @@ import { useBotStore } from '../stores/botStore';
 import { BotDifficulty } from '../game/botAI';
 import { useDailyMissions, useClaimMission } from '../hooks/useDailyMissions';
 import { DailyMission } from '../api/missions';
+import { VerifyEmailBanner, useNeedsVerification } from '../components/ks/VerifyEmailBanner';
+import { useLocalT } from '../i18n/local';
+import { useRankLabel } from '../game/displayNames';
 
 const PAD = 16;
+
+const STRINGS = {
+  fr: {
+    guest: 'INVITÉ',
+    agentLine: 'NIV. {level} · {rank} · {mmr} RP',
+    liveOnline: 'EN DIRECT · MATCHMAKING ACTIF',
+    quickPlay: 'PARTIE RAPIDE',
+    quickPlaySub: '1V1 · SANS ENJEU · 2–5 MIN',
+    deploy: 'DÉPLOIEMENT',
+    tapToDeploy: 'TOUCHER POUR DÉPLOYER',
+    rankedOps: 'OPÉRATIONS CLASSÉES',
+    rankedOpsA11y: 'Opérations classées',
+    accountRequired: 'COMPTE REQUIS',
+    currentRank: 'RANG ACTUEL · {rank}',
+    rpToNext: '{rp} RP AVANT {rank}',
+    topTier: 'RANG MAXIMAL ATTEINT',
+    vsBot: 'VS BOT',
+    vsBotA11y: 'Jouer contre un bot',
+    trainingNoMmr: 'ENTRAÎNEMENT · SANS IMPACT MMR',
+    leaderboard: 'CLASSEMENT',
+    close: 'Fermer',
+    openLeaderboard: 'Voir le classement complet',
+    view: 'VOIR ›',
+    noRankedAgent: 'AUCUN AGENT CLASSÉ',
+    selectProtocol: '// CHOIX DU PROTOCOLE',
+    trainingMode: 'MODE ENTRAÎNEMENT · SANS IMPACT MMR',
+    deployTraining: "LANCER L'ENTRAÎNEMENT",
+    difficulty: 'DIFFICULTÉ : {difficulty}',
+    dailyMissions: 'Missions du jour · {completed}/{total}',
+    resets: 'RÉINIT. {time}',
+    claimed: '✓ RÉCUPÉRÉ',
+    tapClaim: 'TOUCHER · +{xp} XP',
+    easy: 'FACILE',
+    medium: 'MOYEN',
+    hard: 'DIFFICILE',
+    easyCodename: 'AGENT DE TERRAIN',
+    mediumCodename: 'OPÉRATEUR VÉTÉRAN',
+    hardCodename: 'UNITÉ FANTÔME',
+    easyDesc: 'RÉACTIF · RÉPONSE LENTE',
+    mediumDesc: 'ADAPTATIF · LECTURE DES SCHÉMAS',
+    hardDesc: 'PRÉDICTIF · CONTRE-STRATÉGIE',
+  },
+  en: {
+    guest: 'GUEST',
+    agentLine: 'LVL {level} · {rank} · {mmr} RP',
+    liveOnline: 'LIVE · MATCHMAKING ONLINE',
+    quickPlay: 'QUICK PLAY',
+    quickPlaySub: '1V1 · CASUAL · 2–5 MIN',
+    deploy: 'DEPLOY',
+    tapToDeploy: 'TAP TO DEPLOY',
+    rankedOps: 'RANKED OPS',
+    rankedOpsA11y: 'Ranked ops',
+    accountRequired: 'ACCOUNT REQUIRED',
+    currentRank: 'CURRENT RANK · {rank}',
+    rpToNext: '{rp} RP TO {rank}',
+    topTier: 'TOP TIER REACHED',
+    vsBot: 'VS BOT',
+    vsBotA11y: 'Play versus bot',
+    trainingNoMmr: 'TRAINING · NO MMR IMPACT',
+    leaderboard: 'LEADERBOARD',
+    close: 'Close',
+    openLeaderboard: 'Open the full leaderboard',
+    view: 'VIEW ›',
+    noRankedAgent: 'NO RANKED AGENT YET',
+    selectProtocol: '// SELECT PROTOCOL',
+    trainingMode: 'TRAINING MODE · NO MMR IMPACT',
+    deployTraining: 'DEPLOY TRAINING',
+    difficulty: 'DIFFICULTY: {difficulty}',
+    dailyMissions: 'Daily Missions · {completed}/{total}',
+    resets: 'RESETS {time}',
+    claimed: '✓ CLAIMED',
+    tapClaim: 'TAP · +{xp} XP',
+    easy: 'EASY',
+    medium: 'MEDIUM',
+    hard: 'HARD',
+    easyCodename: 'FIELD AGENT',
+    mediumCodename: 'VETERAN OPS',
+    hardCodename: 'PHANTOM UNIT',
+    easyDesc: 'REACTIVE · SLOW RESPONSE',
+    mediumDesc: 'ADAPTIVE · PATTERN READING',
+    hardDesc: 'PREDICTIVE · COUNTER-STRATEGY',
+  },
+} as const;
+
+type HomeKey = keyof typeof STRINGS.fr;
 
 // ── Difficulty config ──────────────────────────────────────────────────────
 
 type DifficultyMeta = {
   id: BotDifficulty;
-  label: string;
-  codename: string;
-  desc: string;
+  label: HomeKey;
+  codename: HomeKey;
+  desc: HomeKey;
   accent: string;
   stripeColors: [string, string];
 };
@@ -62,25 +150,25 @@ type DifficultyMeta = {
 const DIFFICULTIES: DifficultyMeta[] = [
   {
     id: 'easy',
-    label: 'EASY',
-    codename: 'FIELD AGENT',
-    desc: 'REACTIVE · SLOW RESPONSE',
+    label: 'easy',
+    codename: 'easyCodename',
+    desc: 'easyDesc',
     accent: KS.live,
     stripeColors: ['#39ff14', '#1aaf00'],
   },
   {
     id: 'medium',
-    label: 'MEDIUM',
-    codename: 'VETERAN OPS',
-    desc: 'ADAPTIVE · PATTERN READING',
+    label: 'medium',
+    codename: 'mediumCodename',
+    desc: 'mediumDesc',
     accent: KS.alert,
     stripeColors: [KS.alert, '#b38800'],
   },
   {
     id: 'hard',
-    label: 'HARD',
-    codename: 'PHANTOM UNIT',
-    desc: 'PREDICTIVE · COUNTER-STRATEGY',
+    label: 'hard',
+    codename: 'hardCodename',
+    desc: 'hardDesc',
     accent: KS.danger,
     stripeColors: [KS.danger, '#aa1500'],
   },
@@ -96,7 +184,11 @@ export const HomeScreen: React.FC = () => {
   const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
   const level = useAuthStore((s) => s.user?.level ?? 1);
   const isGuest = useAuthStore((s) => s.user?.guest ?? false);
+  const needsVerification = useNeedsVerification();
+  const rankedLocked = isGuest || needsVerification;
   const insets = useSafeAreaInsets();
+  const t = useLocalT(STRINGS);
+  const rankName = useRankLabel();
 
   const rank = mmrToRank(mmr);
   const next = nextRank(mmr);
@@ -138,7 +230,9 @@ export const HomeScreen: React.FC = () => {
               <View style={styles.rankRow}>
                 <RankBadge tier={rankTierIndex(mmr)} size={18} />
                 <Text style={styles.rankLabel}>
-                  {isGuest ? 'GUEST' : `LVL ${level} · ${rank.label.toUpperCase()} · ${mmr.toLocaleString('en-US')} RP`}
+                  {isGuest
+                    ? t('guest')
+                    : t('agentLine', { level, rank: rankName(rank.id).toUpperCase(), mmr: mmr.toLocaleString('en-US') })}
                 </Text>
               </View>
             </View>
@@ -160,13 +254,13 @@ export const HomeScreen: React.FC = () => {
           <View style={styles.quickPlayInner}>
             <View style={styles.liveRow}>
               <View style={styles.liveDot} />
-              <Text style={styles.liveText}>LIVE · MATCHMAKING ONLINE</Text>
+              <Text style={styles.liveText}>{t('liveOnline')}</Text>
             </View>
-            <Text style={styles.quickPlayTitle}>QUICK PLAY</Text>
-            <Text style={styles.quickPlaySub}>1V1 · CASUAL · 2–5 MIN</Text>
+            <Text style={styles.quickPlayTitle}>{t('quickPlay')}</Text>
+            <Text style={styles.quickPlaySub}>{t('quickPlaySub')}</Text>
             <PrimaryButton
-              label="DEPLOY"
-              subLabel="TAP TO DEPLOY"
+              label={t('deploy')}
+              subLabel={t('tapToDeploy')}
               onPress={handleQuickPlay}
               size="large"
               style={{ marginTop: 8, alignSelf: 'stretch' }}
@@ -175,7 +269,12 @@ export const HomeScreen: React.FC = () => {
         </GlassCard>
 
         {/* ── Ranked Ops card ── */}
-        <Pressable onPress={handleRanked} disabled={isGuest} accessibilityRole="button" accessibilityLabel="Ranked ops" style={{ marginTop: 8, opacity: isGuest ? 0.5 : 1 }}>
+        {!isGuest && (
+          <View style={{ marginTop: 8 }}>
+            <VerifyEmailBanner compact />
+          </View>
+        )}
+        <Pressable onPress={handleRanked} disabled={rankedLocked} accessibilityRole="button" accessibilityLabel={t('rankedOpsA11y')} accessibilityState={{ disabled: rankedLocked }} style={{ marginTop: 8, opacity: rankedLocked ? 0.5 : 1 }}>
           <ChamferContainer
             width={cardWidth}
             height={92}
@@ -194,13 +293,15 @@ export const HomeScreen: React.FC = () => {
               <View style={styles.modeLeft}>
                 <View style={styles.modeTitleRow}>
                   <RankBadge tier={rankTierIndex(mmr)} size={28} />
-                  <Text style={styles.modeTitle}>RANKED OPS</Text>
+                  <Text style={styles.modeTitle}>{t('rankedOps')}</Text>
                 </View>
                 <Text style={[styles.modeSub, { color: KS.alert }]}>
-                  {isGuest ? 'ACCOUNT REQUIRED' : `CURRENT RANK · ${rank.label.toUpperCase()}`}
+                  {isGuest ? t('accountRequired') : t('currentRank', { rank: rankName(rank.id).toUpperCase() })}
                 </Text>
                 <Text style={[styles.modeDetail, { color: KS.tier.diamond }]}>
-                  {next ? `${next.minMmr - mmr} RP TO ${next.label.toUpperCase()}` : 'TOP TIER REACHED'}
+                  {next
+                    ? t('rpToNext', { rp: next.minMmr - mmr, rank: rankName(next.id).toUpperCase() })
+                    : t('topTier')}
                 </Text>
               </View>
               <Text style={[styles.chevron, { color: KS.alert }]}>›</Text>
@@ -209,7 +310,7 @@ export const HomeScreen: React.FC = () => {
         </Pressable>
 
         {/* ── VS BOT card ── */}
-        <Pressable onPress={() => setShowBotModal(true)} accessibilityRole="button" accessibilityLabel="Play versus bot" style={{ marginTop: 8 }}>
+        <Pressable onPress={() => setShowBotModal(true)} accessibilityRole="button" accessibilityLabel={t('vsBotA11y')} style={{ marginTop: 8 }}>
           <ChamferContainer
             width={cardWidth}
             height={92}
@@ -232,12 +333,12 @@ export const HomeScreen: React.FC = () => {
                   <View style={styles.botIconWrap}>
                     <Text style={styles.botIcon}>⬡</Text>
                   </View>
-                  <Text style={styles.modeTitle}>VS BOT</Text>
+                  <Text style={styles.modeTitle}>{t('vsBot')}</Text>
                 </View>
-                <Text style={[styles.modeSub, { color: KS.live }]}>TRAINING · NO MMR IMPACT</Text>
+                <Text style={[styles.modeSub, { color: KS.live }]}>{t('trainingNoMmr')}</Text>
                 <View style={styles.diffPill}>
                   <Text style={styles.diffPillText}>
-                    {savedDifficulty.toUpperCase()}
+                    {t(savedDifficulty)}
                   </Text>
                 </View>
               </View>
@@ -250,15 +351,15 @@ export const HomeScreen: React.FC = () => {
         <MissionStrip missions={missions} loading={missionsLoading} onClaim={claimMission} />
 
         {/* ── Leaderboard teaser ── */}
-        <Pressable onPress={() => router.push('/leaderboard')} style={{ marginTop: 16, marginBottom: 100 }}>
+        <Pressable onPress={() => router.push('/leaderboard')} accessibilityRole="button" accessibilityHint={t('openLeaderboard')} style={{ marginTop: 16, marginBottom: 100 }}>
           <GlassCard width={cardWidth} height={100} chamfer={10} variant="tr-bl">
             <View style={styles.leaderInner}>
               <View style={styles.leaderHeader}>
-                <Text style={styles.leaderTitle}>LEADERBOARD</Text>
-                <Text style={[styles.leaderView, { color: KS.primary }]}>VIEW ›</Text>
+                <Text style={styles.leaderTitle}>{t('leaderboard')}</Text>
+                <Text style={[styles.leaderView, { color: KS.primary }]}>{t('view')}</Text>
               </View>
               <View style={styles.leaderPodium}>
-                {top3.length === 0 && <Text style={styles.leaderName}>NO RANKED AGENT YET</Text>}
+                {top3.length === 0 && <Text style={styles.leaderName}>{t('noRankedAgent')}</Text>}
                 {top3.map((entry, i) => (
                   <View key={entry.userId} style={styles.leaderEntry}>
                     <Text style={[styles.leaderRank, { color: PODIUM_COLORS[i] }]}>#{entry.position}</Text>
@@ -304,6 +405,7 @@ const BotDifficultyModal: React.FC<ModalProps> = ({
   onClose,
   cardWidth,
 }) => {
+  const t = useLocalT(STRINGS);
   const translateY = useSharedValue(400);
 
   React.useEffect(() => {
@@ -323,7 +425,8 @@ const BotDifficultyModal: React.FC<ModalProps> = ({
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
       {/* Backdrop */}
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      {/* Tapping outside closes; screen readers use the close button instead. */}
+      <Pressable style={styles.backdrop} onPress={onClose} accessible={false} importantForAccessibility="no">
         <BlurView intensity={12} tint="dark" style={StyleSheet.absoluteFill} />
       </Pressable>
 
@@ -332,15 +435,15 @@ const BotDifficultyModal: React.FC<ModalProps> = ({
         {/* Header */}
         <View style={styles.sheetHeader}>
           <View>
-            <Text style={styles.sheetEyebrow}>// SELECT PROTOCOL</Text>
-            <Text style={styles.sheetTitle}>VS BOT</Text>
+            <Text style={styles.sheetEyebrow}>{t('selectProtocol')}</Text>
+            <Text style={styles.sheetTitle}>{t('vsBot')}</Text>
           </View>
-          <Pressable onPress={onClose} style={styles.closeBtn}>
+          <Pressable onPress={onClose} style={styles.closeBtn} accessibilityRole="button" accessibilityLabel={t('close')} hitSlop={8}>
             <Text style={styles.closeBtnText}>✕</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.sheetSub}>TRAINING MODE · NO MMR IMPACT</Text>
+        <Text style={styles.sheetSub}>{t('trainingMode')}</Text>
 
         {/* Difficulty cards */}
         <View style={styles.diffRow}>
@@ -362,9 +465,9 @@ const BotDifficultyModal: React.FC<ModalProps> = ({
             return (
               <>
                 <Text style={[styles.diffDescTitle, { color: meta.accent }]}>
-                  {meta.codename}
+                  {t(meta.codename)}
                 </Text>
-                <Text style={styles.diffDescText}>{meta.desc}</Text>
+                <Text style={styles.diffDescText}>{t(meta.desc)}</Text>
               </>
             );
           })()}
@@ -372,8 +475,8 @@ const BotDifficultyModal: React.FC<ModalProps> = ({
 
         {/* CTA */}
         <PrimaryButton
-          label="DEPLOY TRAINING"
-          subLabel={`DIFFICULTY: ${selected.toUpperCase()}`}
+          label={t('deployTraining')}
+          subLabel={t('difficulty', { difficulty: t(selected) })}
           onPress={onConfirm}
           size="large"
           style={{ marginTop: 16 }}
@@ -393,6 +496,7 @@ interface DiffCardProps {
 }
 
 const DiffCard: React.FC<DiffCardProps> = ({ meta, selected, onPress, width }) => {
+  const t = useLocalT(STRINGS);
   const scale = useSharedValue(1);
 
   const animStyle = useAnimatedStyle(() => ({
@@ -403,6 +507,8 @@ const DiffCard: React.FC<DiffCardProps> = ({ meta, selected, onPress, width }) =
     <Animated.View style={animStyle}>
       <Pressable
         onPress={onPress}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: selected }}
         onPressIn={() => { scale.value = withTiming(0.96, { duration: MOTION.tap }); }}
         onPressOut={() => { scale.value = withTiming(1, { duration: MOTION.tap }); }}
       >
@@ -427,9 +533,9 @@ const DiffCard: React.FC<DiffCardProps> = ({ meta, selected, onPress, width }) =
               <View style={[diffCardStyles.selectedDot, { backgroundColor: meta.accent }]} />
             )}
             <Text style={[diffCardStyles.label, { color: selected ? meta.accent : KS.ink }]}>
-              {meta.label}
+              {t(meta.label)}
             </Text>
-            <Text style={diffCardStyles.codename}>{meta.codename}</Text>
+            <Text style={diffCardStyles.codename}>{t(meta.codename)}</Text>
           </View>
         </ChamferContainer>
       </Pressable>
@@ -460,6 +566,7 @@ interface MissionStripProps {
 }
 
 const MissionStrip: React.FC<MissionStripProps> = ({ missions, loading, onClaim }) => {
+  const t = useLocalT(STRINGS);
   const [msLeft, setMsLeft] = React.useState(msUntilMidnightUTC);
 
   React.useEffect(() => {
@@ -473,8 +580,8 @@ const MissionStrip: React.FC<MissionStripProps> = ({ missions, loading, onClaim 
   return (
     <View style={{ marginTop: 20, gap: 8 }}>
       <View style={styles.sectionHeader}>
-        <SectionLabel label={`Daily Missions · ${completed}/${total}`} />
-        <Text style={styles.resetTimer}>RESETS {formatCountdown(msLeft)}</Text>
+        <SectionLabel label={t('dailyMissions', { completed, total })} />
+        <Text style={styles.resetTimer}>{t('resets', { time: formatCountdown(msLeft) })}</Text>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -PAD }}>
         <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: PAD }}>
@@ -495,6 +602,7 @@ const MissionChip: React.FC<{ mission: DailyMission | null; onClaim: (id: number
   mission,
   onClaim,
 }) => {
+  const t = useLocalT(STRINGS);
   if (!mission) {
     return (
       <ChamferContainer width={158} height={92} chamfer={8} variant="tr-bl" fill={KS.surface} stroke={KS.hairSoft}>
@@ -513,7 +621,11 @@ const MissionChip: React.FC<{ mission: DailyMission | null; onClaim: (id: number
   const canClaim = mission.completed && !mission.rewarded;
 
   return (
-    <Pressable onPress={canClaim ? () => onClaim(mission.id) : undefined}>
+    <Pressable
+      onPress={canClaim ? () => onClaim(mission.id) : undefined}
+      accessibilityRole={canClaim ? 'button' : undefined}
+      accessible
+    >
       <ChamferContainer
         width={158}
         height={92}
@@ -525,7 +637,11 @@ const MissionChip: React.FC<{ mission: DailyMission | null; onClaim: (id: number
         <View style={missionStyles.inner}>
           <Text style={missionStyles.title}>{mission.title}</Text>
           <Text style={[missionStyles.reward, { color: mission.rewarded ? KS.inkDim : mission.completed ? KS.live : KS.alert }]}>
-            {mission.rewarded ? '✓ CLAIMED' : mission.completed ? `TAP · +${mission.xpReward} XP` : `+${mission.xpReward} XP`}
+            {mission.rewarded
+              ? t('claimed')
+              : mission.completed
+                ? t('tapClaim', { xp: mission.xpReward })
+                : `+${mission.xpReward} XP`}
           </Text>
           <View style={missionStyles.barOuter}>
             <View style={[missionStyles.barInner, {
@@ -673,7 +789,7 @@ const styles = StyleSheet.create({
 
   // Modal
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   sheet: {

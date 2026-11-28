@@ -84,10 +84,10 @@ export const ChatTab: React.FC<Props> = ({ myUserId, bottomPad }) => {
                 onPress={() => chat.fetchNextPage()}
                 style={local.older}
               />
-            ) : null
+            ) : undefined
           }
           ListHeaderComponent={
-            chat.isError ? <ErrorState text={t('chatError')} onRetry={() => chat.refetch()} /> : null
+            chat.isError ? <ErrorState text={t('chatError')} onRetry={() => chat.refetch()} /> : undefined
           }
         />
       )}

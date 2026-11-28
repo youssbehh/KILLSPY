@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KS } from '../theme/colors';
+import { KS, STATUS_BAR_STYLE } from '../theme/colors';
 import { TYPO, SIZES, ls } from '../theme/typography';
 import { TopoBg } from '../components/ks/TopoBg';
 import { PrimaryButton } from '../components/ks/PrimaryButton';
@@ -70,7 +70,7 @@ export const FriendsScreen: React.FC = () => {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={STATUS_BAR_STYLE === 'dark' ? 'dark-content' : 'light-content'} />
       <TopoBg />
 
       {chat && !isGuest ? (
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   },
   tabOn: { backgroundColor: KS.primary, borderColor: KS.primary },
   tabText: { flexShrink: 1, fontFamily: TYPO.mono, fontSize: SIZES.monoXs, color: KS.inkDim },
-  tabTextOn: { color: KS.ink },
+  tabTextOn: { color: KS.onPrimary },
   body: { flex: 1 },
   guest: {
     flex: 1,

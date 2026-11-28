@@ -56,7 +56,7 @@ export const FriendsTab: React.FC<Props> = ({ onOpenChat, onOpenPlayer }) => {
         data={friends}
         keyExtractor={(friend) => String(friend.id)}
         refreshing={isRefetching}
-        onRefresh={() => refetch()}
+        onRefresh={() => { void refetch(); }}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: LIST_BOTTOM_PAD }}
         ListEmptyComponent={
           <StateBox kind="empty" title={t('friendsEmptyTitle')} hint={t('friendsEmptyHint')} />
