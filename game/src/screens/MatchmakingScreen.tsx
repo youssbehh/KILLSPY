@@ -34,6 +34,48 @@ import { useAuthStore } from '../stores/authStore';
 import { useGameStore } from '../stores/gameStore';
 import { useMyStats } from '../hooks/useGames';
 import { rankTierIndex } from '../game/rankDisplay';
+import { useLocalT } from '../i18n/local';
+
+const STRINGS = {
+  fr: {
+    ranked: 'CLASSÉE',
+    friendly: 'DUEL AMICAL',
+    quick: 'PARTIE RAPIDE',
+    found: 'CIBLE ACQUISE',
+    searching: "RECHERCHE D'UNE CIBLE",
+    unknown: 'INCONNU',
+    vsReady: 'VS {name} · PRÉPARE-TOI',
+    channelOpen: 'CANAL CHIFFRÉ OUVERT',
+    north: 'N',
+    east: 'E',
+    south: 'S',
+    west: 'O',
+    matches: 'MATCHS',
+    starting: 'LE MATCH COMMENCE',
+    inQueue: "AGENTS EN FILE D'ATTENTE : {count}",
+    abort: 'ANNULER LA MISSION',
+  },
+  en: {
+    ranked: 'RANKED',
+    friendly: 'FRIENDLY DUEL',
+    quick: 'QUICK PLAY',
+    found: 'TARGET ACQUIRED',
+    searching: 'SEARCHING FOR TARGET',
+    unknown: 'UNKNOWN',
+    vsReady: 'VS {name} · GET READY',
+    channelOpen: 'ENCRYPTED CHANNEL OPEN',
+    north: 'N',
+    east: 'E',
+    south: 'S',
+    west: 'W',
+    matches: 'MATCHES',
+    starting: 'MATCH STARTING',
+    inQueue: 'AGENTS IN QUEUE: {count}',
+    abort: 'ABORT MISSION',
+  },
+} as const;
+
+const COMPASS = ['north', 'east', 'south', 'west'] as const;
 
 interface Props {
   /** Leaves the queue (or the pending match) and goes back. */
@@ -54,6 +96,7 @@ const BLIPS = [
 export const MatchmakingScreen: React.FC<Props> = ({ onAbort }) => {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const t = useLocalT(STRINGS);
   const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
   const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
   const matchStatus = useGameStore((s) => s.matchStatus);
@@ -132,12 +175,13 @@ export const MatchmakingScreen: React.FC<Props> = ({ onAbort }) => {
         <View style={styles.eyebrowRow}>
           <Animated.Text style={[styles.eyebrowLive, blinkStyle]}>●</Animated.Text>
           <Text style={styles.eyebrowLive}>
-            {' '}{mode === 'pvp_ranked' ? 'RANKED' : mode === 'pvp_friendly' ? 'FRIENDLY DUEL' : 'QUICK PLAY'} · {elapsedStr}
+            {' '}{mode === 'pvp_ranked' ? t('ranked') : mode === 'pvp_friendly' ? t('friendly') : t('quick')} · {elapsedStr}
           </Text>
         </View>
-        <Text style={styles.title}>{found ? 'TARGET ACQUIRED' : 'SEARCHING FOR TARGET'}</Text>
+        <Text style={styles.title}>{found ? t('found') : t('searching')}</Text>
         <Text style={[styles.subtitle, errorMessage ? { color: KS.danger } : null]}>
-          {errorMessage ?? (found ? `VS ${opponent?.username.toUpperCase() ?? 'UNKNOWN'} · GET READY` : 'ENCRYPTED CHANNEL OPEN')}
+          {errorMessage ??
+            (found ? t('vsReady', { name: opponent?.username.toUpperCase() ?? t('unknown') }) : t('channelOpen'))}
         </Text>
       </View>
 
@@ -175,13 +219,14 @@ export const MatchmakingScreen: React.FC<Props> = ({ onAbort }) => {
             stroke={KS.primary} strokeOpacity="0.18" strokeWidth={1} strokeDasharray="4,4" />
 
           {/* Compass */}
-          {['N','E','S','W'].map((label, i) => {
+          {COMPASS.map((key, i) => {
+            const label = t(key);
             const angle = i * 90;
             const rad = (angle - 90) * Math.PI / 180;
             const lx = cx + 152 * Math.cos(rad);
             const ly = cy + 152 * Math.sin(rad);
             return (
-              <SvgText key={label} x={lx} y={ly + 3}
+              <SvgText key={key} x={lx} y={ly + 3}
                 textAnchor="middle" fontSize="9"
                 fill={KS.inkDim} fontFamily={TYPO.mono}>
                 {label}
@@ -243,7 +288,7 @@ export const MatchmakingScreen: React.FC<Props> = ({ onAbort }) => {
           <View style={styles.playerCardInner}>
             <PlayerTag username={username.toUpperCase()} tier={rankTierIndex(mmr)} live size="big" winRate={winRate} />
             <View style={styles.matchStats}>
-              <Text style={styles.matchStatLabel}>MATCHES</Text>
+              <Text style={styles.matchStatLabel}>{t('matches')}</Text>
               <Text style={styles.matchStatValue}>{totalMatches}</Text>
             </View>
           </View>
@@ -252,12 +297,12 @@ export const MatchmakingScreen: React.FC<Props> = ({ onAbort }) => {
 
       {/* Hint band */}
       <Text style={styles.hint}>
-        › {found ? 'MATCH STARTING' : `AGENTS IN QUEUE: ${Math.max(1, queueSize)}`}
+        › {found ? t('starting') : t('inQueue', { count: Math.max(1, queueSize) })}
       </Text>
 
       {/* Abort button */}
       <DangerButton
-        label="ABORT MISSION"
+        label={t('abort')}
         onPress={onAbort}
         style={styles.abort}
       />

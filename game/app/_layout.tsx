@@ -1,8 +1,9 @@
-import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { Stack, usePathname, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -20,14 +21,18 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 
 import { useAuthStore } from '@/src/stores/authStore';
-import { KS } from '@/src/theme/colors';
+import { KS, STATUS_BAR_STYLE } from '@/src/theme/colors';
 import { useRealtime } from '@/src/sockets/useRealtime';
 import { isInMatch, useGameStore } from '@/src/stores/gameStore';
 import { ChallengeOverlay } from '@/src/components/ks/ChallengeOverlay';
+import { ThemeRestartBanner } from '@/src/components/ks/ThemeRestartBanner';
+import { SplashScreen as Intro } from '@/src/screens/SplashScreen';
+import { StatusBar } from 'expo-status-bar';
 import { queryClient } from '@/src/lib/queryClient';
 import { useEquippedTheme } from '@/src/hooks/useEquippedTheme';
 import { useSyncMe } from '@/src/hooks/useAuthFlow';
 
+/** False while the web build is statically rendered in Node (no splash to hide there). */
 const isWeb = typeof window !== 'undefined';
 
 export {
@@ -36,7 +41,7 @@ export {
 } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: 'index',
+  anchor: 'index',
 };
 
 SplashScreen.preventAutoHideAsync();
@@ -54,16 +59,24 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!isWeb) return;
-    if (error) throw error;
-  }, [error]);
+    // A font that fails to load falls back to the system font rather than a blank app.
+    if (loaded || error) SplashScreen.hideAsync();
+  }, [loaded, error]);
 
-  useEffect(() => {
-    if (!isWeb) return;
-    if (loaded) SplashScreen.hideAsync();
-  }, [loaded]);
+  // The animated intro covers the first seconds of every cold start (session restore, first queries).
+  const [introDone, setIntroDone] = useState(false);
 
-  if (!loaded) return null;
-  return <RootLayoutNav />;
+  if (!loaded && !error) return null;
+  return (
+    <>
+      <RootLayoutNav />
+      {!introDone && (
+        <View style={StyleSheet.absoluteFill}>
+          <Intro onDone={() => setIntroDone(true)} />
+        </View>
+      )}
+    </>
+  );
 }
 
 /**
@@ -96,11 +109,11 @@ const MatchRouter: React.FC = () => {
   return null;
 };
 
-/** KILLSPY is a dark-only app: one navigation theme built from the design tokens. */
+/** Navigation colours follow the palette the app was started with. */
 const NAV_THEME = {
-  ...DarkTheme,
+  ...(STATUS_BAR_STYLE === 'dark' ? DefaultTheme : DarkTheme),
   colors: {
-    ...DarkTheme.colors,
+    ...(STATUS_BAR_STYLE === 'dark' ? DefaultTheme : DarkTheme).colors,
     background: KS.bg,
     card: KS.bg,
     text: KS.ink,
@@ -147,6 +160,8 @@ function RootLayoutNav() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
         <ChallengeOverlay />
+        <ThemeRestartBanner />
+        <StatusBar style={STATUS_BAR_STYLE} />
       </ThemeProvider>
     </QueryClientProvider>
   );

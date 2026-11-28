@@ -1,8 +1,9 @@
 import cron from 'node-cron';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
-import { isOnline } from '../sockets/hub';
+import { onlineUserIds } from '../sockets/hub';
 import { repairGuilds } from '../services/guilds.service';
+import { purgeRefreshTokens } from '../services/tokens.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHOP_SIZE = 8;
@@ -29,7 +30,8 @@ export const purgeStaleGuests = async () => {
     },
     select: { ID_User: true },
   });
-  const ids = stale.map((u) => u.ID_User).filter((id) => !isOnline(id));
+  const connected = await onlineUserIds(stale.map((u) => u.ID_User));
+  const ids = stale.map((u) => u.ID_User).filter((id) => !connected.has(id));
   if (ids.length === 0) return;
   const result = await prisma.users.deleteMany({ where: { ID_User: { in: ids } } });
   logger.info({ deleted: result.count }, 'cron: stale guests purged');
@@ -38,6 +40,7 @@ export const purgeStaleGuests = async () => {
 
 export const purgeExpiredTokens = async () => {
   await prisma.accountToken.deleteMany({ where: { expiresAt: { lte: new Date(Date.now() - DAY_MS) } } });
+  await purgeRefreshTokens();
 };
 
 const shuffle = <T>(list: T[]): T[] => [...list].sort(() => Math.random() - 0.5);

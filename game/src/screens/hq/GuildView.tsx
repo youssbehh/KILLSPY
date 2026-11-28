@@ -131,5 +131,5 @@ const local = StyleSheet.create({
     fontSize: SIZES.monoSm,
     letterSpacing: SIZES.monoSm * 0.18,
   },
-  tabTextActive: { color: KS.ink },
+  tabTextActive: { color: KS.onPrimary },
 });

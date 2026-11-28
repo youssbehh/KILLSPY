@@ -10,6 +10,12 @@ import { TYPO } from '@/src/theme/typography';
 import { useInbox } from '@/src/hooks/useMessages';
 import { useFriends } from '@/src/hooks/useFriends';
 import type { ConversationSummary } from '@/src/api/messages';
+import { useLocalT } from '@/src/i18n/local';
+
+const STRINGS = {
+  fr: { home: 'ACCUEIL', hq: 'QG', shop: 'BOUTIQUE', friends: 'CONTACTS', profile: 'AGENT' },
+  en: { home: 'HOME', hq: 'HQ', shop: 'SHOP', friends: 'CONTACTS', profile: 'AGENT' },
+} as const;
 
 // ── SVG icon paths ─────────────────────────────────────────────────────────────
 const NAV_ICONS = {
@@ -25,16 +31,16 @@ type IconKey = keyof typeof NAV_ICONS;
 // ── Nav items ─────────────────────────────────────────────────────────────────
 const NAV_ITEMS: Array<{
   id: string;
-  label: string;
+  label: keyof typeof STRINGS.fr;
   route: string;
   icon: IconKey;
   badge?: 'shop' | 'friends';
 }> = [
-  { id: 'home',    label: 'HOME',     route: '/(tabs)/gamechoice', icon: 'home'    },
-  { id: 'hq',      label: 'QG',       route: '/(tabs)/hq',         icon: 'hq'      },
-  { id: 'shop',    label: 'SHOP',     route: '/(tabs)/shop',       icon: 'shop',    badge: 'shop' },
-  { id: 'friends', label: 'CONTACTS', route: '/(tabs)/friends',    icon: 'friends', badge: 'friends' },
-  { id: 'profile', label: 'AGENT',    route: '/(tabs)/options',    icon: 'profile' },
+  { id: 'home',    label: 'home',    route: '/(tabs)/gamechoice', icon: 'home'    },
+  { id: 'hq',      label: 'hq',      route: '/(tabs)/hq',         icon: 'hq'      },
+  { id: 'shop',    label: 'shop',    route: '/(tabs)/shop',       icon: 'shop',    badge: 'shop' },
+  { id: 'friends', label: 'friends', route: '/(tabs)/friends',    icon: 'friends', badge: 'friends' },
+  { id: 'profile', label: 'profile', route: '/(tabs)/options',    icon: 'profile' },
 ];
 
 function activeItemId(pathname: string): string {
@@ -60,6 +66,7 @@ function KSBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const t = useLocalT(STRINGS);
   const active = activeItemId(pathname);
   const bottomPad = Math.max(insets.bottom, 8);
   const friendsUnread = useFriendsUnread();
@@ -92,7 +99,7 @@ function KSBottomNav() {
               onPress={() => router.replace(item.route as any)}
               style={styles.item}
               accessibilityRole="tab"
-              accessibilityLabel={item.label}
+              accessibilityLabel={t(item.label)}
               accessibilityState={{ selected: on }}
             >
               {/* Active indicator bar */}
@@ -123,7 +130,7 @@ function KSBottomNav() {
 
               {/* Label */}
               <Text style={[styles.label, { color: on ? KS.primary : KS.inkDim }]}>
-                {item.label}
+                {t(item.label)}
               </Text>
             </Pressable>
           );
@@ -214,7 +221,8 @@ export default function TabLayout() {
       <Tabs.Screen name="shop" />
       <Tabs.Screen name="friends" />
       <Tabs.Screen name="options" />
-      <Tabs.Screen name="inventory" options={{ href: null }} />
+      {/* Not in the custom bottom bar; reached from the profile. */}
+      <Tabs.Screen name="inventory" />
     </Tabs>
   );
 }

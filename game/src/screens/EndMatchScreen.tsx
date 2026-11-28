@@ -28,6 +28,9 @@ import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../stores/authStore';
 import { GameMode, mmrToRank, progressToNext } from '../game/ranking';
 import { levelFromXp, levelProgress } from '../game/progression';
+import { useLocalT } from '../i18n/local';
+import { useRankLabel } from '../game/displayNames';
+import { Confetti } from '../components/ks/Confetti';
 
 interface StatPod {
   label: string;
@@ -49,18 +52,75 @@ interface Props {
   onHome?: () => void;
 }
 
-const MODE_LABEL: Record<GameMode, string> = {
-  pve: 'TRAINING',
-  pvp_quick: 'QUICK PLAY',
-  pvp_ranked: 'RANKED',
-  pvp_friendly: 'FRIENDLY',
+const STRINGS = {
+  fr: {
+    modeTraining: 'ENTRAÎNEMENT',
+    modeQuick: 'PARTIE RAPIDE',
+    modeRanked: 'CLASSÉE',
+    modeFriendly: 'AMICALE',
+    missionComplete: 'MISSION ACCOMPLIE',
+    wonSub: 'CIBLE ÉLIMINÉE · OBJECTIF SÉCURISÉ',
+    forfeitSub: 'LA CIBLE A FUI LE TERRAIN',
+    stalemate: 'MATCH NUL',
+    drawSub: 'LES DEUX AGENTS À TERRE',
+    missionFailed: 'MISSION ÉCHOUÉE',
+    lostSub: 'AGENT TOMBÉ · RENSEIGNEMENTS COMPROMIS',
+    statMode: 'MODE',
+    statRounds: 'MANCHES',
+    statLives: 'VIES RESTANTES',
+    statXp: 'XP GAGNÉE',
+    noRewardTraining: 'ENTRAÎNEMENT · SANS RÉCOMPENSE',
+    noRewardFriendly: 'AMICALE · SANS RÉCOMPENSE',
+    noRewardGuest: 'COMPTE INVITÉ · SANS RÉCOMPENSE',
+    rankProgress: 'PROGRESSION DU RANG · {rank}',
+    levelXp: 'NIVEAU {level} · XP',
+    debrief: '// DÉBRIEFING · {mode}',
+    coinsEarned: 'PIÈCES GAGNÉES',
+    rematch: 'REVANCHE',
+    home: 'ACCUEIL',
+  },
+  en: {
+    modeTraining: 'TRAINING',
+    modeQuick: 'QUICK PLAY',
+    modeRanked: 'RANKED',
+    modeFriendly: 'FRIENDLY',
+    missionComplete: 'MISSION COMPLETE',
+    wonSub: 'TARGET ELIMINATED · OBJECTIVE SECURED',
+    forfeitSub: 'TARGET FLED THE FIELD',
+    stalemate: 'STALEMATE',
+    drawSub: 'BOTH AGENTS DOWN',
+    missionFailed: 'MISSION FAILED',
+    lostSub: 'AGENT KIA · INTEL COMPROMISED',
+    statMode: 'MODE',
+    statRounds: 'ROUNDS',
+    statLives: 'LIVES LEFT',
+    statXp: 'XP EARNED',
+    noRewardTraining: 'TRAINING · NO REWARD',
+    noRewardFriendly: 'FRIENDLY · NO REWARD',
+    noRewardGuest: 'GUEST ACCOUNT · NO REWARD',
+    rankProgress: 'RANK PROGRESS · {rank}',
+    levelXp: 'LEVEL {level} · XP',
+    debrief: '// DEBRIEF · {mode}',
+    coinsEarned: 'COINS EARNED',
+    rematch: 'REMATCH',
+    home: 'HOME',
+  },
+} as const;
+
+type EndKey = keyof typeof STRINGS.fr;
+
+const MODE_LABEL: Record<GameMode, EndKey> = {
+  pve: 'modeTraining',
+  pvp_quick: 'modeQuick',
+  pvp_ranked: 'modeRanked',
+  pvp_friendly: 'modeFriendly',
 };
 
-const HEADLINE: Record<MatchOutcome, { title: string; sub: string }> = {
-  won: { title: 'MISSION COMPLETE', sub: 'TARGET ELIMINATED · OBJECTIVE SECURED' },
-  opponent_forfeit: { title: 'MISSION COMPLETE', sub: 'TARGET FLED THE FIELD' },
-  draw: { title: 'STALEMATE', sub: 'BOTH AGENTS DOWN' },
-  lost: { title: 'MISSION FAILED', sub: 'AGENT KIA · INTEL COMPROMISED' },
+const HEADLINE: Record<MatchOutcome, { title: EndKey; sub: EndKey }> = {
+  won: { title: 'missionComplete', sub: 'wonSub' },
+  opponent_forfeit: { title: 'missionComplete', sub: 'forfeitSub' },
+  draw: { title: 'stalemate', sub: 'drawSub' },
+  lost: { title: 'missionFailed', sub: 'lostSub' },
 };
 
 export const EndMatchScreen: React.FC<Props> = ({
@@ -74,6 +134,8 @@ export const EndMatchScreen: React.FC<Props> = ({
 }) => {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const t = useLocalT(STRINGS);
+  const rankName = useRankLabel();
   const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
   const isGuest = useAuthStore((s) => s.user?.guest ?? false);
 
@@ -90,10 +152,10 @@ export const EndMatchScreen: React.FC<Props> = ({
   const rank = mmrToRank(mmr);
 
   const stats: StatPod[] = [
-    { label: 'MODE', value: MODE_LABEL[mode], color: KS.primary },
-    { label: 'ROUNDS', value: String(rounds), color: KS.ink },
-    { label: 'LIVES LEFT', value: String(livesLeft), color: livesLeft > 0 ? KS.live : KS.danger },
-    { label: 'XP EARNED', value: `+${xpDelta}`, color: xpDelta > 0 ? KS.live : KS.inkMute },
+    { label: t('statMode'), value: t(MODE_LABEL[mode]), color: KS.primary },
+    { label: t('statRounds'), value: String(rounds), color: KS.ink },
+    { label: t('statLives'), value: String(livesLeft), color: livesLeft > 0 ? KS.live : KS.danger },
+    { label: t('statXp'), value: `+${xpDelta}`, color: xpDelta > 0 ? KS.live : KS.inkMute },
   ];
 
   const stampScale = useSharedValue(2.2);
@@ -141,14 +203,14 @@ export const EndMatchScreen: React.FC<Props> = ({
 
   const rewardNote =
     mode === 'pve'
-      ? 'TRAINING · NO REWARD'
+      ? t('noRewardTraining')
       : mode === 'pvp_friendly'
-        ? 'FRIENDLY · NO REWARD'
+        ? t('noRewardFriendly')
       : isGuest
-        ? 'GUEST ACCOUNT · NO REWARD'
+        ? t('noRewardGuest')
         : ranked
-          ? `RANK PROGRESS · ${rank.label.toUpperCase()}`
-          : `LEVEL ${levelFromXp(xp)} · XP`;
+          ? t('rankProgress', { rank: rankName(rank.id).toUpperCase() })
+          : t('levelXp', { level: levelFromXp(xp) });
 
   return (
     <View style={styles.container}>
@@ -170,14 +232,14 @@ export const EndMatchScreen: React.FC<Props> = ({
       >
         {/* Eyebrow */}
         <Text style={styles.eyebrow}>
-          // DEBRIEF · {MODE_LABEL[mode]}
+          {t('debrief', { mode: t(MODE_LABEL[mode]) })}
         </Text>
 
         {/* Stamp */}
         <View style={styles.stampWrapper}>
           <Animated.View style={[styles.stampContainer, { borderColor: accent, shadowColor: accent }, stampStyle]}>
-            <Text style={[styles.stampTitle, { color: accent }]}>{headline.title}</Text>
-            <Text style={styles.stampSub}>{headline.sub}</Text>
+            <Text style={[styles.stampTitle, { color: accent }]}>{t(headline.title)}</Text>
+            <Text style={styles.stampSub}>{t(headline.sub)}</Text>
           </Animated.View>
         </View>
 
@@ -186,7 +248,7 @@ export const EndMatchScreen: React.FC<Props> = ({
           <GlassCard width={cardWidth} height={132} chamfer={10} variant="tr-bl">
             <View style={styles.xpInner}>
               <View style={styles.xpLeft}>
-                <Text style={styles.xpLabel}>COINS EARNED</Text>
+                <Text style={styles.xpLabel}>{t('coinsEarned')}</Text>
                 <Text style={[styles.xpValue, { color: coins > 0 ? KS.live : KS.inkMute }]}>
                   +{coins.toLocaleString('en-US')}
                 </Text>
@@ -231,17 +293,19 @@ export const EndMatchScreen: React.FC<Props> = ({
           <View style={styles.ctas}>
             {onRematch ? (
               <>
-                <PrimaryButton label="REMATCH" onPress={onRematch} size="large" />
-                <SecondaryButton label="HOME" onPress={onHome} />
+                <PrimaryButton label={t('rematch')} onPress={onRematch} size="large" />
+                <SecondaryButton label={t('home')} onPress={onHome} />
               </>
             ) : (
-              <PrimaryButton label="HOME" onPress={onHome} size="large" />
+              <PrimaryButton label={t('home')} onPress={onHome} size="large" />
             )}
           </View>
 
           <View style={{ height: insets.bottom + 24 }} />
         </Animated.View>
       </ScrollView>
+      {/* A real victory only: a forfeit by the opponent wins, but is not celebrated. */}
+      {outcome === 'won' && <Confetti />}
     </View>
   );
 };

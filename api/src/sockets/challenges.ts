@@ -3,7 +3,8 @@ import { ClientToServerEvents, ServerToClientEvents } from './events';
 import { SocketData } from './auth';
 import { createRoom, isUserInRoom } from './gameRoom';
 import { isQueued, leaveQueue } from './matchmaking';
-import { emitToUser, socketIdsOf } from './hub';
+import { emitToUser, registeredUser, socketIdsOf } from './hub';
+import { socketRef } from './cluster';
 import { areFriends, isBlockedEitherWay } from '../services/social.service';
 import { logger } from '../lib/logger';
 
@@ -31,10 +32,11 @@ const close = (challenge: Challenge) => {
 
 const busy = (userId: number) => isUserInRoom(userId) || isQueued(userId);
 
+/** One of the player's connections, wherever in the cluster it lives. */
 const firstSocketOf = (io: TypedServer, userId: number): TypedSocket | undefined => {
   for (const id of socketIdsOf(userId)) {
-    const socket = io.sockets.sockets.get(id);
-    if (socket) return socket as TypedSocket;
+    const user = registeredUser(userId, id);
+    if (user) return socketRef(io, id, user);
   }
   return undefined;
 };

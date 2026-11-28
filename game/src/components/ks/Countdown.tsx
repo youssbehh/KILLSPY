@@ -12,6 +12,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { KS } from '../../theme/colors';
 import { TYPO, SIZES } from '../../theme/typography';
+import { useLocalT } from '../../i18n/local';
+
+const STRINGS = {
+  fr: { seconds: 'SEC' },
+  en: { seconds: 'SEC' },
+} as const;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -39,6 +45,7 @@ function hexPoints(cx: number, cy: number, r: number): string {
 }
 
 export const Countdown: React.FC<Props> = ({ value, max = 5 }) => {
+  const t = useLocalT(STRINGS);
   const dashOffset = useSharedValue((1 - value / max) * CIRCUMFERENCE);
   const blinkOp = useSharedValue(1);
   const color = urgencyColor(value);
@@ -128,7 +135,7 @@ export const Countdown: React.FC<Props> = ({ value, max = 5 }) => {
       {/* Center content */}
       <Animated.View style={[StyleSheet.absoluteFill, styles.center, blinkStyle]}>
         <Text style={[styles.number, { color }]}>{value}</Text>
-        <Text style={styles.sec}>SEC</Text>
+        <Text style={styles.sec}>{t('seconds')}</Text>
       </Animated.View>
     </View>
   );

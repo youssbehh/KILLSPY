@@ -36,7 +36,10 @@ import { EndMatchScreen } from '@/src/screens/EndMatchScreen';
 import { CombatFx } from '@/src/components/ks/CombatFx';
 import { useRecordTrainingGame } from '@/src/hooks/useGames';
 import { MOTION } from '@/src/theme/motion';
+import { useMyCombatLook } from '@/src/hooks/useInventory';
+import { MisfireFlash } from '@/src/components/ks/MisfireFlash';
 import * as Haptics from 'expo-haptics';
+import { useLocalT } from '@/src/i18n/local';
 
 type Phase = 'countdown' | 'choosing' | 'resolving' | 'finished';
 
@@ -48,18 +51,71 @@ function toGameAction(card: CardAction): GameAction {
 const TURN_SECS = Math.ceil(TURN_DURATION_MS / 1000);
 const COUNTDOWN_SECS = Math.ceil(COUNTDOWN_DURATION_MS / 1000);
 
-const DIFF_LABELS: Record<string, string> = {
-  easy:   'FIELD AGENT',
-  medium: 'VETERAN OPS',
-  hard:   'PHANTOM UNIT',
-};
+const STRINGS = {
+  fr: {
+    easy: 'FACILE',
+    medium: 'MOYEN',
+    hard: 'DIFFICILE',
+    easyCodename: 'AGENT DE TERRAIN',
+    mediumCodename: 'OPÉRATEUR VÉTÉRAN',
+    hardCodename: 'UNITÉ FANTÔME',
+    roundLabel: '// ENTRAÎNEMENT · MANCHE {round}',
+    training: 'ENTRAÎNEMENT',
+    botName: 'BOT {codename}',
+    botInitials: 'IA',
+    opponent: 'ADVERSAIRE',
+    revealed: '◉ RÉVÉLÉ',
+    thinking: '⌛ RÉFLEXION',
+    matchStartsIn: 'DÉBUT DU MATCH DANS',
+    resolving: 'RÉSOLUTION...',
+    resolvingIn: 'RÉSOLUTION DANS',
+    lockActionUrgent: '⚠ VERROUILLE TON ACTION',
+    lockAction: 'VERROUILLE TON ACTION',
+    locked: '✓ VERROUILLÉ',
+    armed: '◉ ARMÉ',
+    you: 'TOI',
+  },
+  en: {
+    easy: 'EASY',
+    medium: 'MEDIUM',
+    hard: 'HARD',
+    easyCodename: 'FIELD AGENT',
+    mediumCodename: 'VETERAN OPS',
+    hardCodename: 'PHANTOM UNIT',
+    roundLabel: '// TRAINING · ROUND {round}',
+    training: 'TRAINING',
+    botName: '{codename} BOT',
+    botInitials: 'AI',
+    opponent: 'OPPONENT',
+    revealed: '◉ REVEALED',
+    thinking: '⌛ THINKING',
+    matchStartsIn: 'MATCH STARTS IN',
+    resolving: 'RESOLVING...',
+    resolvingIn: 'RESOLVING IN',
+    lockActionUrgent: '⚠ LOCK YOUR ACTION',
+    lockAction: 'LOCK YOUR ACTION',
+    locked: '✓ LOCKED',
+    armed: '◉ ARMED',
+    you: 'YOU',
+  },
+} as const;
+
+const DIFF_LABELS = {
+  easy: 'easyCodename',
+  medium: 'mediumCodename',
+  hard: 'hardCodename',
+} as const;
 
 export default function BotGameScreen() {
   const insets = useSafeAreaInsets();
+  const t = useLocalT(STRINGS);
   const difficulty = useBotStore((s) => s.difficulty);
   const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
 
   const [state, setState] = useState<GameState>(createInitialState());
+  const myLook = useMyCombatLook();
+  /** Bumped each time the player pulls the trigger on an empty magazine. */
+  const [misfires, setMisfires] = useState(0);
   const [phase, setPhase] = useState<Phase>('countdown');
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECS);
   const [playerAction, setPlayerAction] = useState<GameAction | null>(null);
@@ -185,11 +241,11 @@ export default function BotGameScreen() {
         {/* Eyebrow */}
         <View style={[styles.eyebrow, { paddingTop: insets.top + 12 }]}>
           <Text style={styles.roundLabel}>
-            // TRAINING · ROUND {String(state.round + 1).padStart(2, '0')}
+            {t('roundLabel', { round: String(state.round + 1).padStart(2, '0') })}
           </Text>
           <View style={styles.recRow}>
             <Animated.View style={[styles.recDot, recStyle]} />
-            <Text style={styles.recText}>TRAINING</Text>
+            <Text style={styles.recText}>{t('training')}</Text>
           </View>
         </View>
 
@@ -197,20 +253,20 @@ export default function BotGameScreen() {
         <View style={styles.zone}>
           <View style={styles.playerStrip}>
             <View style={styles.playerLeft}>
-              <HexAvatar size={36} tier="phantom" initials="AI" />
+              <HexAvatar size={36} tier="phantom" initials={t('botInitials')} />
               <View>
                 <Text style={styles.oppName}>
-                  {DIFF_LABELS[difficulty]} BOT
+                  {t('botName', { codename: t(DIFF_LABELS[difficulty]) })}
                 </Text>
                 <View style={styles.tagRow}>
                   <RankBadge tier={4} size={16} />
-                  <Text style={[styles.tagLabel, { color: KS.enemy }]}>OPPONENT</Text>
+                  <Text style={[styles.tagLabel, { color: KS.enemy }]}>{t('opponent')}</Text>
                 </View>
               </View>
             </View>
             <View style={styles.statusChip}>
               <Text style={[styles.statusText, { color: KS.inkDim }]}>
-                {phase === 'resolving' ? '◉ REVEALED' : '⌛ THINKING'}
+                {phase === 'resolving' ? t('revealed') : t('thinking')}
               </Text>
             </View>
           </View>
@@ -237,17 +293,17 @@ export default function BotGameScreen() {
         <View style={styles.center}>
           {phase === 'countdown' ? (
             <>
-              <Text style={styles.resolvingIn}>MATCH STARTS IN</Text>
+              <Text style={styles.resolvingIn}>{t('matchStartsIn')}</Text>
               <Countdown value={secondsLeft} max={COUNTDOWN_SECS} />
             </>
           ) : (
             <>
               <Text style={styles.resolvingIn}>
-                {phase === 'resolving' ? 'RESOLVING...' : 'RESOLVING IN'}
+                {phase === 'resolving' ? t('resolving') : t('resolvingIn')}
               </Text>
               <Countdown value={isChoosing ? secondsLeft : 0} max={TURN_SECS} />
               <Animated.Text style={[styles.lockLabel, blinkStyle]}>
-                {secondsLeft <= 2 && isChoosing ? '⚠ LOCK YOUR ACTION' : 'LOCK YOUR ACTION'}
+                {secondsLeft <= 2 && isChoosing ? t('lockActionUrgent') : t('lockAction')}
               </Animated.Text>
             </>
           )}
@@ -258,7 +314,7 @@ export default function BotGameScreen() {
           <View style={styles.infoRow}>
             <View style={styles.statusChip}>
               <Text style={[styles.statusText, { color: playerAction ? KS.live : KS.alert }]}>
-                {playerAction ? '✓ LOCKED' : '◉ ARMED'}
+                {playerAction ? t('locked') : t('armed')}
               </Text>
             </View>
             <Lives alive={state.player.lives} />
@@ -274,6 +330,8 @@ export default function BotGameScreen() {
               const isDisabled =
                 !isSelected &&
                 (phase !== 'choosing' || !!playerAction || !isActionLegal(state.player, gameAction));
+              const emptyGun =
+                gameAction === 'shoot' && state.player.ammo === 0 && phase === 'choosing' && !playerAction;
               return (
                 <ActionCard
                   key={action}
@@ -282,6 +340,7 @@ export default function BotGameScreen() {
                   selected={isSelected}
                   disabled={isDisabled}
                   onPress={() => handleCardPress(action)}
+                  onDisabledPress={emptyGun ? () => setMisfires((n) => n + 1) : undefined}
                 />
               );
             })}
@@ -292,17 +351,18 @@ export default function BotGameScreen() {
               <HexAvatar size={36} tier="gold" initials={username.slice(0, 2)} live />
               <View>
                 <Text style={styles.selfName}>{username.toUpperCase()}</Text>
-                <Text style={[styles.tagLabel, { color: KS.primary }]}>YOU</Text>
+                <Text style={[styles.tagLabel, { color: KS.primary }]}>{t('you')}</Text>
               </View>
             </View>
             <View style={styles.diffBadge}>
-              <Text style={styles.diffBadgeText}>{difficulty.toUpperCase()}</Text>
+              <Text style={styles.diffBadgeText}>{t(difficulty)}</Text>
             </View>
           </View>
         </View>
 
         {/* Shot / shield / reload effects of the turn being revealed */}
-        <CombatFx state={state} />
+        <CombatFx state={state} playerLook={myLook} />
+        <MisfireFlash trigger={misfires} />
       </View>
     </>
   );

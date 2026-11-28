@@ -5,12 +5,19 @@ import { useLanguageStore } from '@/src/stores/languageStore';
 import { KSAccordion } from './KSAccordion';
 import { KS } from '@/src/theme/colors';
 import { TYPO, SIZES } from '@/src/theme/typography';
+import { useLocalT } from '@/src/i18n/local';
+
+const STRINGS = {
+  fr: { contactLabel: '{label} :' },
+  en: { contactLabel: '{label}:' },
+} as const;
 
 const SupportContainer = () => {
   const { langIndex } = useLanguageStore();
+  const t = useLocalT(STRINGS);
   return (
     <KSAccordion title={motTraduit(langIndex, 28)}>
-      <Text style={styles.label}>{motTraduit(langIndex, 47)} :</Text>
+      <Text style={styles.label}>{t('contactLabel', { label: motTraduit(langIndex, 47) })}</Text>
       <Text style={styles.email}>support@killspy.io</Text>
     </KSAccordion>
   );

@@ -21,7 +21,7 @@ describe('POST /api/auth/signup', () => {
 
     const res = await request(app)
       .post('/api/auth/signup')
-      .send({ username: 'agent007', email: 'a@b.io', passwordCrea: VALID_PASSWORD });
+      .send({ username: 'agent007', email: 'a@b.io', passwordCrea: VALID_PASSWORD, acceptTerms: true });
 
     expect(res.status).toBe(201);
     expect(res.body.user).toMatchObject({ id: 1, username: 'agent007', email: 'a@b.io' });
@@ -32,7 +32,7 @@ describe('POST /api/auth/signup', () => {
   it('rejette un mot de passe trop faible', async () => {
     const res = await request(app)
       .post('/api/auth/signup')
-      .send({ username: 'agent007', email: 'a@b.io', passwordCrea: 'weak' });
+      .send({ username: 'agent007', email: 'a@b.io', passwordCrea: 'weak', acceptTerms: true });
 
     expect(res.status).toBe(400);
     expect(prismaMock.users.create).not.toHaveBeenCalled();
@@ -41,7 +41,7 @@ describe('POST /api/auth/signup', () => {
   it('rejette un email invalide', async () => {
     const res = await request(app)
       .post('/api/auth/signup')
-      .send({ username: 'agent007', email: 'not-an-email', passwordCrea: VALID_PASSWORD });
+      .send({ username: 'agent007', email: 'not-an-email', passwordCrea: VALID_PASSWORD, acceptTerms: true });
 
     expect(res.status).toBe(400);
   });
@@ -50,7 +50,7 @@ describe('POST /api/auth/signup', () => {
     prismaMock.users.findFirst.mockResolvedValue({ ID_User: 1 });
     const res = await request(app)
       .post('/api/auth/signup')
-      .send({ username: 'agent007', email: 'a@b.io', passwordCrea: VALID_PASSWORD });
+      .send({ username: 'agent007', email: 'a@b.io', passwordCrea: VALID_PASSWORD, acceptTerms: true });
 
     expect(res.status).toBe(400);
     expect(res.body.errorCode).toBe(1002);
@@ -121,7 +121,7 @@ describe('POST /api/auth/login', () => {
   });
 });
 
-describe('GET /api/auth/guest', () => {
+describe('POST /api/auth/guest', () => {
   it('crée un compte invité avec un username Guest*', async () => {
     prismaMock.users.findUnique.mockResolvedValue(null);
     prismaMock.users.create.mockResolvedValue({
@@ -130,11 +130,108 @@ describe('GET /api/auth/guest', () => {
     });
     prismaMock.session.create.mockResolvedValue({});
 
-    const res = await request(app).get('/api/auth/guest');
+    const res = await request(app).post('/api/auth/guest').send({ acceptTerms: true });
 
     expect(res.status).toBe(201);
     expect(res.body.user.guest).toBe(true);
     expect(res.body.user.username).toMatch(/^Guest\d+$/);
     expect(res.body.token).toEqual(expect.any(String));
+  });
+});
+
+describe('POST /api/auth/refresh', () => {
+  const RAW = 'r'.repeat(64);
+  const stored = (overrides: Partial<any> = {}) => ({
+    id: 7,
+    userId: 1,
+    familyId: 'fam',
+    tokenVersion: 3,
+    expiresAt: new Date(Date.now() + 60_000),
+    revokedAt: null,
+    replacedAt: null,
+    user: { ID_User: 1, tokenVersion: 3, archived: false, banned: false },
+    ...overrides,
+  });
+
+  it('échange un refresh token valide contre une nouvelle paire', async () => {
+    prismaMock.refreshToken.findUnique.mockResolvedValue(stored());
+    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: RAW });
+
+    expect(res.status).toBe(200);
+    expect(res.body.token).toEqual(expect.any(String));
+    expect(res.body.refreshToken).toEqual(expect.any(String));
+    expect(res.body.refreshToken).not.toBe(RAW);
+    // The old one is revoked and the new one stays in the same family.
+    expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 7, replacedAt: null } }),
+    );
+    expect(prismaMock.refreshToken.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ familyId: 'fam', userId: 1 }) }),
+    );
+  });
+
+  it('refuse un token inconnu', async () => {
+    prismaMock.refreshToken.findUnique.mockResolvedValue(null);
+    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: RAW });
+    expect(res.status).toBe(401);
+  });
+
+  it('refuse un token expiré', async () => {
+    prismaMock.refreshToken.findUnique.mockResolvedValue(stored({ expiresAt: new Date(Date.now() - 1) }));
+    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: RAW });
+    expect(res.status).toBe(401);
+  });
+
+  it('refuse un token émis avant une déconnexion ou un changement de mot de passe', async () => {
+    prismaMock.refreshToken.findUnique.mockResolvedValue(
+      stored({ user: { ID_User: 1, tokenVersion: 4, archived: false, banned: false } }),
+    );
+    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: RAW });
+    expect(res.status).toBe(401);
+  });
+
+  it('révoque toute la famille quand un ancien token est rejoué', async () => {
+    prismaMock.refreshToken.findUnique.mockResolvedValue(stored({ replacedAt: new Date(Date.now() - 60_000) }));
+    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: RAW });
+
+    expect(res.status).toBe(401);
+    expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { familyId: 'fam', revokedAt: null } }),
+    );
+  });
+
+  it('tolère deux renouvellements simultanés du même token', async () => {
+    prismaMock.refreshToken.findUnique.mockResolvedValue(stored({ replacedAt: new Date(Date.now() - 2_000) }));
+    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: RAW });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('consentement RGPD', () => {
+  it("refuse l'inscription sans acceptation explicite", async () => {
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({ username: 'agent007', email: 'a@b.io', passwordCrea: VALID_PASSWORD });
+    expect(res.status).toBe(400);
+    expect(prismaMock.users.create).not.toHaveBeenCalled();
+  });
+
+  it('refuse une partie invité sans acceptation', async () => {
+    expect((await request(app).post('/api/auth/guest').send({})).status).toBe(400);
+    expect((await request(app).post('/api/auth/guest').send({ acceptTerms: false })).status).toBe(400);
+  });
+
+  it("enregistre la date et la version du texte accepté", async () => {
+    prismaMock.users.findFirst.mockResolvedValue(null);
+    prismaMock.users.create.mockResolvedValue({
+      ID_User: 1, Username: 'agent007', Email: 'a@b.io', Password: 'hash',
+      MMR: 0, isGuest: false, archived: false, deletionDate: null, CreatedAt: new Date(),
+    });
+    await request(app)
+      .post('/api/auth/signup')
+      .send({ username: 'agent007', email: 'a@b.io', passwordCrea: VALID_PASSWORD, acceptTerms: true });
+    expect(prismaMock.users.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ termsAcceptedAt: expect.any(Date), termsVersion: expect.any(String) }),
+    });
   });
 });

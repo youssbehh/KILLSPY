@@ -70,7 +70,7 @@ export const ChallengeOverlay: React.FC = () => {
             accessibilityLabel={t('accept')}
             style={[styles.button, styles.accept]}
           >
-            <Text style={[styles.buttonText, { color: KS.ink }]}>{t('accept')}</Text>
+            <Text style={[styles.buttonText, { color: KS.onPrimary }]}>{t('accept')}</Text>
           </Pressable>
         </View>
       </View>

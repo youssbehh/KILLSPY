@@ -1,12 +1,17 @@
 import { apiClient } from './client';
-import { AuthUser } from '../stores/authStore';
+import { AuthUser, SessionTokens } from '../stores/authStore';
 
-export interface AuthResponse {
+export interface AuthResponse extends SessionTokens {
   user: AuthUser;
-  token: string;
 }
 
-export const signup = async (input: { username: string; email: string; passwordCrea: string }): Promise<AuthUser> => {
+/** `acceptTerms`: the player accepted the privacy notice (the server refuses without it). */
+export const signup = async (input: {
+  username: string;
+  email: string;
+  passwordCrea: string;
+  acceptTerms: true;
+}): Promise<AuthUser> => {
   const { data } = await apiClient.post<{ user: AuthUser }>('/auth/signup', input);
   return data.user;
 };
@@ -16,8 +21,9 @@ export const login = async (input: { identifier: string; password: string }): Pr
   return data;
 };
 
+/** Only called once the player accepted the privacy notice. */
 export const loginGuest = async (): Promise<AuthResponse> => {
-  const { data } = await apiClient.get<AuthResponse>('/auth/guest');
+  const { data } = await apiClient.post<AuthResponse>('/auth/guest', { acceptTerms: true });
   return data;
 };
 

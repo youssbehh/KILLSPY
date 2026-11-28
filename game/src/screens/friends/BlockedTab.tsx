@@ -33,7 +33,7 @@ export const BlockedTab: React.FC = () => {
         data={blocked}
         keyExtractor={(player) => String(player.id)}
         refreshing={isRefetching}
-        onRefresh={() => refetch()}
+        onRefresh={() => { void refetch(); }}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: LIST_BOTTOM_PAD }}
         ListEmptyComponent={<StateBox kind="empty" title={t('blockedEmpty')} />}
         renderItem={({ item }) => (

@@ -279,5 +279,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 5,
   },
-  badgeText: { fontFamily: TYPO.monoBold, fontSize: SIZES.monoSm, color: KS.ink },
+  badgeText: { fontFamily: TYPO.monoBold, fontSize: SIZES.monoSm, color: KS.onPrimary },
 });

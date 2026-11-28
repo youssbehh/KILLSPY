@@ -14,6 +14,12 @@ import { extractApiError } from '@/src/api/client';
 import { useT, I18nKey } from '@/src/i18n';
 import { KS } from '@/src/theme/colors';
 import { TYPO, SIZES } from '@/src/theme/typography';
+import { useLocalT } from '@/src/i18n/local';
+
+const STRINGS = {
+  fr: { back: 'Retour', eyebrow: '‹ // ARMURERIE' },
+  en: { back: 'Back', eyebrow: '‹ // ARMORY' },
+} as const;
 
 const TYPE_LABEL: Record<CosmeticType, I18nKey> = {
   avatar: 'cosAvatar',
@@ -28,6 +34,7 @@ const TYPE_LABEL: Record<CosmeticType, I18nKey> = {
 
 export default function InventoryScreen() {
   const t = useT();
+  const lt = useLocalT(STRINGS);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isGuest = useAuthStore((s) => s.user?.guest ?? false);
@@ -58,8 +65,8 @@ export default function InventoryScreen() {
         contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back" hitSlop={12}>
-          <Text style={styles.eyebrow}>‹ // ARMORY</Text>
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel={lt('back')} hitSlop={12}>
+          <Text style={styles.eyebrow}>{lt('eyebrow')}</Text>
         </Pressable>
         <Text style={styles.title}>{t('inventory').toUpperCase()}</Text>
 

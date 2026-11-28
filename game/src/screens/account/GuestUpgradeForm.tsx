@@ -3,7 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useUpgradeGuest } from '@/src/hooks/useAccount';
 import { extractApiError } from '@/src/api/client';
 import { useLocalT } from '@/src/i18n/local';
-import { Field, FormNotice, Notice } from '@/src/components/ks/FormField';
+import { Check, Field, FormNotice, Notice } from '@/src/components/ks/FormField';
+import { ConsentModal } from '@/src/components/ks/ConsentModal';
+import { useT } from '@/src/i18n';
 import { PrimaryButton } from '@/src/components/ks/PrimaryButton';
 import { KS } from '@/src/theme/colors';
 import { TYPO, SIZES } from '@/src/theme/typography';
@@ -16,12 +18,16 @@ import { checkEmail, checkNewPassword, checkUsername, normalizeEmail } from './r
  */
 export const GuestUpgradeForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
   const t = useLocalT(ACCOUNT_STRINGS);
+  const tCommon = useT();
   const upgradeMutation = useUpgradeGuest();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [notice, setNotice] = useState<Notice>(null);
+  // RGPD: playing as a guest was accepted for a guest profile; an account is a new consent.
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [consentVisible, setConsentVisible] = useState(false);
 
   const fail = (text: string) => setNotice({ text, ok: false });
 
@@ -30,12 +36,14 @@ export const GuestUpgradeForm: React.FC<{ onDone: () => void }> = ({ onDone }) =
     if (!username.trim() || !email.trim() || !password || !confirmation) return fail(t('errRequired'));
     const error = checkUsername(username) ?? checkEmail(email) ?? checkNewPassword(password, confirmation);
     if (error) return fail(t(error));
+    if (!acceptTerms) return fail(tCommon('errAcceptTerms'));
 
     try {
       await upgradeMutation.mutateAsync({
         username: username.trim(),
         email: normalizeEmail(email),
         passwordCrea: password,
+        acceptTerms: true,
       });
       onDone();
     } catch (e) {
@@ -91,12 +99,28 @@ export const GuestUpgradeForm: React.FC<{ onDone: () => void }> = ({ onDone }) =
         returnKeyType="send"
         onSubmitEditing={submit}
       />
+      <Check
+        label={tCommon('acceptTerms')}
+        checked={acceptTerms}
+        onToggle={() => (acceptTerms ? setAcceptTerms(false) : setConsentVisible(true))}
+      />
       <FormNotice notice={notice} />
       <PrimaryButton
         label={upgradeMutation.isPending ? t('pending') : t('upgradeSubmit')}
         onPress={submit}
         disabled={upgradeMutation.isPending}
         size="medium"
+      />
+      <ConsentModal
+        visible={consentVisible}
+        onAccept={() => {
+          setConsentVisible(false);
+          setAcceptTerms(true);
+        }}
+        onRefuse={() => {
+          setConsentVisible(false);
+          setAcceptTerms(false);
+        }}
       />
     </View>
   );

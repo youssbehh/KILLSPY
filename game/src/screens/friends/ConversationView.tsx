@@ -25,6 +25,7 @@ import type { MessageDTO } from '../../api/messages';
 import { rankTierName } from '../../game/rankDisplay';
 import { useFriendsT } from './strings';
 import { ActionButton, Feedback, PAD, PlayerRef, StateBox, TAB_BAR_HEIGHT, TOUCH } from './ui';
+import { VerifyEmailBanner } from '@/src/components/ks/VerifyEmailBanner';
 
 const MAX_MESSAGE = 500;
 
@@ -51,7 +52,7 @@ const useIosKeyboardOpen = (): boolean => {
 const Bubble: React.FC<{ message: MessageDTO; mine: boolean }> = ({ message, mine }) => (
   <View style={[styles.bubbleWrap, mine ? styles.wrapMine : styles.wrapTheirs]}>
     <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-      <Text style={[styles.bubbleText, mine && { color: KS.ink }]}>{message.content}</Text>
+      <Text style={[styles.bubbleText, mine && { color: KS.onPrimary }]}>{message.content}</Text>
     </View>
     <Text style={styles.clock}>{formatClock(message.sentAt)}</Text>
   </View>
@@ -166,12 +167,13 @@ export const ConversationView: React.FC<Props> = ({ partner, onBack, onOpenPlaye
                   onPress={() => fetchNextPage()}
                 />
               </View>
-            ) : null
+            ) : undefined
           }
         />
       )}
 
       <Feedback text={sendError} />
+      <VerifyEmailBanner compact />
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
@@ -269,5 +271,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendOff: { backgroundColor: KS.surface },
-  sendGlyph: { fontFamily: TYPO.uiBold, fontSize: SIZES.titleSm, color: KS.ink },
+  sendGlyph: { fontFamily: TYPO.uiBold, fontSize: SIZES.titleSm, color: KS.onPrimary },
 });

@@ -41,7 +41,7 @@ export const RequestsTab: React.FC<{ onOpenPlayer: (player: PlayerRef) => void }
     <ScrollView
       contentContainerStyle={{ paddingBottom: LIST_BOTTOM_PAD }}
       refreshControl={
-        <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={KS.primary} />
+        <RefreshControl refreshing={isRefetching} onRefresh={() => { void refetch(); }} tintColor={KS.primary} />
       }
     >
       <Feedback text={error} />

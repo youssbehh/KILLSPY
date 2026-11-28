@@ -17,3 +17,10 @@ SMTP_PORT=587
 SMTP_USER=
 SMTP_PASS=
 MAIL_FROM="KILLSPY <no-reply@exemple.com>"
+# --- Plusieurs instances de l'API ---
+# Vide : une seule instance fait tout. "postgres" : les instances partagent le temps réel
+# par Postgres (LISTEN/NOTIFY) et élisent une coordinatrice des parties ; si elle tombe,
+# une autre reprend les parties en cours. Il faut alors une connexion directe (pas PgBouncer) :
+# SOCKET_CLUSTER_DATABASE_URL, à défaut DIRECT_URL.
+SOCKET_CLUSTER=
+SOCKET_CLUSTER_DATABASE_URL=

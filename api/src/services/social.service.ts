@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { HttpException, ErrCodes, statusCodes } from '../utils/exceptions';
-import { disconnectUser, emitToUser, isOnline } from '../sockets/hub';
+import { disconnectUser, emitToUser, onlineUserIds } from '../sockets/hub';
 import { mmrToRank } from '../game/ranking';
 import { levelFromXp } from '../game/progression';
 
@@ -16,11 +16,12 @@ export interface PlayerSummary {
 const fail = (message: string, status: statusCodes, code: ErrCodes = ErrCodes.BAD_REQUEST) =>
   new HttpException(message, code, status, null);
 
-const summary = (u: { ID_User: number; Username: string; MMR: number }): PlayerSummary => ({
+/** `online`: players known to be connected (see onlineUserIds), fetched once per list. */
+const summary = (u: { ID_User: number; Username: string; MMR: number }, online: Set<number>): PlayerSummary => ({
   id: u.ID_User,
   username: u.Username,
   mmr: u.MMR,
-  online: isOnline(u.ID_User),
+  online: online.has(u.ID_User),
 });
 
 const USER_FIELDS = { ID_User: true, Username: true, MMR: true } as const;
@@ -82,12 +83,12 @@ export const sendFriendRequest = async (userId: number, isGuest: boolean, userna
   if (link) {
     await prisma.friends.update({ where: { ID_Friendship: link.ID_Friendship }, data: { Status: 'accepted' } });
     emitToUser(target.ID_User, 'social:update', { kind: 'friends' });
-    return { status: 'accepted' as const, user: summary(target) };
+    return { status: 'accepted' as const, user: summary(target, await onlineUserIds([target.ID_User])) };
   }
 
   await prisma.friends.create({ data: { ID_User: userId, ID_Friend: target.ID_User, Status: 'pending' } });
   emitToUser(target.ID_User, 'social:update', { kind: 'friends' });
-  return { status: 'pending' as const, user: summary(target) };
+  return { status: 'pending' as const, user: summary(target, await onlineUserIds([target.ID_User])) };
 };
 
 export const acceptFriendRequest = async (userId: number, requestId: number) => {
@@ -128,9 +129,10 @@ export const listFriends = async (userId: number) => {
   const incoming: { requestId: number; user: PlayerSummary; createdAt: Date }[] = [];
   const outgoing: { requestId: number; user: PlayerSummary; createdAt: Date }[] = [];
 
+  const online = await onlineUserIds(links.map((l) => (l.ID_User === userId ? l.ID_Friend : l.ID_User)));
   for (const link of links) {
     const mine = link.ID_User === userId;
-    const other = summary(mine ? link.Friend : link.User);
+    const other = summary(mine ? link.Friend : link.User, online);
     if (link.Status === 'accepted') friends.push(other);
     else (mine ? outgoing : incoming).push({ requestId: link.ID_Friendship, user: other, createdAt: link.CreatedAt });
   }
@@ -196,8 +198,9 @@ export const searchPlayers = async (userId: number, query: string) => {
     take: 20,
   });
 
+  const online = await onlineUserIds(users.map((u) => u.ID_User));
   return Promise.all(
-    users.map(async (u) => ({ ...summary(u), relation: await relationBetween(userId, u.ID_User) })),
+    users.map(async (u) => ({ ...summary(u, online), relation: await relationBetween(userId, u.ID_User) })),
   );
 };
 
@@ -227,7 +230,7 @@ export const getPublicProfile = async (viewerId: number, targetId: number) => {
     xp: user.XP,
     level: levelFromXp(user.XP),
     since: user.CreatedAt,
-    online: isOnline(user.ID_User),
+    online: (await onlineUserIds([user.ID_User])).has(user.ID_User),
     stats: { wins, losses: total - wins, total, winRate: total === 0 ? 0 : wins / total },
     guild: user.GuildMembership
       ? { ...user.GuildMembership.guild, role: user.GuildMembership.role }

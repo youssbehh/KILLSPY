@@ -1,18 +1,23 @@
 import { hash, compare } from 'bcrypt';
-import jwt from 'jsonwebtoken';
+
 import { randomBytes } from 'crypto';
 import { Users } from '@prisma/client';
 
 import { prisma } from '../lib/prisma';
-import { JWT_SECRET } from '../secrets';
+import { issueSession, revokeAllSessions } from './tokens.service';
 import { HttpException, ErrCodes, statusCodes } from '../utils/exceptions';
 import { logger } from '../lib/logger';
 import { levelFromXp } from '../game/progression';
+import { mustVerifyEmail } from '../middlewares/requireVerified';
+import { TERMS_VERSION } from '../validators/auth';
+
+/** Stored with every account: when the privacy notice was accepted, and which version. */
+export const consentRecord = () => ({ termsAcceptedAt: new Date(), termsVersion: TERMS_VERSION });
 
 const DEFAULT_THEME_NAME = 'Agent Mint';
 
 export const BCRYPT_ROUNDS = 12;
-const TOKEN_TTL = '7d';
+
 
 export type PublicUser = {
   id: number;
@@ -23,6 +28,8 @@ export type PublicUser = {
   xp: number;
   level: number;
   emailVerified: boolean;
+  /** True while ranked, shop, messages and guilds stay locked until the e-mail is verified. */
+  verificationRequired: boolean;
   guest: boolean;
 };
 
@@ -35,12 +42,9 @@ export const toPublicUser = (u: Users): PublicUser => ({
   xp: u.XP,
   level: levelFromXp(u.XP),
   emailVerified: u.emailVerified,
+  verificationRequired: mustVerifyEmail(u),
   guest: u.isGuest,
 });
-
-/** `v` is the user's tokenVersion: bumping it server-side revokes every older token. */
-export const signToken = (userId: number, tokenVersion: number) =>
-  jwt.sign({ id: userId, v: tokenVersion }, JWT_SECRET, { expiresIn: TOKEN_TTL });
 
 export const signupUser = async (input: { username: string; email: string; passwordCrea: string }) => {
   const existing = await prisma.users.findFirst({
@@ -56,6 +60,7 @@ export const signupUser = async (input: { username: string; email: string; passw
       Email: input.email,
       Password: await hash(input.passwordCrea, BCRYPT_ROUNDS),
       isGuest: false,
+      ...consentRecord(),
     },
   });
 
@@ -106,7 +111,7 @@ export const loginUser = async (input: { identifier: string; password: string })
   await upsertSession(user.ID_User);
   await ensureRole(user.ID_User);
 
-  return { user: toPublicUser(user), token: signToken(user.ID_User, user.tokenVersion) };
+  return { user: toPublicUser(user), ...(await issueSession(user)) };
 };
 
 export const createGuestUser = async () => {
@@ -120,6 +125,7 @@ export const createGuestUser = async () => {
       Email: `${username}@killspy.local`,
       Password: tempPassword,
       isGuest: true,
+      ...consentRecord(),
     },
   });
 
@@ -127,7 +133,7 @@ export const createGuestUser = async () => {
     data: { ID_User: guest.ID_User, Connected: true, LastConnection: new Date(), TotalLoginCount: 1 },
   });
 
-  return { user: toPublicUser(guest), token: signToken(guest.ID_User, guest.tokenVersion) };
+  return { user: toPublicUser(guest), ...(await issueSession(guest)) };
 };
 
 export const logoutUser = async (userId: number) => {
@@ -148,6 +154,7 @@ export const logoutUser = async (userId: number) => {
   });
   // Revoke the token that was just used (and any other one of this account).
   await prisma.users.update({ where: { ID_User: userId }, data: { tokenVersion: { increment: 1 } } });
+  await revokeAllSessions(userId);
 
   return { message: 'Déconnexion réussie.' };
 };

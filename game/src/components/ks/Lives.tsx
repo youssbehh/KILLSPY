@@ -12,6 +12,12 @@ import Animated, {
 import Svg, { Polygon, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { KS } from '../../theme/colors';
 import { MOTION } from '../../theme/motion';
+import { useLocalT } from '../../i18n/local';
+
+const STRINGS = {
+  fr: { a11y: '{alive} vies sur {total}' },
+  en: { a11y: '{alive} of {total} lives' },
+} as const;
 
 interface Props {
   total?: number;
@@ -99,6 +105,7 @@ const LifeToken: React.FC<{ index: number; isAlive: boolean }> = ({ index, isAli
 };
 
 export const Lives: React.FC<Props> = ({ total = 3, alive }) => {
+  const t = useLocalT(STRINGS);
   const reducedMotion = useReducedMotion();
   const previous = useRef(alive);
   const shake = useSharedValue(0);
@@ -127,7 +134,7 @@ export const Lives: React.FC<Props> = ({ total = 3, alive }) => {
     <Animated.View
       style={[styles.row, rowStyle]}
       accessible
-      accessibilityLabel={`${alive} of ${total} lives`}
+      accessibilityLabel={t('a11y', { alive, total })}
     >
       {Array.from({ length: total }).map((_, i) => (
         <LifeToken key={i} index={i} isAlive={i < alive} />

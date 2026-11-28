@@ -37,12 +37,14 @@ const lastCode = (to: string): string => {
   return match[1];
 };
 
-const signup = async (username: string): Promise<Agent> => {
+/** Accounts are verified unless asked otherwise: most scenarios are not about verification. */
+const signup = async (username: string, verified = true): Promise<Agent> => {
   const email = `${username.toLowerCase()}@recette.test`;
-  const created = await api().post('/api/auth/signup').send({ username, email, passwordCrea: PASSWORD });
+  const created = await api().post('/api/auth/signup').send({ username, email, passwordCrea: PASSWORD, acceptTerms: true });
   expect(created.status).toBe(201);
   const logged = await api().post('/api/auth/login').send({ identifier: username, password: PASSWORD });
   expect(logged.status).toBe(200);
+  if (verified) await prisma.users.update({ where: { ID_User: logged.body.user.id }, data: { emailVerified: true } });
   return { id: logged.body.user.id, username, email, token: logged.body.token };
 };
 
@@ -59,7 +61,7 @@ beforeAll(async () => {
   await prisma.users.deleteMany({});
   // The seeded offers only last 24 h: start every run with a live shop.
   await rotateShop(true);
-  alice = await signup('Alice');
+  alice = await signup('Alice', false);
   bob = await signup('Bob');
   carol = await signup('Carol');
 });
@@ -145,6 +147,19 @@ describe('1. Compte', () => {
     expect((await login('Alice', NEW_PASSWORD)).status).toBe(200);
   });
 
+  it('un compte non vérifié joue mais ne peut ni acheter, ni écrire, ni rejoindre une guilde', async () => {
+    const shop = await api().get('/api/shop').set(auth(alice));
+    const offer = shop.body.offers?.[0]?.id ?? shop.body[0]?.id ?? 1;
+    const buy = await api().post(`/api/shop/purchase/${offer}`).set(auth(alice));
+    expect(buy.status).toBe(403);
+    expect(buy.body.errorCode).toBe(3004);
+    expect((await api().post(`/api/messages/dm/${bob.id}`).set(auth(alice)).send({ content: 'salut' })).status).toBe(403);
+    expect((await api().post('/api/guilds').set(auth(alice)).send({ name: 'Unverified', tag: 'UNV' })).status).toBe(403);
+    // Reading stays open.
+    expect((await api().get('/api/users/me').set(auth(alice))).status).toBe(200);
+    expect((await api().get('/api/guilds').set(auth(alice))).status).toBe(200);
+  });
+
   it("vérification d'e-mail par code", async () => {
     expect((await api().post('/api/users/email/send').set(auth(alice))).status).toBe(200);
     const code = lastCode(alice.email);
@@ -155,14 +170,14 @@ describe('1. Compte', () => {
   });
 
   it('un invité devient un compte en gardant son identifiant', async () => {
-    const guest = await api().get('/api/auth/guest');
+    const guest = await api().post('/api/auth/guest').send({ acceptTerms: true });
     expect(guest.status).toBe(201);
     const guestAuth = { Authorization: `Bearer ${guest.body.token}` };
 
-    const taken = await api().post('/api/users/upgrade-guest').set(guestAuth).send({ username: 'Alice', email: 'dave@recette.test', passwordCrea: PASSWORD });
+    const taken = await api().post('/api/users/upgrade-guest').set(guestAuth).send({ username: 'Alice', email: 'dave@recette.test', passwordCrea: PASSWORD, acceptTerms: true });
     expect(taken.status).toBe(400);
 
-    const up = await api().post('/api/users/upgrade-guest').set(guestAuth).send({ username: 'Dave', email: 'dave@recette.test', passwordCrea: PASSWORD });
+    const up = await api().post('/api/users/upgrade-guest').set(guestAuth).send({ username: 'Dave', email: 'dave@recette.test', passwordCrea: PASSWORD, acceptTerms: true });
     expect(up.status).toBe(200);
     expect(up.body.user).toMatchObject({ id: guest.body.user.id, username: 'Dave', guest: false });
 
@@ -171,7 +186,7 @@ describe('1. Compte', () => {
     expect(me.body.guest).toBe(false);
     expect((await login('Dave', PASSWORD)).status).toBe(200);
 
-    const again = await api().post('/api/users/upgrade-guest').set({ Authorization: `Bearer ${up.body.token}` }).send({ username: 'Dave2', email: 'dave2@recette.test', passwordCrea: PASSWORD });
+    const again = await api().post('/api/users/upgrade-guest').set({ Authorization: `Bearer ${up.body.token}` }).send({ username: 'Dave2', email: 'dave2@recette.test', passwordCrea: PASSWORD, acceptTerms: true });
     expect(again.status).toBe(400);
   });
 
@@ -180,6 +195,26 @@ describe('1. Compte', () => {
     const header = { Authorization: `Bearer ${session.body.token}` };
     expect((await api().post(`/api/auth/logout/${session.body.user.id}`).set(header)).status).toBe(200);
     expect((await api().get('/api/users/me').set(header)).status).toBe(401);
+    // …and its refresh token with it.
+    expect((await api().post('/api/auth/refresh').send({ refreshToken: session.body.refreshToken })).status).toBe(401);
+  });
+
+  it('renouvellement de session : nouvelle paire, ancien jeton rejoué = famille révoquée', async () => {
+    const session = await login('Dave', PASSWORD);
+    expect(typeof session.body.refreshToken).toBe('string');
+
+    const renewed = await api().post('/api/auth/refresh').send({ refreshToken: session.body.refreshToken });
+    expect(renewed.status).toBe(200);
+    expect(renewed.body.refreshToken).not.toBe(session.body.refreshToken);
+    expect((await api().get('/api/users/me').set({ Authorization: `Bearer ${renewed.body.token}` })).status).toBe(200);
+
+    // The replaced token replayed after the grace window: theft assumed, the whole family dies.
+    await prisma.refreshToken.updateMany({
+      where: { replacedAt: { not: null } },
+      data: { replacedAt: new Date(Date.now() - 60_000) },
+    });
+    expect((await api().post('/api/auth/refresh').send({ refreshToken: session.body.refreshToken })).status).toBe(401);
+    expect((await api().post('/api/auth/refresh').send({ refreshToken: renewed.body.refreshToken })).status).toBe(401);
   });
 
   it("on ne peut pas déconnecter quelqu'un d'autre", async () => {
@@ -599,7 +634,7 @@ describe('5. Jeu, progression, économie', () => {
   });
 
   it('un invité ne peut ni acheter ni fonder de guilde', async () => {
-    const guest = await api().get('/api/auth/guest');
+    const guest = await api().post('/api/auth/guest').send({ acceptTerms: true });
     const header = { Authorization: `Bearer ${guest.body.token}` };
     const offer = (await api().get('/api/shop').set(header)).body.offers[0];
     expect((await api().post(`/api/shop/purchase/${offer.offerId}`).set(header)).status).toBe(403);
@@ -635,8 +670,8 @@ describe('6. Tâches planifiées', () => {
 
   it('purge des invités inactifs, des comptes supprimés et des codes expirés', async () => {
     const old = new Date(Date.now() - 8 * 24 * 3600 * 1000);
-    const fresh = await api().get('/api/auth/guest');
-    const stale = await api().get('/api/auth/guest');
+    const fresh = await api().post('/api/auth/guest').send({ acceptTerms: true });
+    const stale = await api().post('/api/auth/guest').send({ acceptTerms: true });
     await prisma.users.update({ where: { ID_User: stale.body.user.id }, data: { CreatedAt: old } });
     await prisma.session.updateMany({ where: { ID_User: stale.body.user.id }, data: { LastConnection: old } });
 

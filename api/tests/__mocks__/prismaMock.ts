@@ -16,6 +16,17 @@ export const createPrismaMock = () => ({
     updateMany: jest.fn(),
     deleteMany: jest.fn(),
   },
+  liveMatch: {
+    upsert: jest.fn(async (_args: unknown) => ({})),
+    deleteMany: jest.fn(async (_args: unknown) => ({ count: 0 })),
+    findMany: jest.fn(async (): Promise<unknown[]> => []),
+  },
+  refreshToken: {
+    create: jest.fn(async () => ({})),
+    findUnique: jest.fn(),
+    updateMany: jest.fn(async () => ({ count: 1 })),
+    deleteMany: jest.fn(async () => ({ count: 0 })),
+  },
   roles: {
     findFirst: jest.fn(),
     create: jest.fn(),

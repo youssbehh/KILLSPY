@@ -8,7 +8,7 @@ export const useLoginMutation = () => {
   const setSession = useAuthStore((s) => s.setSession);
   return useMutation({
     mutationFn: authApi.login,
-    onSuccess: ({ user, token }) => setSession(user, token),
+    onSuccess: ({ user, ...tokens }) => setSession(user, tokens),
   });
 };
 
@@ -16,7 +16,7 @@ export const useGuestMutation = () => {
   const setSession = useAuthStore((s) => s.setSession);
   return useMutation({
     mutationFn: authApi.loginGuest,
-    onSuccess: ({ user, token }) => setSession(user, token),
+    onSuccess: ({ user, ...tokens }) => setSession(user, tokens),
   });
 };
 
@@ -40,6 +40,7 @@ export const useSyncMe = () => {
         xp: me.xp,
         level: me.level,
         emailVerified: me.emailVerified,
+        verificationRequired: me.verificationRequired,
       });
       return me;
     },

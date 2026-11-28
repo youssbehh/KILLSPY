@@ -4,6 +4,12 @@ import { HexAvatar } from './HexAvatar';
 import { RankBadge } from './RankBadge';
 import { KS, TierName } from '../../theme/colors';
 import { TYPO, SIZES } from '../../theme/typography';
+import { useLocalT } from '../../i18n/local';
+
+const STRINGS = {
+  fr: { winRate: 'VICT. {rate}%', kd: 'K/D {kd}' },
+  en: { winRate: 'WR {rate}%', kd: 'K/D {kd}' },
+} as const;
 
 interface Props {
   username: string;
@@ -24,6 +30,7 @@ export const PlayerTag: React.FC<Props> = ({
   kd,
   size = 'normal',
 }) => {
+  const t = useLocalT(STRINGS);
   const avatarSize = size === 'big' ? 48 : 36;
   const nameSize = size === 'big' ? SIZES.titleSm : SIZES.labelLg;
 
@@ -37,9 +44,9 @@ export const PlayerTag: React.FC<Props> = ({
         </View>
         {(winRate !== undefined || kd !== undefined) && (
           <Text style={styles.stats}>
-            {winRate !== undefined && `WR ${winRate}%`}
+            {winRate !== undefined && t('winRate', { rate: winRate })}
             {winRate !== undefined && kd !== undefined && ' · '}
-            {kd !== undefined && `K/D ${kd.toFixed(1)}`}
+            {kd !== undefined && t('kd', { kd: kd.toFixed(1) })}
           </Text>
         )}
       </View>

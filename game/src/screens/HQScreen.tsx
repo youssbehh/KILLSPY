@@ -9,6 +9,7 @@ import { MyGuild } from '../api/guilds';
 import { useMyGuild } from '../hooks/useGuilds';
 import { useAuthStore } from '../stores/authStore';
 import { GuildView } from './hq/GuildView';
+import { VerifyEmailBanner } from '../components/ks/VerifyEmailBanner';
 import { NoGuildView } from './hq/NoGuildView';
 import { useHqT } from './hq/strings';
 import { ErrorState, KsButton, LoadingState, PAD } from './hq/ui';
@@ -66,6 +67,11 @@ export const HQScreen: React.FC = () => {
           </View>
           <Currency kind="coin" value={money} />
         </View>
+        {!isGuest && (
+          <View style={styles.banner}>
+            <VerifyEmailBanner />
+          </View>
+        )}
         <View style={styles.body}>{renderBody()}</View>
       </KeyboardAvoidingView>
     </>
@@ -95,6 +101,7 @@ const styles = StyleSheet.create({
   },
   body: { flex: 1 },
   padded: { paddingHorizontal: PAD, paddingTop: 12 },
+  banner: { paddingHorizontal: PAD, paddingTop: 8 },
   guest: { flex: 1, padding: 16, gap: 10, justifyContent: 'center' },
   guestTitle: {
     color: KS.alert,

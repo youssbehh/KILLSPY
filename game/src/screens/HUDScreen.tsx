@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,54 @@ import { useAuthStore } from '../stores/authStore';
 import { GameAction, MAX_AMMO, TURN_DURATION_MS, isActionLegal } from '../game/gameEngine';
 import { DangerButton } from '../components/ks/DangerButton';
 import { CombatFx } from '../components/ks/CombatFx';
+import { MisfireFlash } from '../components/ks/MisfireFlash';
+import { lookFor } from '../game/cosmeticFx';
+import { useMyCombatLook } from '../hooks/useInventory';
 import { rankTierIndex } from '../game/rankDisplay';
+import { useLocalT } from '../i18n/local';
+
+const STRINGS = {
+  fr: {
+    unknown: 'INCONNU',
+    roundLabel: '// OPÉRATION EN COURS · MANCHE {round}',
+    rec: 'REC · {time}',
+    opponent: 'ADVERSAIRE',
+    offline: '✕ HORS LIGNE',
+    revealed: '◉ RÉVÉLÉ',
+    thinking: '⌛ RÉFLEXION',
+    resolving: 'RÉSOLUTION',
+    resolvingIn: 'RÉSOLUTION DANS',
+    connectionLost: '⚠ CONNEXION PERDUE · RECONNEXION',
+    opponentGone: 'ADVERSAIRE DÉCONNECTÉ · ABANDON DANS {seconds} S',
+    actionLocked: 'ACTION VERROUILLÉE',
+    lockActionUrgent: '⚠ VERROUILLE TON ACTION',
+    lockAction: 'VERROUILLE TON ACTION',
+    locked: '✓ VERROUILLÉ',
+    armed: '◉ ARMÉ',
+    you: 'TOI',
+    forfeit: 'ABANDONNER',
+  },
+  en: {
+    unknown: 'UNKNOWN',
+    roundLabel: '// LIVE OPS · ROUND {round}',
+    rec: 'REC · {time}',
+    opponent: 'OPPONENT',
+    offline: '✕ OFFLINE',
+    revealed: '◉ REVEALED',
+    thinking: '⌛ THINKING',
+    resolving: 'RESOLVING',
+    resolvingIn: 'RESOLVING IN',
+    connectionLost: '⚠ CONNECTION LOST · RECONNECTING',
+    opponentGone: 'OPPONENT DISCONNECTED · FORFEIT IN {seconds}S',
+    actionLocked: 'ACTION LOCKED',
+    lockActionUrgent: '⚠ LOCK YOUR ACTION',
+    lockAction: 'LOCK YOUR ACTION',
+    locked: '✓ LOCKED',
+    armed: '◉ ARMED',
+    you: 'YOU',
+    forfeit: 'FORFEIT',
+  },
+} as const;
 
 // Map design card names to game engine action names
 const CARD_ACTIONS: CardAction[] = ['fire', 'reload', 'shield'];
@@ -47,6 +94,7 @@ const TURN_SECS = TURN_DURATION_MS / 1000;
 
 export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
   const insets = useSafeAreaInsets();
+  const t = useLocalT(STRINGS);
   const username = useAuthStore((s) => s.user?.username ?? 'AGENT');
   const mmr = useAuthStore((s) => s.user?.mmr ?? 0);
 
@@ -54,6 +102,10 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
   const round = useGameStore((s) => s.round);
   const selectedAction = useGameStore((s) => s.selectedAction);
   const opponent = useGameStore((s) => s.opponent);
+  const myLook = useMyCombatLook();
+  /** Bumped each time the player pulls the trigger on an empty magazine. */
+  const [misfires, setMisfires] = useState(0);
+  const opponentLook = useMemo(() => lookFor(opponent?.fx), [opponent]);
   const deadlineAt = useGameStore((s) => s.deadlineAt);
   const matchStatus = useGameStore((s) => s.matchStatus);
   const errorMessage = useGameStore((s) => s.errorMessage);
@@ -133,7 +185,7 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
   const revealedOpponent = resolving ? state.lastOpponentAction : null;
   const revealedSelf = resolving ? state.lastPlayerAction : selectedAction;
 
-  const oppName = opponent?.username?.toUpperCase() ?? 'UNKNOWN';
+  const oppName = opponent?.username?.toUpperCase() ?? t('unknown');
   const totalTime = `${String(Math.floor(elapsedSecs / 60)).padStart(2, '0')}:${String(elapsedSecs % 60).padStart(2, '0')}`;
 
   return (
@@ -143,11 +195,11 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
       {/* Eyebrow */}
       <View style={[styles.eyebrow, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.roundLabel}>
-          // LIVE OPS · ROUND {String(Math.max(1, round)).padStart(2, '0')}
+          {t('roundLabel', { round: String(Math.max(1, round)).padStart(2, '0') })}
         </Text>
         <View style={styles.recRow}>
           <Animated.View style={[styles.recDot, recStyle]} />
-          <Text style={styles.recText}>REC · {totalTime}</Text>
+          <Text style={styles.recText}>{t('rec', { time: totalTime })}</Text>
         </View>
       </View>
 
@@ -160,13 +212,13 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
             <View>
               <Text style={styles.oppName}>{oppName}</Text>
               <View style={styles.tagRow}>
-                <Text style={[styles.tagLabel, { color: KS.enemy }]}>OPPONENT</Text>
+                <Text style={[styles.tagLabel, { color: KS.enemy }]}>{t('opponent')}</Text>
               </View>
             </View>
           </View>
           <View style={styles.statusChip}>
             <Text style={[styles.statusText, { color: resolving ? KS.alert : KS.inkDim }]}>
-              {opponentGraceUntil !== null ? '✕ OFFLINE' : resolving ? '◉ REVEALED' : '⌛ THINKING'}
+              {opponentGraceUntil !== null ? t('offline') : resolving ? t('revealed') : t('thinking')}
             </Text>
           </View>
         </View>
@@ -192,14 +244,15 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
 
       {/* ── Center countdown ── */}
       <View style={styles.center}>
-        <Text style={styles.resolvingIn}>{resolving ? 'RESOLVING' : 'RESOLVING IN'}</Text>
+        <Text style={styles.resolvingIn}>{resolving ? t('resolving') : t('resolvingIn')}</Text>
         <Countdown value={countdown} max={TURN_SECS} />
         <Animated.Text style={[styles.lockLabel, blinkStyle]}>
           {!connected
-            ? '⚠ CONNECTION LOST · RECONNECTING'
+            ? t('connectionLost')
             : opponentGraceUntil !== null
-              ? `OPPONENT DISCONNECTED · FORFEIT IN ${graceSecs}S`
-              : errorMessage ?? (selectedAction ? 'ACTION LOCKED' : countdown <= 2 ? '⚠ LOCK YOUR ACTION' : 'LOCK YOUR ACTION')}
+              ? t('opponentGone', { seconds: graceSecs })
+              : errorMessage ??
+                (selectedAction ? t('actionLocked') : countdown <= 2 ? t('lockActionUrgent') : t('lockAction'))}
         </Animated.Text>
       </View>
 
@@ -209,7 +262,7 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
         <View style={styles.infoRow}>
           <View style={styles.statusChip}>
             <Text style={[styles.statusText, { color: selectedAction ? KS.live : KS.alert }]}>
-              {selectedAction ? '✓ LOCKED' : '◉ ARMED'}
+              {selectedAction ? t('locked') : t('armed')}
             </Text>
           </View>
           <Lives alive={state.player.lives} />
@@ -222,6 +275,7 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
             const gameAction = toGameAction(action);
             const isSelected = revealedSelf === gameAction;
             const isDisabled = !isActionLegal(state.player, gameAction) || (locked && !isSelected);
+            const emptyGun = gameAction === 'shoot' && state.player.ammo === 0 && !locked;
             return (
               <ActionCard
                 key={action}
@@ -230,6 +284,7 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
                 selected={isSelected}
                 disabled={isDisabled}
                 onPress={() => handleCardPress(action)}
+                onDisabledPress={emptyGun ? () => setMisfires((n) => n + 1) : undefined}
               />
             );
           })}
@@ -243,16 +298,17 @@ export const HUDScreen: React.FC<Props> = ({ onAction, onQuit }) => {
               <Text style={styles.selfName}>{username.toUpperCase()}</Text>
               <View style={styles.tagRow}>
                 <RankBadge tier={rankTierIndex(mmr)} size={16} />
-                <Text style={[styles.tagLabel, { color: KS.primary }]}>YOU</Text>
+                <Text style={[styles.tagLabel, { color: KS.primary }]}>{t('you')}</Text>
               </View>
             </View>
           </View>
-          <DangerButton label="FORFEIT" onPress={onQuit} />
+          <DangerButton label={t('forfeit')} onPress={onQuit} />
         </View>
       </View>
 
       {/* Shot / shield / reload effects of the turn being revealed */}
-      <CombatFx state={state} />
+      <CombatFx state={state} playerLook={myLook} opponentLook={opponentLook} />
+      <MisfireFlash trigger={misfires} />
     </View>
   );
 };

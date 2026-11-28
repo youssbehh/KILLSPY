@@ -22,10 +22,21 @@ export const passwordSchema = z
   .regex(/\d/, 'Au moins un chiffre.')
   .regex(/[@$!%*?&]/, 'Au moins un caractère spécial (@$!%*?&).');
 
+/** Version of the privacy notice shown in the app. Bump it when the text changes. */
+export const TERMS_VERSION = '2026-11';
+
+/** RGPD: an account is only created after an explicit "I accept". */
+export const acceptTermsSchema = z.literal(true, { message: 'Tu dois accepter la politique de confidentialité.' });
+
 export const signupSchema = z.object({
   username: usernameSchema,
   email: emailSchema,
   passwordCrea: passwordSchema,
+  acceptTerms: acceptTermsSchema,
+});
+
+export const guestSchema = z.object({
+  acceptTerms: acceptTermsSchema,
 });
 
 export const loginSchema = z.object({
@@ -39,3 +50,7 @@ export const logoutParamsSchema = z.object({
 
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+
+export const refreshSchema = z.object({
+  refreshToken: z.string().min(20).max(200),
+});

@@ -20,3 +20,4 @@ export const secureStorage = {
 };
 
 export const TOKEN_KEY = 'killspy.token';
+export const REFRESH_TOKEN_KEY = 'killspy.refreshToken';

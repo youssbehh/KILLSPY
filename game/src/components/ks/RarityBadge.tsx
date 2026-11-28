@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { RarityId, RARITIES } from '../../game/rarities';
+import { useRarityLabel } from '../../game/displayNames';
 
 interface Props {
   rarity: RarityId;
@@ -9,6 +10,7 @@ interface Props {
 
 export const RarityBadge: React.FC<Props> = ({ rarity, small }) => {
   const r = RARITIES[rarity];
+  const rarityName = useRarityLabel();
   return (
     <View
       style={[
@@ -17,7 +19,7 @@ export const RarityBadge: React.FC<Props> = ({ rarity, small }) => {
         small && styles.small,
       ]}
     >
-      <Text style={[styles.text, small && styles.textSmall]}>{r.label}</Text>
+      <Text style={[styles.text, small && styles.textSmall]}>{rarityName(rarity)}</Text>
       {rarity === 'secret' ? <Text style={styles.star}>✦</Text> : null}
     </View>
   );

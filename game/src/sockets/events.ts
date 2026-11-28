@@ -13,6 +13,8 @@ export type QueueMode = Exclude<PvpMode, 'pvp_friendly'>;
 export interface PublicPlayer {
   id: number;
   username: string;
+  /** Combat effects the player has equipped (names, see game/cosmeticFx.ts). */
+  fx?: { shoot: string | null; shield: string | null };
 }
 
 export interface MatchFoundPayload {

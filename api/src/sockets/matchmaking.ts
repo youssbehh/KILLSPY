@@ -3,6 +3,7 @@ import { ClientToServerEvents, QueueMode, ServerToClientEvents } from './events'
 import { SocketData } from './auth';
 import { createRoom, isSocketInRoom, isUserInRoom } from './gameRoom';
 import { logger } from '../lib/logger';
+import { mustVerifyEmail, UNVERIFIED_MESSAGE } from '../middlewares/requireVerified';
 
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -92,6 +93,11 @@ export const joinQueue = (io: TypedServer, socket: TypedSocket, rawMode?: unknow
 
   if (mode === 'pvp_ranked' && user.isGuest) {
     socket.emit('error:message', 'Le mode classé nécessite un compte.');
+    return;
+  }
+
+  if (mode === 'pvp_ranked' && mustVerifyEmail(user)) {
+    socket.emit('error:message', UNVERIFIED_MESSAGE);
     return;
   }
 

@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import { AuthResponse } from './auth';
+import { SessionTokens } from '../stores/authStore';
 
 /** Always succeeds, whether or not the address is known (the server never tells). */
 export const requestPasswordReset = async (email: string): Promise<void> => {
@@ -14,8 +15,8 @@ export const resetPassword = async (input: { email: string; code: string; passwo
 export const changePassword = async (input: {
   currentPassword: string;
   newPassword: string;
-}): Promise<{ token: string }> => {
-  const { data } = await apiClient.post<{ token: string }>('/users/change-password', input);
+}): Promise<SessionTokens> => {
+  const { data } = await apiClient.post<SessionTokens>('/users/change-password', input);
   return data;
 };
 
@@ -32,6 +33,7 @@ export const upgradeGuest = async (input: {
   username: string;
   email: string;
   passwordCrea: string;
+  acceptTerms: true;
 }): Promise<AuthResponse> => {
   const { data } = await apiClient.post<AuthResponse>('/users/upgrade-guest', input);
   return data;
